@@ -1,0 +1,91 @@
+{
+    "parser": "@typescript-eslint/parser",
+    "plugins": [
+        "@typescript-eslint"
+    ],
+    "extends": [
+        "eslint:recommended",
+        "plugin:@typescript-eslint/eslint-recommended",
+        "plugin:@typescript-eslint/recommended"
+    ],
+    "rules": {
+        "@typescript-eslint/type-annotation-spacing": "error",
+        "@typescript-eslint/space-infix-ops": "error",
+        "@typescript-eslint/naming-convention": [
+            "error",
+            {
+                "selector": "default",
+                "format": [
+                    "camelCase"
+                ]
+            },
+            {
+                "selector": "class",
+                "format": [
+                    "StrictPascalCase"
+                ]
+            },
+            {
+                "selector": "function",
+                "format": [
+                    "StrictPascalCase"
+                ]
+            },
+            {
+                "selector": "variable",
+                "format": [
+                    "camelCase",
+                    "UPPER_CASE"
+                ]
+            },
+            {
+                "selector": "parameter",
+                "format": [
+                    "camelCase"
+                ],
+                "leadingUnderscore": "allow"
+            },
+            {
+                "selector": "memberLike",
+                "format": [
+                    "camelCase"
+                ]
+            },
+            {
+                "selector": "memberLike",
+                "modifiers": [
+                    "private"
+                ],
+                "format": [
+                    "camelCase"
+                ],
+                "leadingUnderscore": "require"
+            },
+            {
+                "selector": "typeLike",
+                "format": [
+                    "PascalCase"
+                ]
+            },
+            {
+                "selector": "typeParameter",
+                "format": [
+                    "PascalCase"
+                ],
+                "prefix": [
+                    "T"
+                ]
+            },
+            {
+                "selector": "interface",
+                "format": [
+                    "PascalCase"
+                ],
+                "custom": {
+                    "regex": "^I[A-Z]",
+                    "match": false
+                }
+            }
+        ]
+    }
+}

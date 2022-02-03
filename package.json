@@ -1,0 +1,30 @@
+{
+  "name": "spimescape",
+  "version": "0.0.0",
+  "description": "A virtual space-time landscape where objects (spimes) interact and persist through space time",
+  "main": "index.js",
+  "scripts": {
+    "dev": "esbuild src/app.ts --servedir=public --serve=8000 --target=esnext --sourcemap --format=iife --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
+    "test": "esbuild test/tests.ts --servedir=testRunner --serve=8001 --target=esnext --sourcemap --format=iife --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=testRunner/spec/tests.mjs"
+  },
+  "keywords": [
+    "spime",
+    "VR",
+    "AR",
+    "metaverse",
+    "open",
+    "distributed"
+  ],
+  "author": "DocVox",
+  "license": "ISC",
+  "devDependencies": {
+    "@babylonjs/core": "^4.2.0",
+    "@babylonjs/inspector": "^4.2.0",
+    "@types/jasmine": "^3.10.2",
+    "@typescript-eslint/eslint-plugin": "^5.8.1",
+    "@typescript-eslint/parser": "^5.8.1",
+    "esbuild": "^0.14.8",
+    "eslint": "^8.5.0",
+    "typescript": "^4.5.4"
+  }
+}
