@@ -17,6 +17,7 @@ export function TestSparseMesher()
         const extracted = ExtractSurface(fieldArray,dims,field,meshVerticies,meshFaces);
         expect(extracted).toBe(true);
 
+        expect(meshFaces.length).toBe(36);
         expect(meshFaces).toEqual([
             3, 2, 1, 2, 0, 1, 
             5, 1, 4, 1, 0, 4, 
@@ -27,6 +28,7 @@ export function TestSparseMesher()
         const roundedVertices = meshVerticies.map(x => {
             return Math.round(x * 100) / 100;
         });
+        expect(roundedVertices.length).toBe(24);
         expect(roundedVertices).toEqual([
             -0.17, -0.17, -0.17, 
             0.17, -0.17, -0.17, 
@@ -72,8 +74,7 @@ export function TestSparseMesher()
 
     it('creates a sphere mesh truncated at the sample boundary', () => {
         const field = new SdfSphere(4.5);
-        field.position.x = 16;
-        const dims = new SampleDimensions().set(24,8,-12,-12,-12);
+        const dims = new SampleDimensions().set(24,64,-12,-12,-12);
         const fieldArray = new Float32Array(dims.samples);
         const meshVerticies: number[] = [];
         const meshFaces: number[] = [];

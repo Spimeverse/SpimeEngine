@@ -73,7 +73,7 @@ const CUBE_CORNER_VECTORS: Vector3[] = [
 ];
 
 let samples: Float32Array;
-let markedSamples: Int8Array = new Int8Array(16 * 16 * 16);
+let markedSamples: Int16Array;
 let sampleMarker = 0;
 let dims: SampleDimensions;
 let verticies: number[];
@@ -98,15 +98,15 @@ function SmartMesher (_samples: Float32Array, _dims: SampleDimensions, _field: S
 
     samples = _samples;
     // use an array of bytes to mark samples we've already calculated
-    if (markedSamples.length < samples.length) {
-        markedSamples = new Int8Array(samples.length);
+    if (!markedSamples || markedSamples.length < samples.length) {
+        markedSamples = new Int16Array(samples.length);
         sampleMarker = 0;
     }
     // increment the marker value for each extraction
     // then we don't need to clear or reset the markedSamples array
     // unless we get to max value for a byte
     sampleMarker++;
-    if (sampleMarker == 256) {
+    if (sampleMarker == 65535) {
         // we've run out of unique marker values, 
         // reset the marker and clear the array
         sampleMarker = 1;
@@ -125,48 +125,82 @@ function SmartMesher (_samples: Float32Array, _dims: SampleDimensions, _field: S
     vertexToCellIndex.length = 0;
     cellEdgesToConnect.length = 0;
     smartSamples = 0;
-    SubDivideCell(0,0,0,dims.points);
+    const halfWidthEven = dims.points >> 1;
+    const halfWidthOdd = halfWidthEven + 1;
+    SampleCells(halfWidthOdd,   halfWidthOdd,   halfWidthOdd,   -1,-1,-1);
+    SampleCells(halfWidthEven,  halfWidthOdd,   halfWidthOdd,   1,-1,-1);
+    SampleCells(halfWidthOdd,   halfWidthEven,  halfWidthOdd,   -1,1,-1);
+    SampleCells(halfWidthEven,  halfWidthEven,  halfWidthOdd,   1,1,-1);
+    SampleCells(halfWidthOdd,   halfWidthOdd,   halfWidthEven,  -1,-1,1);
+    SampleCells(halfWidthEven,  halfWidthOdd,   halfWidthEven,  1,-1,1);
+    SampleCells(halfWidthOdd,   halfWidthEven,  halfWidthEven,  -1,1,1);
+    SampleCells(halfWidthEven,  halfWidthEven,  halfWidthEven,  1,1,1);
     ExtractAllFaces();
     return verticies.length > 0;
 }
 
-function SubDivideCell(cellX: number, cellY: number, cellZ: number, stride: number) {
-    if (stride > 1) {
-        // see if any of the surface is in this cell, by checking the distance to the surface from the center
-        const halfStride = stride >> 1;
-        dims.cellSpaceToWorldSpace(cellX + halfStride, cellY + halfStride, cellZ + halfStride, cellCenter);
-        const centerDist = field.sample(cellCenter);
-        // the maximum distance a field can be for the cell center
-        // and still intersect is half the cell size * sqrt3
-        // because the hypotenuese is sqrt(x*x+y*y+z*z)
-        // we can work this for x=y=z=1 ie sqrt(3)
-        // then just do halfcell*sqrt(3)
-        const cellRadius = dims.stepSize * halfStride;
-        if (Math.abs(centerDist) > cellRadius * sqrt3)
-            return; // the surface is further away than the cell size, quit
-        else
-        {
-            // record this distance, the sub cells can reuse it to skip a sample
-            const centerIndex = dims.cellIndex(cellX + halfStride,cellY + halfStride, cellZ + halfStride);
-            samples[centerIndex] = centerDist;
-            smartSamples++;
-            // mark location as calculated to avoid sampling it again
-            markedSamples[centerIndex] = sampleMarker;
-
-            SubDivideCell(cellX,            cellY,              cellZ, halfStride);
-            SubDivideCell(cellX + halfStride, cellY,              cellZ, halfStride);
-            SubDivideCell(cellX,            cellY + halfStride,   cellZ, halfStride);
-            SubDivideCell(cellX + halfStride, cellY + halfStride,   cellZ, halfStride);
-            SubDivideCell(cellX,            cellY,              cellZ + halfStride, halfStride);
-            SubDivideCell(cellX + halfStride, cellY,              cellZ + halfStride, halfStride);
-            SubDivideCell(cellX,            cellY + halfStride,   cellZ + halfStride, halfStride);
-            SubDivideCell(cellX + halfStride, cellY + halfStride,   cellZ + halfStride, halfStride);
+function SampleCells(startCellX: number, startCellY: number, startCellZ: number, 
+    xDir: number, yDir: number, zDir: number) {
+    
+    let cellhypotenuseSquared = dims.stepSize * dims.stepSize;
+    cellhypotenuseSquared = cellhypotenuseSquared + cellhypotenuseSquared + cellhypotenuseSquared;
+    cellhypotenuseSquared += dims.stepSize;
+    let cellZ = startCellZ
+    while (cellZ >= 0 && cellZ < dims.points) {
+        let cellY = startCellY;
+        while (cellY >= 0 && cellY < dims.points) {
+            let cellX = startCellX; 
+            while (cellX >= 0 && cellX < dims.points) {
+                const cellIndex = dims.cellIndex(cellX,cellY,cellZ);
+                let dist = 0;
+                if (markedSamples[cellIndex] == sampleMarker) {
+                    dist = samples[cellIndex];
+                }
+                else {
+                    dims.cellSpaceToWorldSpace(cellX, cellY, cellZ, samplePoint);
+                    dist = field.sample(samplePoint);
+                    samples[cellIndex] = dist;
+                    markedSamples[cellIndex] = sampleMarker;
+                    smartSamples++;
+                }
+                // need to extract the cell if the distance to the surface
+                // is less than the diagonal of the cell not just side length
+                if (dist * dist <= cellhypotenuseSquared) {
+                    ExtractCell(cellX, cellY, cellZ);
+                    cellX += xDir;
+                }
+                else {
+                    const approxDist = dist - dims.stepSize;
+                    if (Math.abs(approxDist) > dims.stepSize) {
+                        ShareSample(cellX, cellY + yDir, cellZ, approxDist);
+                        ShareSample(cellX, cellY, cellZ + zDir, approxDist);
+                        ShareSample(cellX + xDir, cellY, cellZ, approxDist);
+                    }
+                    cellX += xDir;
+                }
+            }
+            cellY += yDir;
         }
+        cellZ += zDir;
     }
-    else
-    {
-        ExtractCell(cellX,cellY,cellZ);
-    }
+}
+
+/**
+ * Share approximate distance to surface with neigbouring points
+ * so that we can skip a full sample on each point
+ * @param cellX 
+ * @param cellY 
+ * @param cellZ 
+ * @param dist 
+ */
+function ShareSample(cellX: number, cellY: number, cellZ: number, dist: number) {
+    if (cellX >= 0 && cellX < dims.points &&
+        cellY >= 0 && cellY < dims.points &&
+        cellZ >= 0 && cellZ < dims.points) {
+            const cellIndex = dims.cellIndex(cellX,cellY,cellZ);
+            samples[cellIndex] = dist;
+            markedSamples[cellIndex] = sampleMarker
+        }
 }
 
 function ExtractCell(cellX: number, cellY: number, cellZ: number) {
@@ -212,7 +246,6 @@ function ExtractPoint(cellX: number, cellY: number, cellZ: number, sampleIndex: 
             dims.indexToWorldSpace(cornerIndex,samplePoint);
             dist = field.sample(samplePoint);
             samples[cornerIndex] = dist;
-            console.log('Sample point',samplePoint.toString());
             smartSamples++;
             markedSamples[cornerIndex] = sampleMarker;
         }
@@ -363,3 +396,4 @@ function CalcCellSurfacePoint(): number {
 
 
 export {SmartMesher,smartSamples}
+
