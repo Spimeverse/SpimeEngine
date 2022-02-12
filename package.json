@@ -4,6 +4,7 @@
   "description": "A virtual space-time landscape where objects (spimes) interact and persist through space time",
   "main": "index.js",
   "scripts": {
+    "prof": "esbuild src/app.ts --servedir=public --serve=8000 --tree-shaking=true --target=esnext --format=iife --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
     "dev": "esbuild src/app.ts --servedir=public --serve=8000 --target=esnext --sourcemap --format=iife --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
     "test": "esbuild test/tests.ts --servedir=testRunner --serve=8001 --target=esnext --sourcemap --format=iife --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=testRunner/spec/tests.mjs"
   },
@@ -26,5 +27,8 @@
     "esbuild": "^0.14.8",
     "eslint": "^8.5.0",
     "typescript": "^4.5.4"
+  },
+  "dependencies": {
+    "babylonjs-gui": "^4.2.1"
   }
 }

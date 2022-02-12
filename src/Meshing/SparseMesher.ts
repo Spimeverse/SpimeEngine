@@ -15,6 +15,7 @@ const cellCenter = new Vector3();
 const samplePoint = new Vector3();
 const cornerOffset: number[] = [];
 const cornerDist: number[] = [];
+// TODO convert to IntArray
 const cellToVertexIndex: number[] = [];
 const vertexToCellIndex: number[] = [];
 const cellEdgesToConnect: number[] = [];
@@ -73,7 +74,7 @@ const CUBE_CORNER_VECTORS: Vector3[] = [
 ];
 
 let samples: Float32Array;
-let markedSamples: Int8Array = new Int8Array(16 * 16 * 16);
+let markedSamples: Int16Array;
 let sampleMarker = 0;
 let dims: SampleDimensions;
 let verticies: number[];
@@ -98,15 +99,15 @@ function ExtractSurface (_samples: Float32Array, _dims: SampleDimensions, _field
 
     samples = _samples;
     // use an array of bytes to mark samples we've already calculated
-    if (markedSamples.length < samples.length) {
-        markedSamples = new Int8Array(samples.length);
+    if (!markedSamples || markedSamples.length < samples.length) {
+        markedSamples = new Int16Array(samples.length);
         sampleMarker = 0;
     }
     // increment the marker value for each extraction
     // then we don't need to clear or reset the markedSamples array
     // unless we get to max value for a byte
     sampleMarker++;
-    if (sampleMarker == 256) {
+    if (sampleMarker == 65535) {
         // we've run out of unique marker values, 
         // reset the marker and clear the array
         sampleMarker = 1;
@@ -212,7 +213,6 @@ function ExtractPoint(cellX: number, cellY: number, cellZ: number, sampleIndex: 
             dims.indexToWorldSpace(cornerIndex,samplePoint);
             dist = field.sample(samplePoint);
             samples[cornerIndex] = dist;
-            console.log('Sample point',samplePoint.toString());
             sparseSamples++;
             markedSamples[cornerIndex] = sampleMarker;
         }
