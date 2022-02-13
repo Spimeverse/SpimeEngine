@@ -1,9 +1,8 @@
 import { TestSdfShapes,TestSdfTransforms } from "./signedDistanceFields";
-import { TestMesher,TestSampleDimensions, TestSparseMesher, TestSmartMesher } from "./Meshing";
+import { TestMesher,TestChunkDimensions, TestSparseMesher } from "./Meshing";
 
 TestSdfShapes();
 TestSdfTransforms();
 TestMesher();
-TestSampleDimensions();
+TestChunkDimensions();
 TestSparseMesher();
-TestSmartMesher();

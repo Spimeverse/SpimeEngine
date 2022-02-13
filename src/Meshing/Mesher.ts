@@ -2,7 +2,7 @@
 // https://github.com/bonsairobo/fast-surface-nets-rs/blob/main/src/lib.rs
 
 
-import { SampleDimensions } from "./";
+import { ChunkDimensions } from "./";
 import { SignedDistanceField,EmptyField } from "../signedDistanceFields";
 import { FloatArray, Vector3 } from "@babylonjs/core";
 
@@ -74,11 +74,11 @@ const CUBE_CORNER_VECTORS: Vector3[] = [
 
 class Mesher {
     samples: FloatArray = emptyArray;
-    dims: SampleDimensions = new SampleDimensions();
+    dims: ChunkDimensions = new ChunkDimensions();
     verticies: number[] = [];
     faces: number[] = [];
 
-    set(samples: FloatArray, dims: SampleDimensions)
+    set(samples: FloatArray, dims: ChunkDimensions)
     {
         this.samples = samples;
         this.dims = dims;

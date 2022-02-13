@@ -1,6 +1,6 @@
 import { Vector3 } from "@babylonjs/core"
 import { SignedDistanceField } from "./SignedDistanceField"
-import { SampleDimensions } from "../../src/Meshing";
+import { ChunkDimensions } from "../../src/Meshing";
 
 /**
  * sample a field along x and y where z = 0
@@ -130,7 +130,7 @@ function Trim (text: string): string {
  * @param size 
  * @returns 
  */
-function SliceSamplesXy(samples: Float32Array, dims: SampleDimensions): number[][] {
+function SliceSamplesXy(samples: Float32Array, dims: ChunkDimensions): number[][] {
     const sample: number[][] = [];
     const depth = Math.floor(dims.cells / 2);
     for (let i = 0; i < dims.cells; i++) {

@@ -2,9 +2,9 @@
 // https://github.com/bonsairobo/fast-surface-nets-rs/blob/main/src/lib.rs
 
 
-import { SampleDimensions } from ".";
+import { ChunkDimensions } from ".";
 import { SignedDistanceField } from "../signedDistanceFields";
-import { FloatArray, Vector3 } from "@babylonjs/core";
+import { Vector3 } from "@babylonjs/core";
 
 const sqrt3 = Math.sqrt(3);
 const pos1 = new Vector3();
@@ -15,18 +15,21 @@ const cellCenter = new Vector3();
 const samplePoint = new Vector3();
 const cornerOffset: number[] = [];
 const cornerDist: number[] = [];
-// TODO convert to IntArray
-const cellToVertexIndex: number[] = [];
-const vertexToCellIndex: number[] = [];
-const cellEdgesToConnect: number[] = [];
+
+const cellToVertexIndex = new Int16Array(32 * 32 * 32);
+const vertexToCellIndex = new Int16Array(32 * 32 * 32);
+const cellEdgesToConnect = new Int16Array(32 * 32 * 32);
 // flags describing how each cell needs to be connected to it's neigbour
-const CONNECTED_CELL =      0b00000001; // 1
-const XZ_FACE_CLOCKWISE =   0b00000010; // 2
-const XY_FACE_CLOCKWISE =   0b00000100; // 4
-const YZ_FACE_CLOCKWISE =   0b00001000; // 8
-const XZ_FACE_ANTICLOCK =   0b00010000; // 16
-const XY_FACE_ANTICLOCK =   0b00100000; // 32
-const YZ_FACE_ANTICLOCK =   0b01000000; // 64
+const CONNECTED_CELL =    0b0000000001; // 1
+const XZ_FACE_CLOCKWISE = 0b0000000010; // 2
+const XY_FACE_CLOCKWISE = 0b0000000100; // 4
+const YZ_FACE_CLOCKWISE = 0b0000001000; // 8
+const XZ_FACE_ANTICLOCK = 0b0000010000; // 16
+const XY_FACE_ANTICLOCK = 0b0000100000; // 32
+const YZ_FACE_ANTICLOCK = 0b0001000000; // 64
+const X_FACE_BORDER     = 0b0010000000; // 128
+const Y_FACE_BORDER     = 0b0100000000; // 256
+const Z_FACE_BORDER     = 0b1000000000; // 512
 // CUBE_EDGES defines the 12 edges of the cube, from the start point to the end point
 // and also a flag to indicate if a face needs to be output.
 // only output a face on when the edge meets the far corner of the cube
@@ -76,7 +79,7 @@ const CUBE_CORNER_VECTORS: Vector3[] = [
 let samples: Float32Array;
 let markedSamples: Int16Array;
 let sampleMarker = 0;
-let dims: SampleDimensions;
+let dims: ChunkDimensions;
 let verticies: number[];
 let faces: number[];
 let field: SignedDistanceField;
@@ -94,7 +97,7 @@ function CalcCornerOffsets(): void {
     }
 }
 
-function ExtractSurface (_samples: Float32Array, _dims: SampleDimensions, _field: SignedDistanceField,
+function ExtractSurface (_samples: Float32Array, _dims: ChunkDimensions, _field: SignedDistanceField,
     _verticies: number[], _faces: number[]): boolean {
 
     samples = _samples;
@@ -122,14 +125,13 @@ function ExtractSurface (_samples: Float32Array, _dims: SampleDimensions, _field
 
     verticies.length = 0;
     faces.length = 0;
-    cellToVertexIndex.length = 0;
-    vertexToCellIndex.length = 0;
-    cellEdgesToConnect.length = 0;
     sparseSamples = 0;
     SubDivideCell(0,0,0,dims.points);
     ExtractAllFaces();
     return verticies.length > 0;
 }
+
+
 
 function SubDivideCell(cellX: number, cellY: number, cellZ: number, stride: number) {
     if (stride > 1) {
@@ -154,14 +156,14 @@ function SubDivideCell(cellX: number, cellY: number, cellZ: number, stride: numb
             // mark location as calculated to avoid sampling it again
             markedSamples[centerIndex] = sampleMarker;
 
-            SubDivideCell(cellX,            cellY,              cellZ, halfStride);
-            SubDivideCell(cellX + halfStride, cellY,              cellZ, halfStride);
-            SubDivideCell(cellX,            cellY + halfStride,   cellZ, halfStride);
-            SubDivideCell(cellX + halfStride, cellY + halfStride,   cellZ, halfStride);
-            SubDivideCell(cellX,            cellY,              cellZ + halfStride, halfStride);
-            SubDivideCell(cellX + halfStride, cellY,              cellZ + halfStride, halfStride);
-            SubDivideCell(cellX,            cellY + halfStride,   cellZ + halfStride, halfStride);
-            SubDivideCell(cellX + halfStride, cellY + halfStride,   cellZ + halfStride, halfStride);
+            SubDivideCell(cellX,                cellY,                  cellZ, halfStride);
+            SubDivideCell(cellX + halfStride,   cellY,                  cellZ, halfStride);
+            SubDivideCell(cellX,                cellY + halfStride,     cellZ, halfStride);
+            SubDivideCell(cellX + halfStride,   cellY + halfStride,     cellZ, halfStride);
+            SubDivideCell(cellX,                cellY,                  cellZ + halfStride, halfStride);
+            SubDivideCell(cellX + halfStride,   cellY,                  cellZ + halfStride, halfStride);
+            SubDivideCell(cellX,                cellY + halfStride,     cellZ + halfStride, halfStride);
+            SubDivideCell(cellX + halfStride,   cellY + halfStride,     cellZ + halfStride, halfStride);
         }
     }
     else
@@ -174,26 +176,34 @@ function ExtractCell(cellX: number, cellY: number, cellZ: number) {
     const cellIndex = dims.cellIndex(cellX, cellY, cellZ);
     let connectEdges = ExtractPoint(cellX, cellY, cellZ, cellIndex);
     if (connectEdges > 0) {
-        // we'll need to find neighboring cells of this point to connect them up
-        // so record the cellindex that the point was created for
-        vertexToCellIndex.push(cellIndex);
-        // then we have to lookup the vertex that is in that cell
+        // we have to lookup the vertex that is in that cell
         // note, length divided by 3 because array x y and z stored for each point
         const vertexIndex = (verticies.length / 3) - 1;
         cellToVertexIndex[cellIndex] = vertexIndex;
+        // we'll need to find neighboring cells of this point to connect them up
+        // so record the cellindex that the point was created for
+        vertexToCellIndex[vertexIndex] = cellIndex;
         // record which neighboring cells to connect with.
+        // flag if we are on the border between this chunk and the next
+
+        // if (cellX == 0)
+        //     connectEdges |= X_FACE_BORDER;
+        // if (cellY == 0)
+        //     connectEdges |= Y_FACE_BORDER;
+        // if (cellZ == 0)
+        //     connectEdges |= Z_FACE_BORDER;
+
         // but remove flags if we are at edge of this chunk so we don't go over the boundary
+        // flag if we are on the border between this chunk and the next
         if (cellX == 0)
             connectEdges = RestrictFacesTo(connectEdges, YZ_FACE_CLOCKWISE, YZ_FACE_ANTICLOCK);
         if (cellY == 0)
             connectEdges = RestrictFacesTo(connectEdges, XZ_FACE_CLOCKWISE, XZ_FACE_ANTICLOCK);
         if (cellZ == 0)
             connectEdges = RestrictFacesTo(connectEdges, XY_FACE_CLOCKWISE, XY_FACE_ANTICLOCK);
-        cellEdgesToConnect.push(connectEdges);
-    }
 
-    else
-        cellToVertexIndex[cellIndex] = -1;
+        cellEdgesToConnect[vertexIndex] = connectEdges;
+    }
 }
 
 function RestrictFacesTo(connectedEdges: number, face1: number, face2: number): number {
@@ -201,7 +211,7 @@ function RestrictFacesTo(connectedEdges: number, face1: number, face2: number): 
 }
 
 function ExtractPoint(cellX: number, cellY: number, cellZ: number, sampleIndex: number) {
-    if (cellX > dims.cells || cellY > dims.cells || cellZ > dims.cells)
+    if (cellX > dims.cells - 1 || cellY > dims.cells - 1 || cellZ > dims.cells - 1)
         return 0;
     let negPoints = 0;
     for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
@@ -248,7 +258,7 @@ function ExtractAllFaces() {
             cellIndex1 = cellIndex0 - dims.zStep;
             cellIndex2 = cellIndex0 - dims.zStep - dims.xStep;
             cellIndex3 = cellIndex0 - dims.xStep;
-            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3);
+            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3,connectEdges);
         }
         if (connectEdges & XZ_FACE_ANTICLOCK)
         {
@@ -256,7 +266,7 @@ function ExtractAllFaces() {
             cellIndex1 = cellIndex0 - dims.xStep;
             cellIndex2 = cellIndex0 - dims.zStep - dims.xStep;
             cellIndex3 = cellIndex0 - dims.zStep;
-            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3);
+            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3,connectEdges);
         }
 
         if (connectEdges & XY_FACE_CLOCKWISE)
@@ -265,7 +275,7 @@ function ExtractAllFaces() {
             cellIndex1 = cellIndex0 - dims.xStep;
             cellIndex2 = cellIndex0 - dims.yStep - dims.xStep;
             cellIndex3 = cellIndex0 - dims.yStep;
-            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3);
+            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3,connectEdges);
         }
         if (connectEdges & XY_FACE_ANTICLOCK)
         {
@@ -273,7 +283,7 @@ function ExtractAllFaces() {
             cellIndex1 = cellIndex0 - dims.yStep;
             cellIndex2 = cellIndex0 - dims.yStep - dims.xStep;
             cellIndex3 = cellIndex0 - dims.xStep;
-            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3);
+            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3,connectEdges);
         }
 
         if (connectEdges & YZ_FACE_CLOCKWISE)
@@ -282,7 +292,7 @@ function ExtractAllFaces() {
             cellIndex1 = cellIndex0 - dims.yStep;
             cellIndex2 = cellIndex0 - dims.zStep - dims.yStep;
             cellIndex3 = cellIndex0 - dims.zStep;
-            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3);
+            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3,connectEdges);
         }
         if (connectEdges & YZ_FACE_ANTICLOCK)
         {
@@ -290,13 +300,13 @@ function ExtractAllFaces() {
             cellIndex1 = cellIndex0 - dims.zStep;
             cellIndex2 = cellIndex0 - dims.zStep - dims.yStep;
             cellIndex3 = cellIndex0 - dims.yStep;
-            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3);
+            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3,connectEdges);
         }
 
     }
 }
 
-function ExtractFaces(cellIndex0: number, cellIndex1: number, cellIndex2: number, cellIndex3: number) {
+function ExtractFaces(cellIndex0: number, cellIndex1: number, cellIndex2: number, cellIndex3: number, connectedEdges: number) {
     const v1 = cellToVertexIndex[cellIndex0];
     const v2 = cellToVertexIndex[cellIndex1];
     const v3 = cellToVertexIndex[cellIndex2];
@@ -314,7 +324,7 @@ function ExtractFaces(cellIndex0: number, cellIndex1: number, cellIndex2: number
     const dist1 = pos1.x * pos1.x + pos1.y * pos1.y + pos1.z * pos1.z;
     const dist2 = pos2.x * pos2.x + pos2.y * pos2.y + pos2.z * pos2.z;
     // Split the quad along the shorter axis, rather than the longer one.
-    if (dist1 < dist2) {
+    if (Math.abs(dist1 - dist2) > 1e-6) {
         faces.push(v1, v2, v3, v3, v4, v1);            
     } else {
         faces.push(v1, v2, v4, v2, v3, v4);           

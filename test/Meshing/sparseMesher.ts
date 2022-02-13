@@ -1,4 +1,5 @@
-import { SampleDimensions, ExtractSurface , SdfSampler } from "../../src/Meshing";
+/// <reference types="@types/jasmine"/> 
+import { ChunkDimensions, ExtractSurface , SdfSampler } from "../../src/Meshing";
 import { SdfBox,SdfSphere } from "../../src/signedDistanceFields";
 import { SampleFieldXy, SampleFieldXz, SliceSamplesXy, GreyScale, NumScale, Trim } from "../signedDistanceFields/SdfHelper";
 import { Vector3 } from "@babylonjs/core";
@@ -10,7 +11,7 @@ export function TestSparseMesher()
 
     it('creates a cube mesh', () => {
         const field = new SdfBox(1,1,1)
-        const dims = new SampleDimensions().set(3,4,-1.5,-1.5,-1.5);
+        const dims = new ChunkDimensions().set(3,4,-1.5,-1.5,-1.5);
         const fieldArray = new Float32Array(dims.samples);
         const meshVerticies: number[] = [];
         const meshFaces: number[] = [];
@@ -42,7 +43,7 @@ export function TestSparseMesher()
 
     it('creates a sphere mesh', () => {
         const field = new SdfSphere(4.5);
-        const dims = new SampleDimensions().set(24,8,-12,-12,-12);
+        const dims = new ChunkDimensions().set(24,8,-12,-12,-12);
         const fieldArray = new Float32Array(dims.samples);
         const meshVerticies: number[] = [];
         const meshFaces: number[] = [];
@@ -74,7 +75,7 @@ export function TestSparseMesher()
 
     it('creates a sphere mesh truncated at the sample boundary', () => {
         const field = new SdfSphere(4.5);
-        const dims = new SampleDimensions().set(24,64,-12,-12,-12);
+        const dims = new ChunkDimensions().set(24,64,-12,-12,-12);
         const fieldArray = new Float32Array(dims.samples);
         const meshVerticies: number[] = [];
         const meshFaces: number[] = [];

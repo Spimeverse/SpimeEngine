@@ -1,4 +1,4 @@
-import { SampleDimensions, Mesher, SdfSampler } from "../../src/Meshing";
+import { ChunkDimensions, Mesher, SdfSampler } from "../../src/Meshing";
 import { SdfBox,SdfSphere } from "../../src/signedDistanceFields";
 import { SampleFieldXy, SampleFieldXz, SliceSamplesXy, GreyScale, NumScale, Trim } from "../signedDistanceFields/SdfHelper";
 import { Vector3 } from "@babylonjs/core";
@@ -11,7 +11,7 @@ export function TestMesher()
     it('creates a cube mesh', () => {
         const mesher = new Mesher();
         const field = new SdfBox(1,1,1)
-        const dims = new SampleDimensions().set(3,4,-1.5,-1.5,-1.5);
+        const dims = new ChunkDimensions().set(3,4,-1.5,-1.5,-1.5);
         const fieldArray = new Float32Array(dims.samples);
         SdfSampler(field,dims,fieldArray)
         mesher.set(fieldArray,dims);
@@ -42,7 +42,7 @@ export function TestMesher()
     it('creates a sphere mesh', () => {
         const mesher = new Mesher();
         const field = new SdfSphere(4.5);
-        const dims = new SampleDimensions().set(24,8,-12,-12,-12);
+        const dims = new ChunkDimensions().set(24,8,-12,-12,-12);
         const fieldArray = new Float32Array(dims.samples);
         SdfSampler(field,dims,fieldArray)
         mesher.set(fieldArray,dims);
@@ -78,7 +78,7 @@ export function TestMesher()
         const mesher = new Mesher();
         const field = new SdfSphere(4.5);
         field.position.x = 16;
-        const dims = new SampleDimensions().set(24,8,-12,-12,-12);
+        const dims = new ChunkDimensions().set(24,8,-12,-12,-12);
         const fieldArray = new Float32Array(dims.samples);
         SdfSampler(field,dims,fieldArray)
         mesher.set(fieldArray,dims);

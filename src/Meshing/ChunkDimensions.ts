@@ -6,7 +6,7 @@ import { Vector3 } from "@babylonjs/core";
  * by working out the index in the 1d array
  * Doesn't actually reference the array itself
  */
-export class SampleDimensions {
+export class ChunkDimensions {
     size = 0;
     cells = 0;
     points = 0;
@@ -21,6 +21,9 @@ export class SampleDimensions {
     indexMask = 0;
     indexShift = 0;
     indexShiftTimes2 = 0;
+    neighbourXScale = 0;
+    neighbourYScale = 0;
+    neighbourZScale = 0;
 
 
     /**
@@ -29,26 +32,25 @@ export class SampleDimensions {
      * @param steps the number of steps the range is divided into
      * @returns 
      */
-    set(size: number, points: number, xOrigin: number, yOrigin: number, zOrigin: number): SampleDimensions {
+    set(size: number, points: number, xOrigin: number, yOrigin: number, zOrigin: number): ChunkDimensions {
         if ((points & (points - 1)) != 0) // https://stackoverflow.com/questions/600293/how-to-check-if-a-number-is-a-power-of-2
             throw "points must be a power of two"
         this.size = size;
+        this.cells = points - 1;
         this.points = points;
         // one more point needed than each cell
-        // and one more cell needed to overlap with the next sample space
-        // therefore cells = points -2
-        // e.g. 4 point, = 2 cells + 1 cell to overlap with next space
-        // overlapping cells marked with an 'o'
+        // therefore cells = points -1
+        // e.g. 4 point, = 3 cells
+        // points marked 'x' and cellse marked 'c'
         // 
         //  X   X   X   X
-        //    o   o   o 
+        //    c   c   c 
         //  X   X   X   X
-        //            o
+        //    c   c   c
         //  X   X   X   X
-        //            o
+        //    c   c   c
         //  X   X   X   X
         //
-        this.cells = points - 2;
         this.xOrigin = xOrigin;
         this.yOrigin = yOrigin;
         this.zOrigin = zOrigin;

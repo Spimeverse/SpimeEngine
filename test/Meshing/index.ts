@@ -1,4 +1,3 @@
 export * from "./mesher"
-export * from "./sampleDimensions"
+export * from "./chunkDimensions"
 export * from "./sparseMesher"
-export * from "./smartMesher"

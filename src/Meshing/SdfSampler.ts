@@ -1,13 +1,13 @@
 import { Vector3 } from "@babylonjs/core"
 import { SignedDistanceField } from "../signedDistanceFields/SignedDistanceField"
-import { SampleDimensions } from "./SampleDimensions";
+import { ChunkDimensions } from "./chunkDimensions";
 
 const sampleCoordinate: Vector3 = new Vector3();
 const sqrt3 = Math.sqrt(3);
 
 let fullSamples = 0;
 
-function SdfSampler(field: SignedDistanceField,dims: SampleDimensions, samples: Float32Array): boolean {
+function SdfSampler(field: SignedDistanceField,dims: ChunkDimensions, samples: Float32Array): boolean {
     fullSamples = 0;
     dims.getCenter(sampleCoordinate);
     const d = Math.abs(field.sample(sampleCoordinate));

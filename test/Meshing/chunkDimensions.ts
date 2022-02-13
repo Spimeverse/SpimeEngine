@@ -1,15 +1,14 @@
-import { SampleDimensions, Mesher, SdfSampler } from "../../src/Meshing";
-import { SdfBox,SdfSphere } from "../../src/signedDistanceFields";
+import { ChunkDimensions, Mesher, SdfSampler } from "../../src";
 import { SampleFieldXy, SampleFieldXz, SliceSamplesXy, GreyScale, NumScale, Trim } from "../signedDistanceFields/SdfHelper";
 import { Vector3 } from "@babylonjs/core";
 
 
-export function TestSampleDimensions() 
+export function TestChunkDimensions() 
 {        
-    describe('Sample dimensions ', () => {
+    describe('Chunk dimensions ', () => {
 
     it('calculates how many samples are needed', () => {
-        const dims = new SampleDimensions().set(7,16,10,20,30);
+        const dims = new ChunkDimensions().set(7,16,10,20,30);
         expect(dims.samples).toBe(16 * 16 * 16);
 
         dims.set(3,32,0,0,0);
@@ -17,7 +16,7 @@ export function TestSampleDimensions()
     })
 
     it('converts cell position to sample index', () => {
-        const dims = new SampleDimensions().set(7,16,10,20,30);
+        const dims = new ChunkDimensions().set(7,16,10,20,30);
         expect(dims.cellIndex(0,0,0)).toBe(0);
         expect(dims.cellIndex(1,0,0)).toBe(1);
         expect(dims.cellIndex(0,1,0)).toBe(16);
@@ -26,7 +25,7 @@ export function TestSampleDimensions()
     })
 
     it('converts sample index to world space', () => {
-        const dims = new SampleDimensions().set(7,16,10,20,30);
+        const dims = new ChunkDimensions().set(7,16,10,20,30);
         const samplePoint = new Vector3();
         dims.indexToWorldSpace(0,samplePoint);
         expect(samplePoint.toString()).toBe("{X: 10 Y:20 Z:30}");
@@ -39,7 +38,7 @@ export function TestSampleDimensions()
     })
     
     it('converts cell space world space', () => {
-        const dims = new SampleDimensions().set(7,16,10,20,30);
+        const dims = new ChunkDimensions().set(7,16,10,20,30);
         const samplePoint = new Vector3();
         dims.cellSpaceToWorldSpace(0,0,0,samplePoint);
         expect(samplePoint.toString()).toBe("{X: 10 Y:20 Z:30}");
@@ -55,7 +54,7 @@ export function TestSampleDimensions()
 
         
     it('overlaps cell space so meshes can be seamless', () => {
-        const dims = new SampleDimensions().set(7,16,10,20,30);
+        const dims = new ChunkDimensions().set(7,16,10,20,30);
         const samplePoint = new Vector3();
         // one more point needed than each cell
         // and one more cell needed to overlap with the next sample space

@@ -5,7 +5,7 @@ import { Engine, Scene, TransformNode, ArcRotateCamera, Vector3,
     HemisphericLight, GroundBuilder,StandardMaterial,
     Texture, Mesh, VertexData, Color4,MeshBuilder, Color3, AbstractMesh } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Rectangle, StackPanel, TextBlock, Slider, Container } from "@babylonjs/gui";
-import { SmartMesher, smartSamples, ExtractSurface, Mesher, SampleDimensions, SdfSampler, fullSamples,sparseSamples } from "./Meshing";
+import { ExtractSurface, Mesher, ChunkDimensions, SdfSampler, fullSamples,sparseSamples } from "./Meshing";
 import { SdfBox, SdfSphere, SdfTorus } from "./signedDistanceFields";
 
 
@@ -20,6 +20,7 @@ class App {
     canvas: HTMLCanvasElement;
     advancedTexture: AdvancedDynamicTexture | undefined;
     mesh1Label: TextBlock | undefined;
+    panel1: { label: TextBlock; samplesSlider: Slider; timelabel: TextBlock; timeSlider: Slider; } | null;
 
     constructor() {
         // create the canvas html element and attach it to the webpage
@@ -31,7 +32,7 @@ class App {
             deterministicLockstep: true,
             lockstepMaxSteps: 4,
           }); 
-
+        this.panel1 = null;
     }
 
     async setup(): Promise<void> {
@@ -57,9 +58,8 @@ class App {
         const light = new HemisphericLight("light", new Vector3(0, 0, 0), scene);
     
         // Default intensity is 1. Let's dim the light a small amount
-        light.intensity = 0.7;
-    
-        //experiment(scene);
+        light.intensity = 1;
+
     
         // Our built-in 'ground' shape.
         const ground = GroundBuilder.CreateGround(
@@ -88,10 +88,11 @@ class App {
         const box2 = MeshBuilder.CreateBox("box2", {size:4}, scene);
         box2.position.x = 4;
         const boxMaterial2 = new StandardMaterial("boxMaterial", scene);
-        boxMaterial2.diffuseColor = new Color3(1,0,0);
+        boxMaterial2.diffuseColor = new Color3(1,1,0);
         boxMaterial2.wireframe = true;
         box2.material = boxMaterial2;
         
+        this._createStatsGui();
 
         // try a mesh
         const mesher = new Mesher();
@@ -99,32 +100,17 @@ class App {
         //const field = new SdfTorus(1,0.5);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
-        const field = new SdfSphere(0.7);
+        const field = new SdfSphere(2);
         field.position.set(0,1,0);
-        const dims = new SampleDimensions().set(4,16,-2,-2,-2);
+        const dims = new ChunkDimensions().set(4,16,-2,-2,-2);
         const fieldArray = new Float32Array(dims.samples);
+
+        const dims2 = new ChunkDimensions().set(4,8,2,-2,-2);
+        dims2.set(4,8,2,-2,-2);
 
         //Create a custom mesh  
         const { customMesh, vertexData } = this._createCustomMesh(scene);
         const { customMesh : customMesh2, vertexData : vertexData2 } = this._createCustomMesh(scene);
-        const { customMesh : customMesh3, vertexData : vertexData3 } = this._createCustomMesh(scene);
-
-                        
-        // GUI
-        const plane = MeshBuilder.CreatePlane("plane", {size:10});
-        plane.position.y = 1.5;
-        plane.billboardMode = Mesh.BILLBOARDMODE_Y;
-
-        this.advancedTexture = AdvancedDynamicTexture.CreateForMesh(plane)
-
-        const guiPanel = new StackPanel();
-        guiPanel.isVertical = false;
-        this.advancedTexture.addControl(guiPanel);
-
-        const mesh1gui = this._createGuiRect(guiPanel);
-        const mesh2gui = this._createGuiRect(guiPanel);
-        const mesh3gui = this._createGuiRect(guiPanel);
-        const summaryGui = this._createGuiRect(guiPanel);
 
         const runningTotal: number[] = [];
         scene.onBeforeAnimationsObservable.add((theScene) => {
@@ -135,18 +121,19 @@ class App {
                 //Empty array to contain calculated values or normals added
                 const normals = new Array<number>();
 
-                field.position = new Vector3(Math.sin(step / 4000 * Math.PI * 2) * 3 ,0,1);
+                field.position = new Vector3(2 + Math.sin(step / 4000 * Math.PI * 2) * 4 ,0,0);
                 //field.position = new Vector3(1.2,1,1);
 
-                dims.set(4,16,-2,-2,-2);
-                let startTime = performance.now();
-                let standardTime = 0;
-                if (SdfSampler(field,dims,fieldArray)) {
-                    mesher.set(fieldArray,dims);
-                    mesher.extractSurface(
-                        vertexData.positions as number[],
-                        vertexData.indices as number[]);
-                    standardTime = performance.now() - startTime;
+                const startTime = performance.now();
+                let extracted = ExtractSurface(
+                    fieldArray, dims,field,
+                    vertexData.positions as number[],
+                    vertexData.indices as number[]);
+                let sparseTime = performance.now() - startTime;
+
+                const sparseSamples2 = sparseSamples;
+
+                if (extracted) {
              
                     //Calculations of normals added
                     VertexData.ComputeNormals(vertexData.positions, vertexData.indices, normals);
@@ -157,15 +144,10 @@ class App {
                     vertexData.applyToMesh(customMesh,false);
                 }
 
-                field.position = new Vector3(field.position.x,field.position.y,0);
-                dims.set(4,16,-2,-2,-2);
-
-                startTime = performance.now();
-                let extracted = ExtractSurface(
-                    fieldArray, dims,field,
+                extracted = ExtractSurface(
+                    fieldArray, dims2,field,
                     vertexData2.positions as number[],
                     vertexData2.indices as number[]);
-                let sparseTime = performance.now() - startTime;
 
                 if (extracted) {
             
@@ -179,54 +161,22 @@ class App {
                 }
 
                 field.position = new Vector3(field.position.x,field.position.y,-1);
-                dims.set(4,16,-2,-2,-2);
 
-                // smart mesher
-                startTime = performance.now();
-                extracted = SmartMesher(
-                    fieldArray, dims,field,
-                    vertexData3.positions as number[],
-                    vertexData3.indices as number[]);
-                let smartTime = performance.now() - startTime;
-
-                if (extracted) {
-            
-                    //Calculations of normals added
-                    VertexData.ComputeNormals(vertexData3.positions, vertexData3.indices, normals);
-            
-                    vertexData3.normals = normals;
-            
-                    //Apply vertexData to custom mesh
-                    vertexData3.applyToMesh(customMesh3);
-                }
-
-                runningTotal[0] += standardTime;
-                runningTotal[1] += sparseTime;
-                runningTotal[2] += smartTime;
+                runningTotal[0] += sparseTime
                 if (step % 20 == 0) {
-                    standardTime = runningTotal[0] / 20;
-                    sparseTime = runningTotal[1] / 20;
-                    smartTime = runningTotal[2] / 20;
+                    sparseTime = runningTotal[0] / 20;
 
                     runningTotal[0] = runningTotal[1] = runningTotal[2] = 0;
 
-                    mesh1gui.label.text = 'Full ' + fullSamples;
-                    mesh1gui.samplesSlider.value = fullSamples;
-                    mesh1gui.timelabel.text = 'Time ' + standardTime.toFixed(3);
-                    mesh1gui.timeSlider.value = standardTime;
-
-                    mesh2gui.label.text = 'Sparse ' + sparseSamples;
-                    mesh2gui.samplesSlider.value = sparseSamples;
-                    mesh2gui.timelabel.text = 'Time ' + sparseTime.toFixed(3);
-                    mesh2gui.timeSlider.value = sparseTime;
-                    
-                    mesh3gui.label.text = 'Smart ' + smartSamples;
-                    mesh3gui.samplesSlider.value = smartSamples;
-                    mesh3gui.timelabel.text = 'Time ' + smartTime.toFixed(3);
-                    mesh3gui.timeSlider.value = smartTime;
-
-                    summaryGui.label.text = 'pos ' + field.position.x.toFixed(3);
+                    if (this.panel1) {
+                    const panel = this.panel1;
+                    panel.label.text = 'Samples ' + sparseSamples2;
+                    panel.samplesSlider.value = sparseSamples2;
+                    panel.timelabel.text = 'Time ' + sparseTime.toFixed(3);
+                    panel.timeSlider.value = sparseTime;
+                    }
                 }
+
             }
         });
 
@@ -240,21 +190,11 @@ class App {
 
         const voxelsMaterial2 = new StandardMaterial("voxelMaterial2", scene);
         voxelsMaterial2.wireframe = true;
-        voxelsMaterial2.diffuseColor = new Color3(1,0.5,0.5);
+        voxelsMaterial2.diffuseColor = new Color3(1,1,0.5);
         customMesh2.material = voxelsMaterial2;
         //customMesh.enableEdgesRendering();
         customMesh.edgesWidth = 4.0;
         customMesh.edgesColor = new Color4(0, 0, 1, 1);
-
-        
-        const voxelsMaterial3 = new StandardMaterial("voxelMaterial3", scene);
-        voxelsMaterial3.wireframe = true;
-        voxelsMaterial3.diffuseColor = new Color3(1,1,0.5);
-        customMesh3.material = voxelsMaterial3;
-        //customMesh.enableEdgesRendering();
-        customMesh.edgesWidth = 4.0;
-        customMesh.edgesColor = new Color4(0, 0, 1, 1);
-
 
         // hide/show the Inspector
         window.addEventListener("keydown", (ev) => {
@@ -272,6 +212,21 @@ class App {
         this.engine.runRenderLoop(() => {
             scene.render();
         });
+    }
+
+    private _createStatsGui() {
+        // GUI
+        const plane = MeshBuilder.CreatePlane("plane", {size:10});
+        plane.position.y = 2;
+        plane.billboardMode = Mesh.BILLBOARDMODE_Y;
+
+        this.advancedTexture = AdvancedDynamicTexture.CreateForMesh(plane)
+
+        const guiPanel = new StackPanel();
+        guiPanel.isVertical = false;
+        this.advancedTexture.addControl(guiPanel);
+
+        this.panel1 = this._createGuiRect(guiPanel);
     }
 
     private _createCustomMesh(scene: Scene) {
@@ -323,7 +278,7 @@ class App {
         timeSlider.color = "Blue";
         timeSlider.displayThumb = false;
         timeSlider.minimum = 0;
-        timeSlider.maximum = 2.5;
+        timeSlider.maximum = 1.2;
         timeSlider.value = 0;
         timeSlider.height = "20px";
         panel.addControl(timeSlider);
