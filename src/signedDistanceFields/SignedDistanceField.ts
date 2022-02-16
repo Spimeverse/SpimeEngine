@@ -55,5 +55,7 @@ class EmptyField extends SignedDistanceField {
     }
 }
 
+const EMPTY_FIELD = new EmptyField();
 
-export { SignedDistanceField,EmptyField };
+
+export { SignedDistanceField,EMPTY_FIELD };

@@ -5,7 +5,7 @@ import { Engine, Scene, TransformNode, ArcRotateCamera, Vector3,
     HemisphericLight, GroundBuilder,StandardMaterial,
     Texture, Mesh, VertexData, Color4,MeshBuilder, Color3, AbstractMesh } from "@babylonjs/core";
 import { AdvancedDynamicTexture, Rectangle, StackPanel, TextBlock, Slider, Container } from "@babylonjs/gui";
-import { ExtractSurface, Mesher, ChunkDimensions, SdfSampler, fullSamples,sparseSamples } from "./Meshing";
+import { ExtractSurface, Chunk, sparseSamples } from "./Meshing";
 import { SdfBox, SdfSphere, SdfTorus } from "./signedDistanceFields";
 
 
@@ -94,19 +94,19 @@ class App {
         
         this._createStatsGui();
 
-        // try a mesh
-        const mesher = new Mesher();
         //const field = new SdfBox(1,1,1)
         //const field = new SdfTorus(1,0.5);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
         const field = new SdfSphere(2);
         field.position.set(0,1,0);
-        const dims = new ChunkDimensions().set(4,16,-2,-2,-2);
-        const fieldArray = new Float32Array(dims.samples);
 
-        const dims2 = new ChunkDimensions().set(4,8,2,-2,-2);
-        dims2.set(4,8,2,-2,-2);
+
+        const chunk1 = new Chunk(4,16);
+        chunk1.setOrigin(-2,-2,-2);
+
+        const chunk2 = new Chunk(4,8);
+        chunk2.setOrigin(2,-2,-2);
 
         //Create a custom mesh  
         const { customMesh, vertexData } = this._createCustomMesh(scene);
@@ -125,8 +125,9 @@ class App {
                 //field.position = new Vector3(1.2,1,1);
 
                 const startTime = performance.now();
+                chunk1.sample(field);
                 let extracted = ExtractSurface(
-                    fieldArray, dims,field,
+                    chunk1,
                     vertexData.positions as number[],
                     vertexData.indices as number[]);
                 let sparseTime = performance.now() - startTime;
@@ -144,8 +145,9 @@ class App {
                     vertexData.applyToMesh(customMesh,false);
                 }
 
+                chunk2.sample(field);
                 extracted = ExtractSurface(
-                    fieldArray, dims2,field,
+                    chunk2,
                     vertexData2.positions as number[],
                     vertexData2.indices as number[]);
 
