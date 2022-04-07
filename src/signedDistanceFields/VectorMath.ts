@@ -1,4 +1,4 @@
-import { Vector3, Vector2 } from "@babylonjs/core";
+import { Vector3, Vector2 } from "@babylonjs/core/Maths";
 
 function Max3(a: number, b: number, c: number): number {
     let result = a;

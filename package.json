@@ -4,9 +4,11 @@
   "description": "A virtual space-time landscape where objects (spimes) interact and persist through space time",
   "main": "index.js",
   "scripts": {
+    "build": "esbuild src/app.ts --external:@babylonjs --tree-shaking=true --minify --target=esnext --format=esm --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
     "prof": "esbuild src/app.ts --servedir=public --serve=8000 --tree-shaking=true --target=esnext --format=iife --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
-    "dev": "esbuild src/app.ts --servedir=public --serve=8000 --target=esnext --sourcemap --format=iife --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
-    "test": "esbuild test/tests.ts --servedir=testRunner --serve=8001 --target=esnext --sourcemap --format=iife --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=testRunner/spec/tests.mjs"
+    "dev": "esbuild src/app.ts --external:@babylonjs/* --servedir=public --serve=8000 --target=esnext --sourcemap --format=esm --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
+    "test": "esbuild test/tests.ts --servedir=testRunner --serve=8001 --target=esnext --sourcemap --format=iife --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=testRunner/spec/tests.mjs",
+    "extern": "node extern.js"
   },
   "keywords": [
     "spime",
@@ -25,6 +27,7 @@
     "@typescript-eslint/eslint-plugin": "^5.8.1",
     "@typescript-eslint/parser": "^5.8.1",
     "esbuild": "^0.14.8",
+    "esbuild-plugin-resolve": "^1.0.3",
     "eslint": "^8.5.0",
     "typescript": "^4.5.4"
   },

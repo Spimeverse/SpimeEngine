@@ -1,9 +1,9 @@
-// adapted from a Rust implemenation here 
+// adapted from a Rust implementation here 
 // https://github.com/bonsairobo/fast-surface-nets-rs/blob/main/src/lib.rs
 
 
 import { Chunk } from ".";
-import { Vector3 } from "@babylonjs/core";
+import { Vector3 } from "@babylonjs/core/Maths";
 
 const pos1 = new Vector3();
 const pos2 = new Vector3();
@@ -17,7 +17,7 @@ const cornerDist: Float32Array = new Float32Array(8);
 
 let cellToVertexIndex: Int16Array;
 let vertexToCellIndex: Int16Array;
-// flags describing how each cell needs to be connected to it's neigbour
+// flags describing how each cell needs to be connected to it's neighbour
 const CONNECTED_CELL =    0b0000000001; // 1
 const XZ_FACE_CLOCKWISE = 0b0000000010; // 2
 const XY_FACE_CLOCKWISE = 0b0000000100; // 4

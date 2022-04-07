@@ -1,4 +1,4 @@
-import { DeepImmutable, Vector3 } from "@babylonjs/core";
+import { Vector3 } from "@babylonjs/core/Maths";
 import { SignedDistanceField, EMPTY_FIELD } from "../signedDistanceFields";
 
 const cellPosition = new Vector3();
@@ -8,7 +8,7 @@ const samplePoint = new Vector3();
 let sparseSamples = 0;
 
 /**
- * Make working with a 1 dimentional array work like a 3d array
+ * Make working with a 1 dimensional array work like a 3d array
  * by working out the index in the 1d array
  * Doesn't actually reference the array itself
  */
@@ -50,7 +50,7 @@ class Chunk {
         // one more point needed than each cell
         // therefore cells = points -1
         // e.g. 4 point, = 3 cells
-        // points marked 'x' and cellse marked 'c'
+        // points marked 'x' and cells marked 'c'
         // 
         //  X   X   X   X
         //    c   c   c 
@@ -157,9 +157,9 @@ class Chunk {
             const centerDist = this.field.sample(cellCenter);
             // the maximum distance a field can be for the cell center
             // and still intersect is half the cell size * sqrt3
-            // because the hypotenuese is sqrt(x*x+y*y+z*z)
+            // because the hypotenuse is sqrt(x*x+y*y+z*z)
             // we can work this for x=y=z=1 ie sqrt(3)
-            // then just do halfcell*sqrt(3)
+            // then just do halfCell*sqrt(3)
             const cellRadius = this.stepSize * halfStride;
             if (Math.abs(centerDist) > cellRadius * sqrt3)
                 return; // the surface is further away than the cell size, quit
@@ -217,7 +217,7 @@ class Chunk {
 
         this.cellToVertexIndex[cellIndex] = this.activeCells;
         // we'll need to find neighboring cells of this point to connect them up
-        // so record the cellindex that the point was created for
+        // so record the cell index that the point was created for
         this.vertexToCellIndex[this.activeCells] = cellIndex;
         this.activeCells++;
     }

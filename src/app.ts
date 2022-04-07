@@ -1,10 +1,22 @@
 //import "@babylonjs/core/Debug/debugLayer";
 //import "@babylonjs/inspector";
-import "@babylonjs/loaders/glTF";
-import { Engine, Scene, TransformNode, ArcRotateCamera, Vector3, 
-    HemisphericLight, GroundBuilder,StandardMaterial,
-    Texture, Mesh, VertexData, Color4,MeshBuilder, Color3, AbstractMesh } from "@babylonjs/core";
-import { AdvancedDynamicTexture, Rectangle, StackPanel, TextBlock, Slider, Container } from "@babylonjs/gui";
+//import "@babylonjs/loaders/glTF";
+
+// import modules individually to help tree shaking
+import { Engine } from "@babylonjs/core/Engines/engine"
+import { Scene } from "@babylonjs/core/scene"
+// import { TransformNode } from "@babylonjs/core/Meshes/transformNode"
+import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera"
+import { Vector3,Color4,Color3 } from "@babylonjs/core/Maths"
+import { HemisphericLight } from "@babylonjs/core/Lights"
+import { GroundBuilder } from "@babylonjs/core/Meshes/Builders"
+import { StandardMaterial } from "@babylonjs/core/Materials"
+import { Texture } from "@babylonjs/core/Materials/Textures"
+import { Mesh, VertexData, MeshBuilder } from "@babylonjs/core/Meshes"
+// import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh"
+import { Rectangle, StackPanel, TextBlock, Slider, Container } from "@babylonjs/gui/2D/controls";
+import { AdvancedDynamicTexture } from "@babylonjs/gui/2D";
+
 import { ExtractSurface, Chunk, sparseSamples } from "./Meshing";
 import { SdfBox, SdfSphere, SdfTorus } from "./signedDistanceFields";
 
@@ -13,7 +25,7 @@ const maxSparseSamples = 0;
 const xSample = 0;
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: it's an image    
-import grassTextureUrl from "../assets/grass.jpg";
+//import grassTextureUrl from "../assets/grass.jpg";
 
 class App {
     engine: Engine;
@@ -71,7 +83,7 @@ class App {
         // Load a texture to be used as the ground material
         const groundMaterial = new StandardMaterial("ground material", scene);
         groundMaterial.wireframe = true;
-        groundMaterial.diffuseTexture = new Texture(grassTextureUrl, scene);
+        //groundMaterial.diffuseTexture = new Texture(grassTextureUrl, scene);
     
         ground.material = groundMaterial;
 
@@ -294,3 +306,5 @@ const app = new App();
 app.setup().then(() => {
     // Begin
 });
+
+export {app};

@@ -1,4 +1,4 @@
-import { Vector2, Vector3 } from "@babylonjs/core";
+import { Vector2, Vector3 } from "@babylonjs/core/Maths";
 import { SignedDistanceField } from "./SignedDistanceField";
 import { Max2, Min2, MaxVec2, AbsVec2} from "./VectorMath";
 

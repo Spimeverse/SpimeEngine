@@ -1,6 +1,6 @@
 
 
-import { Vector3, Matrix,Quaternion } from "@babylonjs/core";
+import { Vector3, Matrix,Quaternion } from "@babylonjs/core/Maths";
 
 // see https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
 

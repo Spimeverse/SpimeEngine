@@ -1,4 +1,4 @@
-import { Vector3,Vector2 } from "@babylonjs/core";
+import { Vector3,Vector2 } from "@babylonjs/core/Maths";
 import { SignedDistanceField } from "./SignedDistanceField";
 
 // https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
