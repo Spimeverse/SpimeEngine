@@ -6,7 +6,7 @@
   "scripts": {
     "build": "esbuild src/app.ts --external:@babylonjs --tree-shaking=true --minify --target=esnext --format=esm --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
     "prof": "esbuild src/app.ts --servedir=public --serve=8000 --tree-shaking=true --target=esnext --format=iife --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
-    "dev": "esbuild src/app.ts --external:@babylonjs/* --servedir=public --serve=8000 --target=esnext --sourcemap --format=esm --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
+    "dev": "esbuild src/app.ts --servedir=public --serve=8000 --target=esnext --sourcemap --format=esm --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
     "test": "esbuild test/tests.ts --servedir=testRunner --serve=8001 --target=esnext --sourcemap --format=iife --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=testRunner/spec/tests.mjs",
     "extern": "node extern.js"
   },

@@ -4,7 +4,7 @@
 
 // import modules individually to help tree shaking
 import { Engine } from "@babylonjs/core/Engines/engine"
-import { Scene } from "@babylonjs/core/scene"
+import { Scene } from "@babylonjs/core"
 // import { TransformNode } from "@babylonjs/core/Meshes/transformNode"
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera"
 import { Vector3,Color4,Color3 } from "@babylonjs/core/Maths"
@@ -17,7 +17,7 @@ import { Mesh, VertexData, MeshBuilder } from "@babylonjs/core/Meshes"
 import { Rectangle, StackPanel, TextBlock, Slider, Container } from "@babylonjs/gui/2D/controls";
 import { AdvancedDynamicTexture } from "@babylonjs/gui/2D";
 
-import { ExtractSurface, Chunk, sparseSamples } from "./Meshing";
+import { ExtractSurface, Chunk } from "./Meshing";
 import { SdfBox, SdfSphere, SdfTorus } from "./signedDistanceFields";
 
 
@@ -32,7 +32,7 @@ class App {
     canvas: HTMLCanvasElement;
     advancedTexture: AdvancedDynamicTexture | undefined;
     mesh1Label: TextBlock | undefined;
-    panel1: { label: TextBlock; samplesSlider: Slider; timelabel: TextBlock; timeSlider: Slider; } | null;
+    panel1: { label: TextBlock; samplesSlider: Slider; timeLabel: TextBlock; timeSlider: Slider; } | null;
 
     constructor() {
         // create the canvas html element and attach it to the webpage
@@ -103,8 +103,6 @@ class App {
         boxMaterial2.diffuseColor = new Color3(1,1,0);
         boxMaterial2.wireframe = true;
         box2.material = boxMaterial2;
-        
-        this._createStatsGui();
 
         //const field = new SdfBox(1,1,1)
         //const field = new SdfTorus(1,0.5);
@@ -123,8 +121,8 @@ class App {
         //Create a custom mesh  
         const { customMesh, vertexData } = this._createCustomMesh(scene);
         const { customMesh : customMesh2, vertexData : vertexData2 } = this._createCustomMesh(scene);
+        const { customMesh : customMesh3, vertexData : vertexData3 } = this._createCustomMesh(scene);
 
-        const runningTotal: number[] = [];
         scene.onBeforeAnimationsObservable.add((theScene) => {
             const step = theScene.getStepId();
             //if (step % 50 == 0) 
@@ -136,79 +134,15 @@ class App {
                 field.position = new Vector3(2 + Math.sin(step / 4000 * Math.PI * 2) * 4 ,0,0);
                 //field.position = new Vector3(1.2,1,1);
 
-                const startTime = performance.now();
-                chunk1.sample(field);
-                let extracted = ExtractSurface(
-                    chunk1,
-                    vertexData.positions as number[],
-                    vertexData.indices as number[]);
-                let sparseTime = performance.now() - startTime;
-
-                const sparseSamples2 = sparseSamples;
-
-                if (extracted) {
-             
-                    //Calculations of normals added
-                    VertexData.ComputeNormals(vertexData.positions, vertexData.indices, normals);
-            
-                    vertexData.normals = normals;
-            
-                    //Apply vertexData to custom mesh
-                    vertexData.applyToMesh(customMesh,false);
-                }
-
-                chunk2.sample(field);
-                extracted = ExtractSurface(
-                    chunk2,
-                    vertexData2.positions as number[],
-                    vertexData2.indices as number[]);
-
-                if (extracted) {
-            
-                    //Calculations of normals added
-                    VertexData.ComputeNormals(vertexData2.positions, vertexData2.indices, normals);
-            
-                    vertexData2.normals = normals;
-            
-                    //Apply vertexData to custom mesh
-                    vertexData2.applyToMesh(customMesh2);
-                }
-
-                field.position = new Vector3(field.position.x,field.position.y,-1);
-
-                runningTotal[0] += sparseTime
-                if (step % 20 == 0) {
-                    sparseTime = runningTotal[0] / 20;
-
-                    runningTotal[0] = runningTotal[1] = runningTotal[2] = 0;
-
-                    if (this.panel1) {
-                    const panel = this.panel1;
-                    panel.label.text = 'Samples ' + sparseSamples2;
-                    panel.samplesSlider.value = sparseSamples2;
-                    panel.timelabel.text = 'Time ' + sparseTime.toFixed(3);
-                    panel.timeSlider.value = sparseTime;
-                    }
-                }
+                this._updateChunk(chunk1, field, vertexData, normals, customMesh);
+                this._updateChunk(chunk2, field, vertexData2, normals, customMesh2);
 
             }
         });
 
-        const voxelsMaterial = new StandardMaterial("voxelMaterial", scene);
-        voxelsMaterial.wireframe = true;
-        voxelsMaterial.diffuseColor = new Color3(0.5,1,1);
-        customMesh.material = voxelsMaterial;
-        //customMesh.enableEdgesRendering();
-        customMesh.edgesWidth = 4.0;
-        customMesh.edgesColor = new Color4(0, 0, 1, 1);
-
-        const voxelsMaterial2 = new StandardMaterial("voxelMaterial2", scene);
-        voxelsMaterial2.wireframe = true;
-        voxelsMaterial2.diffuseColor = new Color3(1,1,0.5);
-        customMesh2.material = voxelsMaterial2;
-        //customMesh.enableEdgesRendering();
-        customMesh.edgesWidth = 4.0;
-        customMesh.edgesColor = new Color4(0, 0, 1, 1);
+        this._setupVoxMaterial(scene, customMesh, new Color3(0,0,1));
+        this._setupVoxMaterial(scene, customMesh2, new Color3(1,0,0));
+        this._setupVoxMaterial(scene, customMesh3, new Color3(1,1,1));
 
         // hide/show the Inspector
         window.addEventListener("keydown", (ev) => {
@@ -226,6 +160,62 @@ class App {
         this.engine.runRenderLoop(() => {
             scene.render();
         });
+    }
+
+    private _updateChunk(chunk: Chunk, field: SdfSphere, vertexData: VertexData, normals: number[], customMesh: Mesh) {
+        chunk.sample(field)
+        const extracted = ExtractSurface(
+            chunk,
+            vertexData.positions as number[],
+            vertexData.indices as number[])
+
+        if (extracted) {
+
+            //Calculations of normals added
+            VertexData.ComputeNormals(vertexData.positions, vertexData.indices, normals)
+
+            vertexData.normals = normals
+
+            //Apply vertexData to custom mesh
+            vertexData.applyToMesh(customMesh, false)
+
+            customMesh.isVisible = true
+        }
+        else
+            customMesh.isVisible = true;
+    }
+
+    private _updateSeam(chunk: Chunk, field: SdfSphere, vertexData: VertexData, normals: number[], customMesh: Mesh) {
+        chunk.sample(field)
+        const extracted = ExtractSurface(
+            chunk,
+            vertexData.positions as number[],
+            vertexData.indices as number[])
+
+        if (extracted) {
+
+            //Calculations of normals added
+            VertexData.ComputeNormals(vertexData.positions, vertexData.indices, normals)
+
+            vertexData.normals = normals
+
+            //Apply vertexData to custom mesh
+            vertexData.applyToMesh(customMesh, false)
+
+            customMesh.isVisible = true
+        }
+        else
+            customMesh.isVisible = true;
+    }
+
+    private _setupVoxMaterial(scene: Scene, customMesh: Mesh, color: Color3): void {
+        const voxelMaterial = new StandardMaterial("voxelMaterial", scene)
+        voxelMaterial.wireframe = true
+        voxelMaterial.diffuseColor = color;
+        customMesh.material = voxelMaterial
+        //customMesh.enableEdgesRendering();
+        customMesh.edgesWidth = 4.0
+        customMesh.edgesColor = new Color4(color.r, color.g, color.b, 1);
     }
 
     private _createStatsGui() {
@@ -281,12 +271,12 @@ class App {
         samplesSlider.height = "20px";
         panel.addControl(samplesSlider);
 
-        const timelabel = new TextBlock();
-        timelabel.text = "processing time";
-        timelabel.fontSize = "14px";
-        timelabel.paddingTop = "2px";
-        timelabel.height = "18px";
-        panel.addControl(timelabel);
+        const timeLabel = new TextBlock();
+        timeLabel.text = "processing time";
+        timeLabel.fontSize = "14px";
+        timeLabel.paddingTop = "2px";
+        timeLabel.height = "18px";
+        panel.addControl(timeLabel);
         
         const timeSlider = new Slider();
         timeSlider.color = "Blue";
@@ -297,7 +287,7 @@ class App {
         timeSlider.height = "20px";
         panel.addControl(timeSlider);
 
-        return {label,samplesSlider,timelabel,timeSlider};
+        return {label,samplesSlider,timeLabel: timeLabel,timeSlider};
     }
 }
 

@@ -5,9 +5,12 @@
     "cSpell.words": [
         "ANTICLOCK",
         "babylonjs",
+        "BILLBOARDMODE",
+        "Mesher",
         "neighbour",
         "outfile",
         "verticies",
+        "voxel",
         "wireframe"
     ]
 }
