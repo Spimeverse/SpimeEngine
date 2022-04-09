@@ -1,2 +1,2 @@
 export * from "./Chunk"
-export * from "./SparseMesher"
+export * from "./Mesher"

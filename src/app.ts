@@ -17,7 +17,7 @@ import { Mesh, VertexData, MeshBuilder } from "@babylonjs/core/Meshes"
 import { Rectangle, StackPanel, TextBlock, Slider, Container } from "@babylonjs/gui/2D/controls";
 import { AdvancedDynamicTexture } from "@babylonjs/gui/2D";
 
-import { ExtractSurface, Chunk } from "./Meshing";
+import { ExtractSurface, ExtractSeam, Chunk } from "./Meshing";
 import { SdfBox, SdfSphere, SdfTorus } from "./signedDistanceFields";
 
 
@@ -136,6 +136,7 @@ class App {
 
                 this._updateChunk(chunk1, field, vertexData, normals, customMesh);
                 this._updateChunk(chunk2, field, vertexData2, normals, customMesh2);
+                this._updateSeam(chunk, chunk2, vertexData3, normals, customMesh3);
 
             }
         });
@@ -187,7 +188,7 @@ class App {
 
     private _updateSeam(chunk: Chunk, field: SdfSphere, vertexData: VertexData, normals: number[], customMesh: Mesh) {
         chunk.sample(field)
-        const extracted = ExtractSurface(
+        const extracted = ExtractSeam(
             chunk,
             vertexData.positions as number[],
             vertexData.indices as number[])
