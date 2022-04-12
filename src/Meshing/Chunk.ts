@@ -6,6 +6,16 @@ const sqrt3 = Math.sqrt(3);
 const cellCenter = new Vector3();
 const samplePoint = new Vector3();
 let sparseSamples = 0;
+const CUBE_CORNER_OFFSETS: Vector3[] = [
+    new Vector3(0.0, 0.0, 0.0), // 0
+    new Vector3(1.0, 0.0, 0.0), // 1
+    new Vector3(0.0, 1.0, 0.0), // 2
+    new Vector3(1.0, 1.0, 0.0), // 3
+    new Vector3(0.0, 0.0, 1.0), // 4
+    new Vector3(1.0, 0.0, 1.0), // 5
+    new Vector3(0.0, 1.0, 1.0), // 6
+    new Vector3(1.0, 1.0, 1.0), // 7
+];
 
 /**
  * Make working with a 1 dimensional array work like a 3d array
@@ -14,23 +24,19 @@ let sparseSamples = 0;
  */
 class Chunk {
     size = 0;
-    cells = 0;
+    subdivisions = 0;
     points = 0;
-    xStep = 1;
-    yStep = 0;
-    zStep = 0;
+    pointsSquared = 0;
+    pointsCubed = 0;
     numSamples = 0;
+    maxSamples = 40_000
     xOrigin = 0;
     yOrigin = 0;
     zOrigin = 0;
     stepSize = 0;
-    indexMask = 0;
-    indexShift = 0;
-    indexShiftTimes2 = 0;
     neighbourXScale = 0;
     neighbourYScale = 0;
     neighbourZScale = 0;
-    cornerOffset = new Int16Array(8);
 
     markedSamples: Int16Array;
     cellToVertexIndex: Int16Array;
@@ -40,18 +46,21 @@ class Chunk {
     fieldSamples: Float32Array;
     activeCells = 0;
 
-    constructor (size: number, points: number) {
+    constructor () {
+        this.numSamples = 40_000;
+        this.maxSamples = this.numSamples;
+        this.markedSamples = new Int16Array(this.numSamples);
+        this.fieldSamples = new Float32Array(this.numSamples);
+        this.cellToVertexIndex = new Int16Array(this.numSamples);
+        this.vertexToCellIndex = new Int16Array(this.numSamples);
+    }
 
-        if ((points & (points - 1)) != 0) // https://stackoverflow.com/questions/600293/how-to-check-if-a-number-is-a-power-of-2
-            throw "points must be a power of two"
-        this.size = size;
-        this.cells = points - 1;
-        this.points = points;
+    setSize(size: number, subdivisions: number) {
+        if ((subdivisions & (subdivisions - 1)) != 0) // https://stackoverflow.com/questions/600293/how-to-check-if-a-number-is-a-power-of-2
+            throw "subdivisions must be a power of two";
         // one more point needed than each cell
-        // therefore cells = points -1
         // e.g. 4 point, = 3 cells
         // points marked 'x' and cells marked 'c'
-        // 
         //  X   X   X   X
         //    c   c   c 
         //  X   X   X   X
@@ -60,14 +69,16 @@ class Chunk {
         //    c   c   c
         //  X   X   X   X
         //
-        this._calc();
-        this._calcCornerOffsets();
-
-        this.markedSamples = new Int16Array(this.numSamples);
-        this.fieldSamples = new Float32Array(this.numSamples);
-        this.cellToVertexIndex = new Int16Array(this.numSamples);
-        this.vertexToCellIndex = new Int16Array(this.numSamples);
-    }
+        // one more cell needed to cover overlap with next chunk
+        // so points = subdivisions + 2;
+        this.points = subdivisions + 2;
+        this.size = size;
+        this.numSamples = this.points * this.points * this.points;
+        this.pointsSquared = this.points * this.points;
+        this.pointsCubed = this.numSamples;
+        this.stepSize = this.size / subdivisions;
+        this.subdivisions = subdivisions;
+      }
 
     setOrigin(xOrigin: number, yOrigin: number, zOrigin: number) {
         this.xOrigin = xOrigin;
@@ -75,54 +86,29 @@ class Chunk {
         this.zOrigin = zOrigin;
     }
 
-    private _calc() {
-        this.numSamples = this.points * this.points * this.points;
-        this.yStep = this.points;
-        this.zStep = this.points * this.points;
-        this.stepSize = this.size / this.cells;
-        this.indexShift = 0;
-        this.indexMask = 0;
-        for (let i = this.points; i > 1; i >>= 1) {
-            this.indexShift++;
-            this.indexMask = this.indexMask << 1 | 1;
-        }
-        this.indexShiftTimes2 = this.indexShift * 2;
+    cellIndexToCellPosition(cellIndex: number, cellPosition: Vector3) {
+        let index = cellIndex;
+        cellPosition.x = cellIndex % this.points;
+        index -= cellPosition.x;
+        cellPosition.y = (index % this.pointsSquared) / this.points;
+        index -= cellPosition.y * this.points;
+        cellPosition.z = index / this.pointsSquared;
     }
-
-    private _calcCornerOffsets(): void {
-        let cornerNum = 0;
-        for (let z = 0; z <= 1; z++) {
-            for (let y = 0; y <= 1; y++) {
-                for (let x = 0; x <= 1; x++) {
-                    this.cornerOffset[cornerNum] = this.cellIndex(x,y,z);
-                    cornerNum++;
-                }
-            }
-        }
+    
+    indexToWorldSpace(index: number, samplePoint: Vector3) {
+        this.cellIndexToCellPosition(index,cellPosition);
+        this.cellSpaceToWorldSpace(cellPosition.x, cellPosition.y, cellPosition.z, samplePoint);
     }
 
     // get the index of array at this coordinate
     cellIndex(x: number, y: number, z: number): number {
-        return x + (y * this.yStep) + (z * this.zStep);
+        return x + (y * this.points) + (z * this.pointsSquared);
     }
     
     cellSpaceToWorldSpace(i: number, j: number, k: number, samplePoint: Vector3) {
         samplePoint.x = this.xOrigin + (i * this.stepSize);
         samplePoint.y = this.yOrigin + (j * this.stepSize);
         samplePoint.z = this.zOrigin + (k * this.stepSize);
-    }
-
-    cellIndexToCellPosition(cellIndex: number, cellPosition: Vector3) {
-        cellPosition.set(
-            cellIndex & this.indexMask,
-            (cellIndex >> this.indexShift) & this.indexMask,
-            (cellIndex >> this.indexShiftTimes2) & this.indexMask
-        )
-    }
-
-    indexToWorldSpace(index: number, samplePoint: Vector3) {
-        this.cellIndexToCellPosition(index,cellPosition);
-        this.cellSpaceToWorldSpace(cellPosition.x, cellPosition.y, cellPosition.z, samplePoint);
     }
 
     getCenter(point: Vector3) {
@@ -145,64 +131,68 @@ class Chunk {
             this.markedSamples.fill(0)
         }
         this.field = _field;
-        this._subDivideCell(0,0,0,this.points);
+        this._sampleCells();
         return this.activeCells > 0;
     }
 
-    private _subDivideCell(cellX: number, cellY: number, cellZ: number, stride: number) {
-        if (stride > 1) {
-            // see if any of the surface is in this cell, by checking the distance to the surface from the center
-            const halfStride = stride >> 1;
-            this.cellSpaceToWorldSpace(cellX + halfStride, cellY + halfStride, cellZ + halfStride, cellCenter);
-            const centerDist = this.field.sample(cellCenter);
-            // the maximum distance a field can be for the cell center
-            // and still intersect is half the cell size * sqrt3
-            // because the hypotenuse is sqrt(x*x+y*y+z*z)
-            // we can work this for x=y=z=1 ie sqrt(3)
-            // then just do halfCell*sqrt(3)
-            const cellRadius = this.stepSize * halfStride;
-            if (Math.abs(centerDist) > cellRadius * sqrt3)
-                return; // the surface is further away than the cell size, quit
-            else
-            {
-                // record this distance, the sub cells can reuse it to skip a sample
-                const centerIndex = this.cellIndex(cellX + halfStride,cellY + halfStride, cellZ + halfStride);
-                this.fieldSamples[centerIndex] = centerDist;
-                sparseSamples++;
-                // mark location as calculated to avoid sampling it again
-                this.markedSamples[centerIndex] = this.sampleMarker;
-
-                this._subDivideCell(cellX,                cellY,                  cellZ, halfStride);
-                this._subDivideCell(cellX + halfStride,   cellY,                  cellZ, halfStride);
-                this._subDivideCell(cellX,                cellY + halfStride,     cellZ, halfStride);
-                this._subDivideCell(cellX + halfStride,   cellY + halfStride,     cellZ, halfStride);
-                this._subDivideCell(cellX,                cellY,                  cellZ + halfStride, halfStride);
-                this._subDivideCell(cellX + halfStride,   cellY,                  cellZ + halfStride, halfStride);
-                this._subDivideCell(cellX,                cellY + halfStride,     cellZ + halfStride, halfStride);
-                this._subDivideCell(cellX + halfStride,   cellY + halfStride,     cellZ + halfStride, halfStride);
+    private _sampleCells() {
+        const halfSize = (this.size + this.stepSize) / 2;
+        cellCenter.set(this.xOrigin + halfSize, this.yOrigin + halfSize,this.zOrigin + halfSize)
+        const centerDist = this.field.sample(cellCenter);
+        // the maximum distance a field can be for the cell center
+        // and still intersect is half the cell size * sqrt3
+        // because the hypotenuse is sqrt(x*x+y*y+z*z)
+        // we can work this for x=y=z=1 ie sqrt(3)
+        // then just do halfCell*sqrt(3)
+        if (Math.abs(centerDist) > halfSize * sqrt3)
+            return; // the surface is further away than the cell size, quit
+        sparseSamples = 0;
+        const threshold = this.stepSize * 2.5;
+        for (let cellX = 0; cellX <= this.subdivisions; cellX++) {
+            for (let cellY = 0; cellY <= this.subdivisions; cellY++) {
+                let surfaceDist = 0;
+                for (let cellZ = 0; cellZ <= this.subdivisions; cellZ++) {
+                    if (surfaceDist < threshold)
+                    {
+                        const centerIndex = this.cellIndex(cellX,cellY, cellZ);
+                        if (this.markedSamples[centerIndex] == this.sampleMarker) {
+                            surfaceDist = this.fieldSamples[centerIndex];
+                        }
+                        else
+                        {
+                            this.cellSpaceToWorldSpace(cellX, cellY, cellZ, cellCenter);
+                            surfaceDist = this.field.sample(cellCenter);
+                            this.fieldSamples[centerIndex] = surfaceDist;
+                            // mark location as calculated to avoid sampling it again
+                            this.markedSamples[centerIndex] = this.sampleMarker;
+                            sparseSamples++;
+                        }
+                        surfaceDist = Math.abs(surfaceDist);
+                        if (surfaceDist < threshold)
+                            this._extractCell(cellX,cellY,cellZ);
+                    }
+                    else
+                        surfaceDist -= this.stepSize;
+                }
             }
-        }
-        else
-        {
-            this._extractCell(cellX,cellY,cellZ);
         }
     }
 
-    private _extractCell(cellX: number, cellY: number, cellZ: number) {
+
+    private _extractCell(cellX: number, cellY: number, cellZ: number): boolean {
         const cellIndex = this.cellIndex(cellX, cellY, cellZ);
         const {field, sampleMarker, markedSamples,numSamples: samples} = this;
-        if (cellX > this.cells - 1 || cellY > this.cells - 1 || cellZ > this.cells - 1)
-            return 0;
         let negPoints = 0;
         for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
-            const cornerIndex = cellIndex + this.cornerOffset[cornerNum];
+            GetCellCornerPosition(cornerNum, cellX, cellY, cellZ, cellPosition);
+            const cornerIndex = this.cellIndex(cellPosition.x,cellPosition.y, cellPosition.z);
             let dist;
             // see if the sample is marked as calculated.
             if (markedSamples[cornerIndex] == sampleMarker) {
                 dist = this.fieldSamples[cornerIndex];
             } else {
                 // not calculated, sample the field
-                this.indexToWorldSpace(cornerIndex,samplePoint);
+                this.cellSpaceToWorldSpace(cellPosition.x, cellPosition.y, cellPosition.z,samplePoint);
                 dist = field.sample(samplePoint);
                 this.fieldSamples[cornerIndex] = dist;
                 sparseSamples++;
@@ -213,14 +203,55 @@ class Chunk {
                 negPoints++;
         }
         if (negPoints == 0 || negPoints == 8)
-            return 0;
+            return false;
 
         this.cellToVertexIndex[cellIndex] = this.activeCells;
         // we'll need to find neighboring cells of this point to connect them up
         // so record the cell index that the point was created for
         this.vertexToCellIndex[this.activeCells] = cellIndex;
         this.activeCells++;
+        return true;
+    }
+
+    static seamRange(chunk1: Chunk, chunk2: Chunk, range: Float32Array) {
+        Chunk._rangeOverlap(
+            chunk1.xOrigin, chunk1.xOrigin + chunk1.size,
+            chunk2.xOrigin, chunk2.xOrigin + chunk2.size, 
+            range, 0);       
+        Chunk._rangeOverlap(
+            chunk1.yOrigin, chunk1.yOrigin + chunk1.size,
+            chunk2.yOrigin, chunk2.yOrigin + chunk2.size, 
+            range, 2);       
+        Chunk._rangeOverlap(
+            chunk1.zOrigin, chunk1.zOrigin + chunk1.size,
+            chunk2.zOrigin, chunk2.zOrigin + chunk2.size, 
+            range, 4);       
+    }
+
+    private static _rangeOverlap(
+        start1: number,end1: number,
+        start2: number,end2: number,
+        range: Float32Array ,offset: number) 
+    {
+        const start = Math.max(start1, start2);
+        const end = Math.min(end1, end2);
+        if (end >= start) {
+            range[offset] = start;
+            range[offset + 1] = end;
+        }
+        else
+        {
+            range[offset] = end;
+            range[offset + 1] = start;
+        }
     }
 }
 
-export {Chunk, sparseSamples}
+function GetCellCornerPosition(cornerNum: number, cellX: number, cellY: number, cellZ: number, cellPosition: Vector3) {
+    cellPosition.set(
+        cellX + CUBE_CORNER_OFFSETS[cornerNum].x, 
+        cellY + CUBE_CORNER_OFFSETS[cornerNum].y, 
+        cellZ + CUBE_CORNER_OFFSETS[cornerNum].z);
+}   
+
+export {Chunk, CUBE_CORNER_OFFSETS, GetCellCornerPosition, sparseSamples}

@@ -2,7 +2,7 @@
 // https://github.com/bonsairobo/fast-surface-nets-rs/blob/main/src/lib.rs
 
 
-import { Chunk } from ".";
+import { Chunk, GetCellCornerPosition, CUBE_CORNER_OFFSETS } from ".";
 import { Vector3 } from "@babylonjs/core/Maths";
 
 const pos1 = new Vector3();
@@ -12,7 +12,7 @@ const pos4 = new Vector3();
 const cellCenter = new Vector3();
 const samplePoint = new Vector3();
 const cellPosition = new Vector3();
-let cornerOffset: Int16Array;
+const cornerPosition = new Vector3();
 const cornerDist: Float32Array = new Float32Array(8);
 
 let cellToVertexIndex: Int16Array;
@@ -60,17 +60,6 @@ const CUBE_EDGES = [
     [5, 7, 0, 0],
     [6, 7, 0, 0],
 ];
-const CUBE_CORNER_VECTORS: Vector3[] = [
-    new Vector3(0.0, 0.0, 0.0), // 0
-    new Vector3(1.0, 0.0, 0.0), // 1
-    new Vector3(0.0, 1.0, 0.0), // 2
-    new Vector3(1.0, 1.0, 0.0), // 3
-    new Vector3(0.0, 0.0, 1.0), // 4
-    new Vector3(1.0, 0.0, 1.0), // 5
-    new Vector3(0.0, 1.0, 1.0), // 6
-    new Vector3(1.0, 1.0, 1.0), // 7
-];
-
 
 let verticies: number[];
 let faces: number[];
@@ -79,6 +68,10 @@ let activeCells = 0;
 let fieldSamples: Float32Array;
 let cells = 0;
 
+const seamRange = new Float32Array(6);
+let chunk2: Chunk;
+
+
 function ExtractSurface (_chunk: Chunk,
     _verticies: number[], _faces: number[]): boolean {
 
@@ -86,7 +79,7 @@ function ExtractSurface (_chunk: Chunk,
     verticies = _verticies;
     faces = _faces;
 
-    ({ activeCells, vertexToCellIndex, cellToVertexIndex, fieldSamples, cornerOffset, cells } = chunk);
+    ({ activeCells, vertexToCellIndex, cellToVertexIndex, fieldSamples, cells } = chunk);
 
     verticies.length = 0;
     faces.length = 0;
@@ -99,14 +92,16 @@ function RestrictFacesTo(connectedEdges: number, face1: number, face2: number): 
     return connectedEdges & (face1 | face2 | CONNECTED_CELL);
 }
 
-function ExtractVertex(cellPosition: Vector3, sampleIndex: number) {
+function ExtractVertex(cellPosition: Vector3) {
     if (cellPosition.x > cells - 1 || 
         cellPosition.y > cells - 1 || 
         cellPosition.z > cells - 1)
         return 0;
     let negDistance = 0;
     for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
-        const cornerIndex = sampleIndex + cornerOffset[cornerNum];
+        GetCellCornerPosition(cornerNum,cellPosition.x,cellPosition.y,cellPosition.z,cornerPosition);
+        const cornerIndex = chunk.cellIndex(cornerPosition.x,cornerPosition.y, cornerPosition.z);
+        
         cornerDist[cornerNum] = fieldSamples[cornerIndex];
         if (cornerDist[cornerNum] < 0)
             negDistance++;
@@ -130,12 +125,7 @@ function ExtractAllFaces() {
         // calculate vertex for this cell
         const cellIndex = vertexToCellIndex[vertexNum];
         chunk.cellIndexToCellPosition(cellIndex,cellPosition);
-        let connectEdges = ExtractVertex(cellPosition,cellIndex);
-
-        let cellIndex0 = 0;
-        let cellIndex1 = 0;
-        let cellIndex2 = 0;
-        let cellIndex3 = 0;
+        let connectEdges = ExtractVertex(cellPosition);
 
         if (cellPosition.x == 0)
             connectEdges = RestrictFacesTo(connectEdges, YZ_FACE_CLOCKWISE, YZ_FACE_ANTICLOCK);
@@ -146,59 +136,59 @@ function ExtractAllFaces() {
 
         if (connectEdges & XZ_FACE_CLOCKWISE)
         {
-            cellIndex0 = vertexToCellIndex[vertexNum];
-            cellIndex1 = cellIndex0 - chunk.zStep;
-            cellIndex2 = cellIndex0 - chunk.zStep - chunk.xStep;
-            cellIndex3 = cellIndex0 - chunk.xStep;
-            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3);
+            ExtractFaces(cellPosition,[
+                [0,0,0],[0,0,-1],[-1,0,-1],
+                [-1,0,-1],[-1,0,0],[0,0,0]]);
         }
         if (connectEdges & XZ_FACE_ANTICLOCK)
         {
-            cellIndex0 = vertexToCellIndex[vertexNum];
-            cellIndex1 = cellIndex0 - chunk.xStep;
-            cellIndex2 = cellIndex0 - chunk.zStep - chunk.xStep;
-            cellIndex3 = cellIndex0 - chunk.zStep;
-            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3);
+            ExtractFaces(cellPosition,[
+                [0,0,0],[-1,0,0],[-1,0,-1],
+                [-1,0,-1],[0,0,-1],[0,0,0]]);
         }
 
         if (connectEdges & XY_FACE_CLOCKWISE)
         {
-            cellIndex0 = vertexToCellIndex[vertexNum];
-            cellIndex1 = cellIndex0 - chunk.xStep;
-            cellIndex2 = cellIndex0 - chunk.yStep - chunk.xStep;
-            cellIndex3 = cellIndex0 - chunk.yStep;
-            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3);
+            ExtractFaces(cellPosition,[
+                [0,0,0],[-1,0,0],[-1,-1,0],
+                [-1,-1,0],[0,-1,0],[0,0,0]]);
         }
         if (connectEdges & XY_FACE_ANTICLOCK)
         {
-            cellIndex0 = vertexToCellIndex[vertexNum];
-            cellIndex1 = cellIndex0 - chunk.yStep;
-            cellIndex2 = cellIndex0 - chunk.yStep - chunk.xStep;
-            cellIndex3 = cellIndex0 - chunk.xStep;
-            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3);
+            ExtractFaces(cellPosition,[
+                [0,0,0],[0,-1,0],[-1,-1,0],
+                [-1,-1,0],[-1,0,0],[0,0,0]]);
         }
 
         if (connectEdges & YZ_FACE_CLOCKWISE)
         {
-            cellIndex0 = vertexToCellIndex[vertexNum];
-            cellIndex1 = cellIndex0 - chunk.yStep;
-            cellIndex2 = cellIndex0 - chunk.zStep - chunk.yStep;
-            cellIndex3 = cellIndex0 - chunk.zStep;
-            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3);
+            ExtractFaces(cellPosition,[
+                [0,0,0],[0,-1,0],[0,-1,-1],
+                [0,-1,-1],[0,0,-1],[0,0,0]]);
         }
         if (connectEdges & YZ_FACE_ANTICLOCK)
         {
-            cellIndex0 = vertexToCellIndex[vertexNum];
-            cellIndex1 = cellIndex0 - chunk.zStep;
-            cellIndex2 = cellIndex0 - chunk.zStep - chunk.yStep;
-            cellIndex3 = cellIndex0 - chunk.yStep;
-            ExtractFaces(cellIndex0,cellIndex1,cellIndex2,cellIndex3);
+            ExtractFaces(cellPosition,[
+                [0,0,0],[0,0,-1],[0,-1,-1],
+                [0,-1,-1],[0,-1,0],[0,0,0]]);
         }
-
     }
 }
 
-function ExtractFaces(cellIndex0: number, cellIndex1: number, cellIndex2: number, cellIndex3: number) {
+function ExtractFaces(cellPosition: Vector3,offsets: number[][]) {
+    for (let offsetNum = 0; offsetNum < offsets.length; offsetNum++) {
+        const x = cellPosition.x + offsets[offsetNum][0];
+        const y = cellPosition.y + offsets[offsetNum][1];
+        const z = cellPosition.z + offsets[offsetNum][2];
+        const index = chunk.cellIndex(x,y,z);
+        const vert = cellToVertexIndex[index];
+        const marked = chunk.markedSamples[index] == chunk.sampleMarker;
+       faces.push(vert);
+    }
+   
+}
+
+function ExtractFacesOld(cellIndex0: number, cellIndex1: number, cellIndex2: number, cellIndex3: number) {
     const v1 = cellToVertexIndex[cellIndex0];
     const v2 = cellToVertexIndex[cellIndex1];
     const v3 = cellToVertexIndex[cellIndex2];
@@ -246,8 +236,8 @@ function CalcCellSurfacePoint(): number {
             edgeCount++;
             const distDiff = dist0 / (dist0 - dist1);
             const inverseDiff = 1 - distDiff;
-            const corner0 = CUBE_CORNER_VECTORS[edgeDetails[0]];
-            const corner1 = CUBE_CORNER_VECTORS[edgeDetails[1]];
+            const corner0 = CUBE_CORNER_OFFSETS[edgeDetails[0]];
+            const corner1 = CUBE_CORNER_OFFSETS[edgeDetails[1]];
             cellCenter.x += (corner1.x * distDiff) + (corner0.x * inverseDiff);
             cellCenter.y += (corner1.y * distDiff) + (corner0.y * inverseDiff);
             cellCenter.z += (corner1.z * distDiff) + (corner0.z * inverseDiff);

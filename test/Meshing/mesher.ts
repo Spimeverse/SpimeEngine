@@ -10,7 +10,9 @@ export function TestMesher()
 
     it('creates a cube mesh', () => {
         const field = new SdfBox(4.5,4.5,4.5)
-        const chunk = new Chunk(24,8);
+        debugger;
+        const chunk = new Chunk();
+        chunk.setSize(24,8);
         chunk.setOrigin(-12,-12,-12);
         chunk.sample(field);
         const meshVerticies: number[] = [];

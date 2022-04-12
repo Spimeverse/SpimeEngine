@@ -17,7 +17,7 @@ import { Mesh, VertexData, MeshBuilder } from "@babylonjs/core/Meshes"
 import { Rectangle, StackPanel, TextBlock, Slider, Container } from "@babylonjs/gui/2D/controls";
 import { AdvancedDynamicTexture } from "@babylonjs/gui/2D";
 
-import { ExtractSurface, ExtractSeam, Chunk } from "./Meshing";
+import { ExtractSurface, ExtractSeam, Chunk, sparseSamples } from "./Meshing";
 import { SdfBox, SdfSphere, SdfTorus } from "./signedDistanceFields";
 
 
@@ -26,6 +26,8 @@ const xSample = 0;
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: it's an image    
 //import grassTextureUrl from "../assets/grass.jpg";
+
+let objectPos = 3375;
 
 class App {
     engine: Engine;
@@ -72,6 +74,7 @@ class App {
         // Default intensity is 1. Let's dim the light a small amount
         light.intensity = 1;
 
+        const gui = this._createStatsGui();
     
         // Our built-in 'ground' shape.
         const ground = GroundBuilder.CreateGround(
@@ -112,10 +115,12 @@ class App {
         field.position.set(0,1,0);
 
 
-        const chunk1 = new Chunk(4,16);
+        const chunk1 = new Chunk();
+        chunk1.setSize(4,8);
         chunk1.setOrigin(-2,-2,-2);
 
-        const chunk2 = new Chunk(4,8);
+        const chunk2 = new Chunk();
+        chunk2.setSize(4,8);
         chunk2.setOrigin(2,-2,-2);
 
         //Create a custom mesh  
@@ -131,12 +136,13 @@ class App {
                 //Empty array to contain calculated values or normals added
                 const normals = new Array<number>();
 
-                field.position = new Vector3(2 + Math.sin(step / 4000 * Math.PI * 2) * 4 ,0,0);
-                //field.position = new Vector3(1.2,1,1);
+                field.position = new Vector3(2 + Math.sin(step / 4000 * Math.PI * 2) * 6 ,0,0);
+                //field.position = new Vector3(2 + objectPos / 2000,0,0);
+                //field.position = new Vector3(1.2,0,0);
 
                 this._updateChunk(chunk1, field, vertexData, normals, customMesh);
+                gui.label.text = `Samples ${sparseSamples}`;
                 this._updateChunk(chunk2, field, vertexData2, normals, customMesh2);
-                this._updateSeam(chunk, chunk2, vertexData3, normals, customMesh3);
 
             }
         });
@@ -186,52 +192,52 @@ class App {
             customMesh.isVisible = true;
     }
 
-    private _updateSeam(chunk: Chunk, field: SdfSphere, vertexData: VertexData, normals: number[], customMesh: Mesh) {
-        chunk.sample(field)
-        const extracted = ExtractSeam(
-            chunk,
-            vertexData.positions as number[],
-            vertexData.indices as number[])
+    // private _updateSeam(chunk: Chunk, field: SdfSphere, vertexData: VertexData, normals: number[], customMesh: Mesh) {
+    //     chunk.sample(field)
+    //     const extracted = ExtractSeam(
+    //         chunk,
+    //         vertexData.positions as number[],
+    //         vertexData.indices as number[])
 
-        if (extracted) {
+    //     if (extracted) {
 
-            //Calculations of normals added
-            VertexData.ComputeNormals(vertexData.positions, vertexData.indices, normals)
+    //         //Calculations of normals added
+    //         VertexData.ComputeNormals(vertexData.positions, vertexData.indices, normals)
 
-            vertexData.normals = normals
+    //         vertexData.normals = normals
 
-            //Apply vertexData to custom mesh
-            vertexData.applyToMesh(customMesh, false)
+    //         //Apply vertexData to custom mesh
+    //         vertexData.applyToMesh(customMesh, false)
 
-            customMesh.isVisible = true
-        }
-        else
-            customMesh.isVisible = true;
-    }
+    //         customMesh.isVisible = true
+    //     }
+    //     else
+    //         customMesh.isVisible = true;
+    // }
 
     private _setupVoxMaterial(scene: Scene, customMesh: Mesh, color: Color3): void {
         const voxelMaterial = new StandardMaterial("voxelMaterial", scene)
-        voxelMaterial.wireframe = true
+        voxelMaterial.wireframe = true;
         voxelMaterial.diffuseColor = color;
         customMesh.material = voxelMaterial
-        //customMesh.enableEdgesRendering();
+        customMesh.enableEdgesRendering();
         customMesh.edgesWidth = 4.0
-        customMesh.edgesColor = new Color4(color.r, color.g, color.b, 1);
+        customMesh.edgesColor = new Color4(color.r / 2, color.g / 2, color.b / 2, 1);
     }
 
     private _createStatsGui() {
         // GUI
         const plane = MeshBuilder.CreatePlane("plane", {size:10});
-        plane.position.y = 2;
+        plane.position.y = 3;
         plane.billboardMode = Mesh.BILLBOARDMODE_Y;
 
-        this.advancedTexture = AdvancedDynamicTexture.CreateForMesh(plane)
+        this.advancedTexture = AdvancedDynamicTexture.CreateForMesh(plane);
 
         const guiPanel = new StackPanel();
         guiPanel.isVertical = false;
         this.advancedTexture.addControl(guiPanel);
 
-        this.panel1 = this._createGuiRect(guiPanel);
+        return this._createGuiRect(guiPanel);
     }
 
     private _createCustomMesh(scene: Scene) {
@@ -245,7 +251,7 @@ class App {
 
     private _createGuiRect(parent: Container) {
         const guiContainer = new Rectangle();
-        guiContainer.width = "120px";
+        guiContainer.width = "200px";
         guiContainer.height = "80px";
         guiContainer.cornerRadius = 10;
         guiContainer.color = "Grey";
@@ -257,38 +263,32 @@ class App {
         guiContainer.addControl(panel);
 
         const label = new TextBlock();
-        label.text = "";
+        label.text = `Samples`;
         label.fontSize = "14px";
         label.paddingTop = "4px";
         label.height = "20px";
         panel.addControl(label);
 
-        const samplesSlider = new Slider();
-        samplesSlider.color = "Orange";
-        samplesSlider.displayThumb = false;
-        samplesSlider.minimum = 0;
-        samplesSlider.maximum = 4100;
-        samplesSlider.value = 0;
-        samplesSlider.height = "20px";
-        panel.addControl(samplesSlider);
+        const positionLabel = new TextBlock();
+        positionLabel.text = `Position ${objectPos}`;
+        positionLabel.fontSize = "14px";
+        positionLabel.paddingTop = "4px";
+        positionLabel.height = "20px";
+        panel.addControl(positionLabel);
 
-        const timeLabel = new TextBlock();
-        timeLabel.text = "processing time";
-        timeLabel.fontSize = "14px";
-        timeLabel.paddingTop = "2px";
-        timeLabel.height = "18px";
-        panel.addControl(timeLabel);
-        
-        const timeSlider = new Slider();
-        timeSlider.color = "Blue";
-        timeSlider.displayThumb = false;
-        timeSlider.minimum = 0;
-        timeSlider.maximum = 1.2;
-        timeSlider.value = 0;
-        timeSlider.height = "20px";
-        panel.addControl(timeSlider);
+        const slider = new Slider();
+        slider.color = "Orange";
+        slider.minimum = 0;
+        slider.maximum = 5000;
+        slider.value = objectPos;
+        slider.height = "20px";
+        slider.onValueChangedObservable.add((value: number) => {
+            objectPos = value;
+            label.text = `Position ${value}`;
+        });
+        panel.addControl(slider);
 
-        return {label,samplesSlider,timeLabel: timeLabel,timeSlider};
+        return {label,samplesSlider: slider};
     }
 }
 
