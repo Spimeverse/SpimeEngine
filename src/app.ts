@@ -1,5 +1,5 @@
 //import "@babylonjs/core/Debug/debugLayer";
-//import "@babylonjs/inspector";
+import "@babylonjs/inspector";
 //import "@babylonjs/loaders/glTF";
 
 // import modules individually to help tree shaking
@@ -68,13 +68,14 @@ class App {
     
         // This attaches the camera to the canvas
         camera.attachControl(this.canvas, true);    
+
         // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
         const light = new HemisphericLight("light", new Vector3(0, 0, 0), scene);
     
         // Default intensity is 1. Let's dim the light a small amount
         light.intensity = 1;
 
-        const gui = this._createStatsGui();
+        const gui = this._createStatsGui(camera);
     
         // Our built-in 'ground' shape.
         const ground = GroundBuilder.CreateGround(
@@ -136,12 +137,13 @@ class App {
                 //Empty array to contain calculated values or normals added
                 const normals = new Array<number>();
 
-                field.position = new Vector3(2 + Math.sin(step / 4000 * Math.PI * 2) * 6 ,0,0);
-                //field.position = new Vector3(2 + objectPos / 2000,0,0);
+                //field.position = new Vector3(2 + Math.sin(step / 4000 * Math.PI * 2) * 6 ,0,0);
+                field.position = new Vector3(objectPos / 1000,0,0);
                 //field.position = new Vector3(1.2,0,0);
 
                 this._updateChunk(chunk1, field, vertexData, normals, customMesh);
-                gui.label.text = `Samples ${sparseSamples}`;
+                gui.positionLabel.text = `Position ${field.position.x.toFixed(3)}`;
+                gui.samplesLabel.text = `Samples ${sparseSamples}`;
                 this._updateChunk(chunk2, field, vertexData2, normals, customMesh2);
 
             }
@@ -189,7 +191,7 @@ class App {
             customMesh.isVisible = true
         }
         else
-            customMesh.isVisible = true;
+            customMesh.isVisible = false;
     }
 
     // private _updateSeam(chunk: Chunk, field: SdfSphere, vertexData: VertexData, normals: number[], customMesh: Mesh) {
@@ -225,7 +227,7 @@ class App {
         customMesh.edgesColor = new Color4(color.r / 2, color.g / 2, color.b / 2, 1);
     }
 
-    private _createStatsGui() {
+    private _createStatsGui(camera: ArcRotateCamera) {
         // GUI
         const plane = MeshBuilder.CreatePlane("plane", {size:10});
         plane.position.y = 3;
@@ -236,6 +238,14 @@ class App {
         const guiPanel = new StackPanel();
         guiPanel.isVertical = false;
         this.advancedTexture.addControl(guiPanel);
+
+        guiPanel.onPointerEnterObservable.add((x) => {
+            camera.detachControl();
+        });
+
+        guiPanel.onPointerOutObservable.add((x) => {
+            camera.attachControl(this.canvas, true);
+        });
 
         return this._createGuiRect(guiPanel);
     }
@@ -262,12 +272,12 @@ class App {
         const panel = new StackPanel();
         guiContainer.addControl(panel);
 
-        const label = new TextBlock();
-        label.text = `Samples`;
-        label.fontSize = "14px";
-        label.paddingTop = "4px";
-        label.height = "20px";
-        panel.addControl(label);
+        const samplesLabel = new TextBlock();
+        samplesLabel.text = `Samples`;
+        samplesLabel.fontSize = "14px";
+        samplesLabel.paddingTop = "4px";
+        samplesLabel.height = "20px";
+        panel.addControl(samplesLabel);
 
         const positionLabel = new TextBlock();
         positionLabel.text = `Position ${objectPos}`;
@@ -278,17 +288,17 @@ class App {
 
         const slider = new Slider();
         slider.color = "Orange";
-        slider.minimum = 0;
-        slider.maximum = 5000;
+        slider.minimum = -1000;
+        slider.maximum = 8000;
         slider.value = objectPos;
         slider.height = "20px";
         slider.onValueChangedObservable.add((value: number) => {
             objectPos = value;
-            label.text = `Position ${value}`;
+            samplesLabel.text = `Position ${value}`;
         });
         panel.addControl(slider);
 
-        return {label,samplesSlider: slider};
+        return {samplesLabel,positionLabel};
     }
 }
 
