@@ -17,8 +17,8 @@ import { Mesh, VertexData, MeshBuilder } from "@babylonjs/core/Meshes"
 import { Rectangle, StackPanel, TextBlock, Slider, Container } from "@babylonjs/gui/2D/controls";
 import { AdvancedDynamicTexture } from "@babylonjs/gui/2D";
 
-import { ExtractSurface, ExtractSeam, Chunk, sparseSamples } from "./Meshing";
-import { SdfBox, SdfSphere, SdfTorus } from "./signedDistanceFields";
+import { ExtractSurface, ExtractSeam, CORNERS, Chunk, sparseSamples } from "./Meshing";
+import { SdfBox, SdfSphere, SdfTorus,SignedDistanceField } from "./signedDistanceFields";
 
 
 const maxSparseSamples = 0;
@@ -27,7 +27,8 @@ const xSample = 0;
 // @ts-ignore: it's an image    
 //import grassTextureUrl from "../assets/grass.jpg";
 
-let objectPos = 3375;
+let objectPos = 1000;
+let tunePos = 0;
 
 class App {
     engine: Engine;
@@ -83,6 +84,7 @@ class App {
             { width: 20, height: 20 },
             scene
         );
+        ground.isVisible = false;
     
         // Load a texture to be used as the ground material
         const groundMaterial = new StandardMaterial("ground material", scene);
@@ -97,32 +99,37 @@ class App {
 
         const box = MeshBuilder.CreateBox("box", {size:4}, scene);
         const boxMaterial = new StandardMaterial("boxMaterial", scene);
-        boxMaterial.diffuseColor = new Color3(0,1,1);
+        box.position.x = -2;
+        boxMaterial.diffuseColor = new Color3(1,0,0);
         boxMaterial.wireframe = true;
         box.material = boxMaterial;
+        box.isVisible = false;
 
         const box2 = MeshBuilder.CreateBox("box2", {size:4}, scene);
-        box2.position.x = 4;
+        box2.position.x = 2;
         const boxMaterial2 = new StandardMaterial("boxMaterial", scene);
         boxMaterial2.diffuseColor = new Color3(1,1,0);
         boxMaterial2.wireframe = true;
         box2.material = boxMaterial2;
+        box2.isVisible = false;
 
-        //const field = new SdfBox(1,1,1)
+        const field = new SdfBox(4,4,2)
         //const field = new SdfTorus(1,0.5);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
-        const field = new SdfSphere(2);
-        field.position.set(0,1,0);
+        //const field = new SdfSphere(3);
+        field.position.set(0,0,0);
 
 
         const chunk1 = new Chunk();
-        chunk1.setSize(4,8);
-        chunk1.setOrigin(-2,-2,-2);
+        chunk1.setSize(4,4);
+        //chunk1.setOrigin(-4,-2,-2);
+        chunk1.setOrigin(0,-2,-2);
 
         const chunk2 = new Chunk();
         chunk2.setSize(4,8);
-        chunk2.setOrigin(2,-2,-2);
+        chunk2.setOrigin(0,-2,-2);
+        chunk2.subSample = 2;
 
         //Create a custom mesh  
         const { customMesh, vertexData } = this._createCustomMesh(scene);
@@ -138,19 +145,23 @@ class App {
                 const normals = new Array<number>();
 
                 //field.position = new Vector3(2 + Math.sin(step / 4000 * Math.PI * 2) * 6 ,0,0);
-                field.position = new Vector3(objectPos / 1000,0,0);
+                field.position = new Vector3(objectPos / 1000,-2,0);
+                box.position.copyFrom(field.position);
                 //field.position = new Vector3(1.2,0,0);
 
-                this._updateChunk(chunk1, field, vertexData, normals, customMesh);
+                let scales = [1,1,1,1,1,1,1,1];
+                this._updateChunk(chunk1,scales, field, vertexData, normals, customMesh);
+
                 gui.positionLabel.text = `Position ${field.position.x.toFixed(3)}`;
                 gui.samplesLabel.text = `Samples ${sparseSamples}`;
-                this._updateChunk(chunk2, field, vertexData2, normals, customMesh2);
+                scales = [2,2,2,2,2,2,2,2];
+                this._updateChunk(chunk2,scales, field, vertexData2, normals, customMesh2);
 
             }
         });
 
-        this._setupVoxMaterial(scene, customMesh, new Color3(0,0,1));
-        this._setupVoxMaterial(scene, customMesh2, new Color3(1,0,0));
+        this._setupVoxMaterial(scene, customMesh, new Color3(0,2,0));
+        this._setupVoxMaterial(scene, customMesh2, new Color3(1,1,1));
         this._setupVoxMaterial(scene, customMesh3, new Color3(1,1,1));
 
         // hide/show the Inspector
@@ -171,10 +182,12 @@ class App {
         });
     }
 
-    private _updateChunk(chunk: Chunk, field: SdfSphere, vertexData: VertexData, normals: number[], customMesh: Mesh) {
+    private _updateChunk(chunk: Chunk,scales: number[], field: SignedDistanceField, vertexData: VertexData, normals: number[], customMesh: Mesh) {
+        chunk.tune = tunePos;
         chunk.sample(field)
         const extracted = ExtractSurface(
             chunk,
+            scales,
             vertexData.positions as number[],
             vertexData.indices as number[])
 
@@ -229,11 +242,12 @@ class App {
 
     private _createStatsGui(camera: ArcRotateCamera) {
         // GUI
-        const plane = MeshBuilder.CreatePlane("plane", {size:10});
+        const plane = MeshBuilder.CreatePlane("plane", {width:2,height:1.5});
         plane.position.y = 3;
         plane.billboardMode = Mesh.BILLBOARDMODE_Y;
 
         this.advancedTexture = AdvancedDynamicTexture.CreateForMesh(plane);
+        this.advancedTexture.idealWidth = 200;
 
         const guiPanel = new StackPanel();
         guiPanel.isVertical = false;
@@ -262,7 +276,7 @@ class App {
     private _createGuiRect(parent: Container) {
         const guiContainer = new Rectangle();
         guiContainer.width = "200px";
-        guiContainer.height = "80px";
+        guiContainer.height = "120px";
         guiContainer.cornerRadius = 10;
         guiContainer.color = "Grey";
         guiContainer.thickness = 4;
@@ -288,8 +302,8 @@ class App {
 
         const slider = new Slider();
         slider.color = "Orange";
-        slider.minimum = -1000;
-        slider.maximum = 8000;
+        slider.minimum = -7000;
+        slider.maximum = 7000;
         slider.value = objectPos;
         slider.height = "20px";
         slider.onValueChangedObservable.add((value: number) => {
@@ -297,6 +311,25 @@ class App {
             samplesLabel.text = `Position ${value}`;
         });
         panel.addControl(slider);
+
+        const tuneLabel = new TextBlock();
+        tuneLabel.text = `Samples`;
+        tuneLabel.fontSize = "14px";
+        tuneLabel.paddingTop = "4px";
+        tuneLabel.height = "20px";
+        panel.addControl(tuneLabel);
+
+        const tuneSlider = new Slider();
+        tuneSlider.color = "Green";
+        tuneSlider.minimum = 0;
+        tuneSlider.maximum = 1000;
+        tuneSlider.value = objectPos;
+        tuneSlider.height = "20px";
+        tuneSlider.onValueChangedObservable.add((value: number) => {
+            tunePos = value / 1000;
+            tuneLabel.text = `Position ${tunePos.toFixed(3)}`;
+        });
+        panel.addControl(tuneSlider);
 
         return {samplesLabel,positionLabel};
     }

@@ -1,4 +1,4 @@
-import { Chunk, ExtractSurface} from "../";
+import { Chunk, ExtractSurface, OuterCornerWeight,GetCellCornerPosition, GetOuterCellCornerPosition} from "../";
 import { SdfBox,SdfSphere } from "../";
 import { SampleFieldXy, SampleFieldXz, SliceSamplesXy, GreyScale, NumScale, Trim } from "../";
 import { Vector3 } from "@babylonjs/core";
@@ -6,11 +6,130 @@ import { Vector3 } from "@babylonjs/core";
 
 export function TestMesher() 
 {        
+    describe("corner weights", () => {
+
+        it("be 1 when identical x on an x edge with differing values for y and z", () => {
+            const axis = new Vector3(1,0,0);
+            const innerCorner: Vector3 = new Vector3(0,1,3);
+            const outerCorner: Vector3 = new Vector3(0,2,4);
+            const weight = OuterCornerWeight(axis,innerCorner,outerCorner,2);
+            expect(weight).toBe(1);
+        })
+
+        it("be 0.5 when offset 1 x on an x edge with differing values for y and z", () => {
+            const axis = new Vector3(1,0,0);
+            const innerCorner: Vector3 = new Vector3(1,4,7);
+            const outerCorner: Vector3 = new Vector3(0,9,3);
+            const weight = OuterCornerWeight(axis,innerCorner,outerCorner,2);
+            expect(weight).toBe(0.5);
+        })
+        
+        it("be 0 when offset 2 x on an x edge with differing values for y and z", () => {
+            const axis = new Vector3(1,0,0);
+            const innerCorner: Vector3 = new Vector3(2,4,7);
+            const outerCorner: Vector3 = new Vector3(2,9,3);
+            const weight = OuterCornerWeight(axis,innerCorner,outerCorner,2);
+            expect(weight).toBe(1);
+        })
+                
+        it("be 0.5 when offset 3 x on an x edge with differing values for y and z", () => {
+            const axis = new Vector3(1,0,0);
+            const innerCorner: Vector3 = new Vector3(3,4,7);
+            const outerCorner: Vector3 = new Vector3(2,9,3);
+            const weight = OuterCornerWeight(axis,innerCorner,outerCorner,2);
+            expect(weight).toBe(0.5);
+        })
+
+        it("be 1 when identical y on an y edge with differing values for x and z", () => {
+            const axis = new Vector3(0,1,0);
+            const innerCorner: Vector3 = new Vector3(1,0,3);
+            const outerCorner: Vector3 = new Vector3(2,0,4);
+            const weight = OuterCornerWeight(axis,innerCorner,outerCorner,2);
+            expect(weight).toBe(1);
+        })
+
+        it("be 0.5 when offset 1 y on an y edge with differing values for x and z", () => {
+            const axis = new Vector3(0,1,0);
+            const innerCorner: Vector3 = new Vector3(4,1,7);
+            const outerCorner: Vector3 = new Vector3(9,0,3);
+            const weight = OuterCornerWeight(axis,innerCorner,outerCorner,2);
+            expect(weight).toBe(0.5);
+        })
+
+        
+        it("z axis start", () => {
+            const axis = new Vector3(0,0,1);
+            const innerCorner: Vector3 = new Vector3(6,5,8);
+            const outerCorner: Vector3 = new Vector3(6,6,8);
+            const weight = OuterCornerWeight(axis,innerCorner,outerCorner,2);
+            expect(weight).toBe(1);
+        })
+
+                
+        it("z axis end", () => {
+            const axis = new Vector3(0,0,1);
+            const innerCorner: Vector3 = new Vector3(6,5,9);
+            const outerCorner: Vector3 = new Vector3(6,6,10);
+            const weight = OuterCornerWeight(axis,innerCorner,outerCorner,2);
+            expect(weight).toBe(0.5);
+        })
+
+    });
+
+    describe("Corner positions", () =>{
+
+        it ("corner 0 xyz 0,0,0 = {X: 0 Y:0 Z:0} and {X: 0 Y:0 Z:0}",()=>{
+            const innerPos: Vector3 = new Vector3();
+            const outerPos: Vector3 = new Vector3();
+            GetCellCornerPosition(0,0,0,0,innerPos);
+            GetOuterCellCornerPosition(0,0,0,0,outerPos);
+            expect(innerPos.toString()).toEqual("{X: 0 Y:0 Z:0}");
+            expect(outerPos.toString()).toEqual("{X: 0 Y:0 Z:0}");
+        })
+
+        it ("corner 0 xyz 1,0,0 = {X: 1 Y:0 Z:0} and {X: 0 Y:0 Z:0}",()=>{
+            const innerPos: Vector3 = new Vector3();
+            const outerPos: Vector3 = new Vector3();
+            GetCellCornerPosition(0,1,0,0,innerPos);
+            GetOuterCellCornerPosition(0,1,0,0,outerPos);
+            expect(innerPos.toString()).toEqual("{X: 1 Y:0 Z:0}");
+            expect(outerPos.toString()).toEqual("{X: 0 Y:0 Z:0}");
+        })
+
+        it ("corner 1 xyz 0,0,0 = {X: 1 Y:0 Z:0} and {X: 2 Y:0 Z:0}",()=>{
+            const innerPos: Vector3 = new Vector3();
+            const outerPos: Vector3 = new Vector3();
+            GetCellCornerPosition(1,0,0,0,innerPos);
+            GetOuterCellCornerPosition(1,0,0,0,outerPos);
+            expect(innerPos.toString()).toEqual("{X: 1 Y:0 Z:0}");
+            expect(outerPos.toString()).toEqual("{X: 2 Y:0 Z:0}");
+        })
+
+        it ("corner 1 xyz 1,0,0 = {X: 2 Y:0 Z:0} and {X: 2 Y:0 Z:0}",()=>{
+            const innerPos: Vector3 = new Vector3();
+            const outerPos: Vector3 = new Vector3();
+            GetCellCornerPosition(1,1,0,0,innerPos);
+            GetOuterCellCornerPosition(1,1,0,0,outerPos);
+            expect(innerPos.toString()).toEqual("{X: 2 Y:0 Z:0}");
+            expect(outerPos.toString()).toEqual("{X: 2 Y:0 Z:0}");
+        })
+
+        
+        it ("corner 1 xyz 2,0,0 = {X: 3 Y:0 Z:0} and {X: 4 Y:0 Z:0}",()=>{
+            const innerPos: Vector3 = new Vector3();
+            const outerPos: Vector3 = new Vector3();
+            GetCellCornerPosition(1,2,0,0,innerPos);
+            GetOuterCellCornerPosition(1,2,0,0,outerPos);
+            expect(innerPos.toString()).toEqual("{X: 3 Y:0 Z:0}");
+            expect(outerPos.toString()).toEqual("{X: 4 Y:0 Z:0}");
+        })
+
+    });
+
     describe('SDF mesher', () => {
 
     it('creates a cube mesh', () => {
         const field = new SdfBox(4.5,4.5,4.5)
-        debugger;
         const chunk = new Chunk();
         chunk.setSize(24,8);
         chunk.setOrigin(-12,-12,-12);
