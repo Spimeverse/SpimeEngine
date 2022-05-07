@@ -84,7 +84,8 @@ class App {
             { width: 20, height: 20 },
             scene
         );
-        ground.isVisible = false;
+        ground.position.y = 0;
+        ground.isVisible = true;
     
         // Load a texture to be used as the ground material
         const groundMaterial = new StandardMaterial("ground material", scene);
@@ -97,24 +98,32 @@ class App {
             floorMeshes: [ground]
         });
 
-        const box = MeshBuilder.CreateBox("box", {size:4}, scene);
+        const marker = MeshBuilder.CreateSphere("marker", {diameter:0.2}, scene);
+        marker.position.y = 2;
+        const markerMaterial = new StandardMaterial("markerMaterial", scene);
+        markerMaterial.wireframe = true;
+        markerMaterial.diffuseColor = new Color3(1,1,0);
+        markerMaterial.emissiveColor = new Color3(1,1,0);
+        marker.material = markerMaterial;
+
+        const box = MeshBuilder.CreateBox("box", {size:3}, scene);
         const boxMaterial = new StandardMaterial("boxMaterial", scene);
         box.position.x = -2;
         boxMaterial.diffuseColor = new Color3(1,0,0);
         boxMaterial.wireframe = true;
         box.material = boxMaterial;
-        box.isVisible = false;
+        box.isVisible = true;
 
         const box2 = MeshBuilder.CreateBox("box2", {size:4}, scene);
         box2.position.x = 2;
         const boxMaterial2 = new StandardMaterial("boxMaterial", scene);
-        boxMaterial2.diffuseColor = new Color3(1,1,0);
+        boxMaterial2.diffuseColor = new Color3(1,0,0);
         boxMaterial2.wireframe = true;
         box2.material = boxMaterial2;
         box2.isVisible = false;
 
-        const field = new SdfBox(4,4,2)
-        //const field = new SdfTorus(1,0.5);
+        //const field = new SdfBox(3,3,3)
+        const field = new SdfTorus(2,1);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
         //const field = new SdfSphere(3);
@@ -122,14 +131,13 @@ class App {
 
 
         const chunk1 = new Chunk();
-        chunk1.setSize(4,4);
-        //chunk1.setOrigin(-4,-2,-2);
-        chunk1.setOrigin(0,-2,-2);
+        chunk1.setSize(4,8);
+        chunk1.setOrigin(-4,-2,-2);
 
         const chunk2 = new Chunk();
-        chunk2.setSize(4,8);
-        chunk2.setOrigin(0,-2,-2);
-        chunk2.subSample = 2;
+        chunk2.setSize(4,32);
+        chunk2.setOrigin(-0.5,-2,-2);
+        //chunk2.subSample = 2;
 
         //Create a custom mesh  
         const { customMesh, vertexData } = this._createCustomMesh(scene);
@@ -145,7 +153,7 @@ class App {
                 const normals = new Array<number>();
 
                 //field.position = new Vector3(2 + Math.sin(step / 4000 * Math.PI * 2) * 6 ,0,0);
-                field.position = new Vector3(objectPos / 1000,-2,0);
+                field.position = new Vector3(objectPos / 1000,0,0);
                 box.position.copyFrom(field.position);
                 //field.position = new Vector3(1.2,0,0);
 
@@ -154,14 +162,14 @@ class App {
 
                 gui.positionLabel.text = `Position ${field.position.x.toFixed(3)}`;
                 gui.samplesLabel.text = `Samples ${sparseSamples}`;
-                scales = [2,2,2,2,2,2,2,2];
+                scales = [4,4,4,4,4,4,4,4];
                 this._updateChunk(chunk2,scales, field, vertexData2, normals, customMesh2);
 
             }
         });
 
-        this._setupVoxMaterial(scene, customMesh, new Color3(0,2,0));
-        this._setupVoxMaterial(scene, customMesh2, new Color3(1,1,1));
+        this._setupVoxMaterial(scene, customMesh, new Color3(0,1,0));
+        this._setupVoxMaterial(scene, customMesh2, new Color3(1,1,0));
         this._setupVoxMaterial(scene, customMesh3, new Color3(1,1,1));
 
         // hide/show the Inspector
@@ -234,6 +242,7 @@ class App {
         const voxelMaterial = new StandardMaterial("voxelMaterial", scene)
         voxelMaterial.wireframe = true;
         voxelMaterial.diffuseColor = color;
+        voxelMaterial.emissiveColor = color;
         customMesh.material = voxelMaterial
         customMesh.enableEdgesRendering();
         customMesh.edgesWidth = 4.0

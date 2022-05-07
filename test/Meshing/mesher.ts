@@ -1,4 +1,5 @@
-import { Chunk, ExtractSurface, OuterCornerWeight,GetCellCornerPosition, GetOuterCellCornerPosition} from "../";
+import { Chunk, ExtractSurface, OuterCornerWeight, CalcCellVertex, GetCellCornerPosition, GetOuterCellCornerPosition} from "../";
+import { CONNECTED_CELL, XZ_FACE_ANTICLOCK, XY_FACE_ANTICLOCK, YZ_FACE_ANTICLOCK} from "../";
 import { SdfBox,SdfSphere } from "../";
 import { SampleFieldXy, SampleFieldXz, SliceSamplesXy, GreyScale, NumScale, Trim } from "../";
 import { Vector3 } from "@babylonjs/core";
@@ -126,6 +127,27 @@ export function TestMesher()
 
     });
 
+// Corner numbers
+//
+//     6 -----7
+//    /|     /|
+//   2------3 |
+//   | 4 ---|-5
+//   |/     |/
+//   0 -----1
+//
+    describe("calcCellVertex", () => {
+
+        it('calcs a cell vertex', () => {
+            // corner 0 inside a cube other corners outside
+            const cornerDist: Float32Array = new Float32Array([-1,1,1,1.41421356237,1,1.41421356237,1.41421356237,1.732050807568877]);
+            const vertex = new Vector3();
+            const edges = CalcCellVertex(cornerDist,vertex);
+            expect(roundVert(vertex)).toEqual("0.17, 0.17 0.17");
+            expect(edges).toEqual(CONNECTED_CELL | XZ_FACE_ANTICLOCK | XY_FACE_ANTICLOCK | YZ_FACE_ANTICLOCK)
+        })
+    });
+
     describe('SDF mesher', () => {
 
     it('creates a cube mesh', () => {
@@ -208,4 +230,8 @@ export function TestMesher()
 
 })
 
+}
+
+function roundVert(vertex: Vector3): string {
+    return `${vertex.x.toFixed(2)}, ${vertex.y.toFixed(2)} ${vertex.z.toFixed(2)}`;
 }

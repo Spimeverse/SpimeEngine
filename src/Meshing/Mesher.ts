@@ -35,6 +35,16 @@ const outerCornerPositions: Vector3[] = [
     new Vector3(), // 6
     new Vector3(), // 7
 ];
+
+// Corner numbers
+//
+//     6 -----7
+//    /|     /|
+//   2------3 |
+//   | 4 ---|-5
+//   |/     |/
+//   0 -----1
+//
 const CUBE_CORNER_OFFSETS: Vector3[] = [
     new Vector3(0.0, 0.0, 0.0), // 0
     new Vector3(1.0, 0.0, 0.0), // 1
@@ -75,19 +85,30 @@ const EDGE_FACE_REVERSED = 3;
 // only create faces on edges connecting to the cell to the left (-x), below (-y) or Outwards (-z)
 // create a clockwise or anticlockwise face depending on whether the edge goes 
 // from outside to inside or inside to outside
+// 
+// Edge numbers
+//      .---11---.
+//     /|       /|
+//    /6|9     /7|10
+//   .---5----.  |
+//   |  ! --8-|--!
+//   1 /      3  /
+//   |/2      | /4
+//   !----0---!
+//
 const CUBE_EDGES = [
-    [0, 1, YZ_FACE_CLOCKWISE, YZ_FACE_ANTICLOCK],
-    [0, 2, XZ_FACE_CLOCKWISE, XZ_FACE_ANTICLOCK],
-    [0, 4, XY_FACE_CLOCKWISE, XY_FACE_ANTICLOCK],
-    [1, 3, 0, 0],
-    [1, 5, 0, 0],
-    [2, 3, 0, 0],
-    [2, 6, 0, 0],
-    [3, 7, 0, 0],
-    [4, 5, 0, 0],
-    [4, 6, 0, 0],
-    [5, 7, 0, 0],
-    [6, 7, 0, 0],
+    [0, 1, YZ_FACE_CLOCKWISE, YZ_FACE_ANTICLOCK], // 0
+    [0, 2, XZ_FACE_CLOCKWISE, XZ_FACE_ANTICLOCK], // 1
+    [0, 4, XY_FACE_CLOCKWISE, XY_FACE_ANTICLOCK], // 2
+    [1, 3, 0, 0], // 3
+    [1, 5, 0, 0], // 4
+    [2, 3, 0, 0], // 5
+    [2, 6, 0, 0], // 6 
+    [3, 7, 0, 0], // 7
+    [4, 5, 0, 0], // 8
+    [4, 6, 0, 0], // 9
+    [5, 7, 0, 0], // 10
+    [6, 7, 0, 0], // 11 
 ];
 
 /**
@@ -103,7 +124,7 @@ for (let edge = 0; edge < CUBE_EDGES.length; edge++) {
 
 
 interface Cells {
-    count: number;
+    vertexCount: number;
     lookupCellFromVertex: Int16Array;
     lookupVertexFromCell: Int16Array;
     connections: Int8Array;
@@ -156,68 +177,77 @@ function CheckAllCells() {
 function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): boolean {
     const cellIndex = chunk.cellIndex(cellX, cellY, cellZ);
     let negPoints = 0;
-    if (maxScale > 1) {
-        // interpolate the distance from the 8 corners of the larger 'outer' cell
-        const c000 = GetOuterDist(0,0,0,cellX, cellY, cellZ);
-        const c001 = GetOuterDist(0,0,1,cellX, cellY, cellZ);
-        const c010 = GetOuterDist(0,1,0,cellX, cellY, cellZ);
-        const c011 = GetOuterDist(0,1,1,cellX, cellY, cellZ);
-        const c100 = GetOuterDist(1,0,0,cellX, cellY, cellZ);
-        const c101 = GetOuterDist(1,0,1,cellX, cellY, cellZ);
-        const c110 = GetOuterDist(1,1,0,cellX, cellY, cellZ);
-        const c111 = GetOuterDist(1,1,1,cellX, cellY, cellZ);
-        GetOuterCell(cellX, cellY, cellZ, outerCellPosition);
 
-        for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
-            GetCellCornerPosition(cornerNum, cellX, cellY, cellZ, cellPosition);
-
-            // https://en.wikipedia.org/wiki/Trilinear_interpolation
-            const xd = (cellPosition.x - outerCellPosition.x) / maxScale;
-            const yd = (cellPosition.y - outerCellPosition.y) / maxScale;
-            const zd = (cellPosition.z - outerCellPosition.z) / maxScale;
-
-            const c00 = c000 * (1 - xd) + c100 * xd;
-            const c01 = c001 * (1 - xd) + c101 * xd;
-            const c10 = c010 * (1 - xd) + c110 * xd;
-            const c11 = c011 * (1 - xd) + c111 * xd;
-
-            const c0 = c00 * (1 - yd) + c10 * yd;
-            const c1 = c01 * (1 - yd) + c11 * yd;
-
-            const dist = c0 * (1 - zd) + c1 * zd;
-
-            cornerDist[cornerNum] = dist;
-
-            if (dist < 0)
-                negPoints++;
-        }
-    }
-    else {
+    let edgeMask = 0;
+    if (maxScale == 1 || cellX > 7) {
         for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
             GetCellCornerPosition(cornerNum, cellX, cellY, cellZ, cellPosition);
             cornerDist[cornerNum] = SampleField(cellPosition.x, cellPosition.y, cellPosition.z);
             if (cornerDist[cornerNum] < 0)
                 negPoints++;
         }
-    }
-    if (negPoints == 0 || negPoints == 8)
-        return false;
 
-    const edgeMask = CalcCellSurfacePoint();
-    cells.connections[cells.count] = edgeMask;
-    chunk.cellSpaceToWorldSpace(cellPosition.x,cellPosition.y,cellPosition.z,samplePoint);
+        if (negPoints == 0 || negPoints == 8)
+            return false;
+
+        edgeMask = CalcCellVertex(cornerDist,cellCenter);
+        cellCenter.scaleInPlace(chunk.stepSize);
+        cells.connections[cells.vertexCount] = edgeMask;
+        chunk.cellSpaceToWorldSpace(cellX,cellY,cellZ,samplePoint);
+        AppendVertex(cellIndex);
+    }
+    else
+    {
+        // We are rendering larger cells on the seams
+        // check if the cell we are processing is the first root cell of the larger cell
+        const rootCellIndex = chunk.cellIndex(
+            cellX - cellX % maxScale, 
+            cellY - cellY % maxScale, 
+            cellZ - cellZ % maxScale);
+
+        // if it is the root cell calc and add the vertex for the whole larger seam cell...
+        if (rootCellIndex == cellIndex)
+        {
+            for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
+                GetOuterCellCornerPosition(cornerNum, cellX, cellY, cellZ, cellPosition);
+                cornerDist[cornerNum] = SampleField(cellPosition.x, cellPosition.y, cellPosition.z);
+                if (cornerDist[cornerNum] < 0)
+                    negPoints++;
+            }
+
+            if (negPoints == 0 || negPoints == 8)
+                return false;
+
+            edgeMask = CalcCellVertex(cornerDist,cellCenter);
+            cellCenter.scaleInPlace(chunk.stepSize * maxScale);
+            cells.connections[cells.vertexCount] = edgeMask;
+            chunk.cellSpaceToWorldSpace(
+                cellX - cellX % maxScale,
+                cellY - cellY % maxScale,
+                cellZ - cellZ % maxScale,samplePoint);
+            AppendVertex(cellIndex);
+        }
+        else {
+            // if it's not the root cell just point to the vertex from the root cell previously created
+            cells.lookupVertexFromCell[cellIndex] = cells.lookupVertexFromCell[rootCellIndex];
+        }
+    }
+
+
+    return true;
+}
+
+function AppendVertex(cellIndex: number) {
     verticies.push(
         cellCenter.x + samplePoint.x,
         cellCenter.y + samplePoint.y,
         cellCenter.z + samplePoint.z);
 
-    cells.lookupVertexFromCell[cellIndex] = cells.count;
+    cells.lookupVertexFromCell[cellIndex] = cells.vertexCount;
     // we'll need to find neighboring cells of this point to connect them up
     // so record the cell index that the point was created for
-    cells.lookupCellFromVertex[cells.count] = cellIndex;
-    cells.count++;
-
-    return true;
+    cells.lookupCellFromVertex[cells.vertexCount] = cellIndex;
+    cells.vertexCount++;
 }
 
 function SampleField(cellX: number, cellY: number, cellZ: number) {
@@ -227,7 +257,7 @@ function SampleField(cellX: number, cellY: number, cellZ: number) {
 
 function ExtractAllFaces() {
 
-    for (let vertexNum = 0; vertexNum < cells.count; vertexNum++)
+    for (let vertexNum = 0; vertexNum < cells.vertexCount; vertexNum++)
     {
 
         // each active cell contains one vertex
@@ -250,6 +280,13 @@ function ExtractCell(connectEdges: number) {
         connectEdges = RestrictFacesTo(connectEdges, XZ_FACE_CLOCKWISE, XZ_FACE_ANTICLOCK);
     if (cellPosition.z == 0)
         connectEdges = RestrictFacesTo(connectEdges, XY_FACE_CLOCKWISE, XY_FACE_ANTICLOCK);
+
+    if (cellPosition.x >= chunk.subdivisions)
+        connectEdges = 0;
+    if (cellPosition.y >= chunk.subdivisions)
+        connectEdges = 0;
+    if (cellPosition.z >= chunk.subdivisions)
+        connectEdges = 0;
 
     if (connectEdges & XZ_FACE_CLOCKWISE) {
         ExtractFaces(cellPosition, [
@@ -401,7 +438,8 @@ function OuterCornerWeight(axis: Vector3, innerCorner: Vector3, outerCorner: Vec
     return 1 - (weight / scale);
 }
 
-function CalcCellSurfacePoint(): number {
+
+function CalcCellVertex(cornerDist: Float32Array,cellCenter: Vector3): number {
     cellCenter.set(0,0,0);
     let edgeCount = 0;
     let connectEdges = 0;
@@ -435,9 +473,6 @@ function CalcCellSurfacePoint(): number {
     cellCenter.y /= edgeCount;
     cellCenter.z /= edgeCount;
 
-    cellCenter.x *= chunk.stepSize;
-    cellCenter.y *= chunk.stepSize;
-    cellCenter.z *= chunk.stepSize;
     return connectEdges;
 }
 
@@ -446,16 +481,21 @@ function RestrictFacesTo(connectedEdges: number, face1: number, face2: number): 
 }
 
 
+const triVert = new Int16Array(3);
+
 function ExtractFaces(cellPosition: Vector3,offsets: number[][]) {
-    for (let offsetNum = 0; offsetNum < offsets.length; offsetNum++) {
-        const x = cellPosition.x + offsets[offsetNum][0];
-        const y = cellPosition.y + offsets[offsetNum][1];
-        const z = cellPosition.z + offsets[offsetNum][2];
-        const index = chunk.cellIndex(x,y,z);
-        const vert = cells.lookupVertexFromCell[index];
-        //chunk.cellToVertexIndex[index];
-        //const marked = chunk.markedSamples[index] == chunk.sampleMarker;
-       faces.push(vert);
+    for (let offsetNum = 0; offsetNum < offsets.length; offsetNum += 3) {
+        for (let i = 0; i < 3; i++) {
+            const x = cellPosition.x + offsets[offsetNum + i][0];
+            const y = cellPosition.y + offsets[offsetNum + i][1];
+            const z = cellPosition.z + offsets[offsetNum + i][2];
+            const index = chunk.cellIndex(x,y,z);
+            triVert[i] = cells.lookupVertexFromCell[index];
+        }
+        // cells for seams can emit triangles that reuse a vertex
+        // only add triangles with 3 unique vertices
+        if (triVert[0] != triVert[1] && triVert[1] != triVert[2] && triVert[0] != triVert[2])
+            faces.push(triVert[0],triVert[1],triVert[2]);
     }
    
 }
@@ -464,14 +504,14 @@ function ExtractFaces(cellPosition: Vector3,offsets: number[][]) {
 function SetupCells(numSamples: number) {
     if (numSamples > maxCells) {
         cells = {
-            count: 0,
+            vertexCount: 0,
             lookupCellFromVertex: new Int16Array(numSamples),
             lookupVertexFromCell: new Int16Array(numSamples),
             connections: new Int8Array(numSamples)
         }
     }
     else
-        cells.count = 0;
+        cells.vertexCount = 0;
 }
 
 
@@ -480,6 +520,13 @@ function GetCellCornerPosition(cornerNum: number, cellX: number, cellY: number, 
         cellX + CUBE_CORNER_OFFSETS[cornerNum].x, 
         cellY + CUBE_CORNER_OFFSETS[cornerNum].y, 
         cellZ + CUBE_CORNER_OFFSETS[cornerNum].z);
+}   
+
+function GetOuterCellCornerPosition(cornerNum: number, cellX: number, cellY: number, cellZ: number, cellPosition: Vector3) {
+    cellPosition.set(
+        (cellX - cellX % maxScale) + CUBE_CORNER_OFFSETS[cornerNum].x * maxScale, 
+        (cellY - cellY % maxScale) + CUBE_CORNER_OFFSETS[cornerNum].y * maxScale, 
+        (cellZ - cellZ % maxScale) + CUBE_CORNER_OFFSETS[cornerNum].z * maxScale);
 }   
 
 function GetOuterCell(cellX: number, cellY: number, cellZ: number, cellPosition: Vector3) {
@@ -499,4 +546,15 @@ function GetOuterDist(
     return fieldSamples[cellIndex];
 }   
 
-export {ExtractSurface, OuterCornerWeight}
+export {ExtractSurface, 
+    OuterCornerWeight,
+    CalcCellVertex,
+    GetCellCornerPosition,
+    GetOuterCellCornerPosition
+    ,CONNECTED_CELL,
+    XZ_FACE_CLOCKWISE,
+    XY_FACE_CLOCKWISE,
+    YZ_FACE_CLOCKWISE,
+    XZ_FACE_ANTICLOCK, 
+    XY_FACE_ANTICLOCK,
+    YZ_FACE_ANTICLOCK}

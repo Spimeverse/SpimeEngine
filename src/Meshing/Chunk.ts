@@ -35,7 +35,6 @@ class Chunk {
     yOrigin = 0;
     zOrigin = 0;
     stepSize = 0;
-    halfStep = 0;
     neighbourXScale = 0;
     neighbourYScale = 0;
     neighbourZScale = 0;
@@ -57,8 +56,6 @@ class Chunk {
     }
 
     setSize(size: number, subdivisions: number) {
-        if ((subdivisions & (subdivisions - 1)) != 0) // https://stackoverflow.com/questions/600293/how-to-check-if-a-number-is-a-power-of-2
-            throw "subdivisions must be a power of two";
         // one more point needed than each cell
         // e.g. 4 point, = 3 cells
         // points marked 'x' and cells marked 'c'
@@ -72,13 +69,12 @@ class Chunk {
         //
         // one more cell needed to cover overlap with next chunk
         // so points = subdivisions + 2;
-        this.points = subdivisions + 2;
+        this.points = subdivisions + 1;
         this.size = size;
         this.numSamples = this.points * this.points * this.points;
         this.pointsSquared = this.points * this.points;
         this.pointsCubed = this.numSamples;
         this.stepSize = this.size / subdivisions;
-        this.halfStep = this.stepSize / 2;
         this.subdivisions = subdivisions;
       }
 
@@ -107,10 +103,10 @@ class Chunk {
         return x + (y * this.points) + (z * this.pointsSquared);
     }
     
-    cellSpaceToWorldSpace(i: number, j: number, k: number, samplePoint: Vector3) {
-        samplePoint.x = this.xOrigin + (i * this.stepSize) - this.halfStep;
-        samplePoint.y = this.yOrigin + (j * this.stepSize) - this.halfStep;
-        samplePoint.z = this.zOrigin + (k * this.stepSize) - this.halfStep;
+    cellSpaceToWorldSpace(cellX: number, cellY: number, cellZ: number, samplePoint: Vector3) {
+        samplePoint.x = this.xOrigin + (cellX * this.stepSize);
+        samplePoint.y = this.yOrigin + (cellY * this.stepSize);
+        samplePoint.z = this.zOrigin + (cellZ * this.stepSize);
     }
 
     getCenter(point: Vector3) {
