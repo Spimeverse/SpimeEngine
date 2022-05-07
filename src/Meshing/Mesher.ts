@@ -5,36 +5,10 @@
 import { Chunk, } from ".";
 import { Vector3 } from "@babylonjs/core/Maths";
 
-const zeroVector = new Vector3();
-const corner0 = new Vector3();
-const corner1 = new Vector3();
 const cellCenter = new Vector3();
 const samplePoint = new Vector3();
 const cellPosition = new Vector3();
-const outerCellPosition = new Vector3();
-const cornerPosition = new Vector3();
 const cornerDist: Float32Array = new Float32Array(8);
-const outerCornerDist: Float32Array = new Float32Array(8);
-const cornerPositions: Vector3[] = [
-    new Vector3(), // 0
-    new Vector3(), // 1
-    new Vector3(), // 2
-    new Vector3(), // 3
-    new Vector3(), // 4
-    new Vector3(), // 5
-    new Vector3(), // 6
-    new Vector3(), // 7
-];
-const outerCornerPositions: Vector3[] = [
-    new Vector3(), // 0
-    new Vector3(), // 1
-    new Vector3(), // 2
-    new Vector3(), // 3
-    new Vector3(), // 4
-    new Vector3(), // 5
-    new Vector3(), // 6
-    new Vector3(), // 7
-];
 
 // Corner numbers
 //
@@ -328,116 +302,6 @@ function ExtractCell(connectEdges: number) {
     }
 }
 
-function ExtractVertex(cellPosition: Vector3) {
-    let negDistance = 0;
-    for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
-        GetCellCornerPosition(cornerNum,cellPosition.x,cellPosition.y,cellPosition.z,cornerPosition);
-        const cornerIndex = chunk.cellIndex(cornerPosition.x,cornerPosition.y, cornerPosition.z);      
-        cornerDist[cornerNum] = fieldSamples[cornerIndex];
-
-        if (cornerDist[cornerNum] < 0)
-            negDistance++;
-
-        if (isMixedScale)
-        {
-            cornerPositions[cornerNum].copyFrom(cornerPosition);
-            GetOuterDist(cornerNum,cellPosition.x,cellPosition.y,cellPosition.z,cornerPosition);
-            const cornerIndex = chunk.cellIndex(cornerPosition.x,cornerPosition.y, cornerPosition.z);      
-            outerCornerDist[cornerNum] = fieldSamples[cornerIndex];
-            outerCornerPositions[cornerNum].copyFrom(cornerPosition);
-        }
-    }
-
-    console.assert(negDistance != 0 && negDistance != 8,
-        {
-            negativeDistances:negDistance,
-            cell:cellPosition,
-            message:"there should be a mix of positive and negative distances"
-        });
-
-    const edgeMask = CalcCellSurfacePoint();
-    chunk.cellSpaceToWorldSpace(cellPosition.x,cellPosition.y,cellPosition.z,samplePoint);
-    verticies.push(
-        cellCenter.x + samplePoint.x,
-        cellCenter.y + samplePoint.y,
-        cellCenter.z + samplePoint.z);
-    return edgeMask;
-}
-
-function CalcMergeCellSurfacePoint(cellPosition: Vector3): number {
-    cellCenter.set(0,0,0);
-    let edgeCount = 0;
-    let connectEdges = 0;
-    for (let edgeNum = 0; edgeNum < 12; edgeNum++) {
-        const edgeDetails = CUBE_EDGES[edgeNum];       
-
-        const edgeStartCorner = edgeDetails[EDGE_START_CORNER];
-        const edgeEndCorner = edgeDetails[EDGE_END_CORNER];
-
-        let dist0 = cornerDist[edgeStartCorner];
-        let dist1 = cornerDist[edgeEndCorner];
-        const outerDistStart = outerCornerDist[edgeStartCorner];
-        const outerDistEnd = outerCornerDist[edgeEndCorner];
-
-        if (maxScale > 1) {
-            const outerDistStart = outerCornerDist[edgeStartCorner];
-            const outerDistEnd = outerCornerDist[edgeEndCorner];
-            const axis = CUBE_EDGE_AXIS[edgeNum];
-            const weightStart = OuterCornerWeight(axis,
-                cornerPositions[edgeStartCorner],outerCornerPositions[edgeStartCorner],maxScale);
-            const weightEnd = OuterCornerWeight(axis,
-                cornerPositions[edgeEndCorner],outerCornerPositions[edgeEndCorner],maxScale);
-
-            const distDiff = outerDistEnd - outerDistStart;
-            dist0 = outerDistStart + distDiff * (1 - weightStart);
-            dist1 = outerDistEnd - distDiff * (1 - weightEnd);
-
-            // console.log(
-            //     'weight start',weightStart,' weight end',weightEnd, '\n',
-            //     'distDiff',distDiff, '\n',
-            // 'outerDistStart',outerDistStart,'outerDistEnd',outerDistEnd, '\n',
-            // 'dist0',dist0,'dist1',dist1);
-        }
-        // if the distance to the surface changes sign
-        // then this edge intersects the surface
-        const distNeg0 = (dist0 < 0);
-        const distNeg1 = (dist1 < 0);
-        if (distNeg0 != distNeg1) {
-            connectEdges |= CONNECTED_CELL;
-            // record edges were crossed which we need to connect up
-            // and if they face in or out ( negative to positive distance or positive to negative)
-            if (distNeg0) // at this point if distNeg0 is true, distNeg1 must be false or visa versa
-                connectEdges |= edgeDetails[EDGE_FACE_REVERSED];
-            else
-                connectEdges |= edgeDetails[EDGE_FACE_NORMAL];
-            edgeCount++;
-            const distDiff = dist0 / (dist0 - dist1);
-            const inverseDiff = 1 - distDiff;
-            const corner0 = CUBE_CORNER_OFFSETS[edgeDetails[0]];
-            const corner1 = CUBE_CORNER_OFFSETS[edgeDetails[1]];
-            cellCenter.x += (corner1.x * distDiff) + (corner0.x * inverseDiff);
-            cellCenter.y += (corner1.y * distDiff) + (corner0.y * inverseDiff);
-            cellCenter.z += (corner1.z * distDiff) + (corner0.z * inverseDiff);
-        }
-    }
-    cellCenter.x /= edgeCount;
-    cellCenter.y /= edgeCount;
-    cellCenter.z /= edgeCount;
-
-    cellCenter.x *= chunk.stepSize;
-    cellCenter.y *= chunk.stepSize;
-    cellCenter.z *= chunk.stepSize;
-    return connectEdges;
-}
-
-function OuterCornerWeight(axis: Vector3, innerCorner: Vector3, outerCorner: Vector3, scale: number): number {
-    cornerPosition.copyFrom(innerCorner);
-    cornerPosition.subtractInPlace(outerCorner);
-    cornerPosition.multiplyInPlace(axis);
-    const weight = Math.max(Math.abs(cornerPosition.x), Math.abs(cornerPosition.y), Math.abs(cornerPosition.z));
-    return 1 - (weight / scale);
-}
-
 
 function CalcCellVertex(cornerDist: Float32Array,cellCenter: Vector3): number {
     cellCenter.set(0,0,0);
@@ -528,26 +392,9 @@ function GetOuterCellCornerPosition(cornerNum: number, cellX: number, cellY: num
         (cellY - cellY % maxScale) + CUBE_CORNER_OFFSETS[cornerNum].y * maxScale, 
         (cellZ - cellZ % maxScale) + CUBE_CORNER_OFFSETS[cornerNum].z * maxScale);
 }   
-
-function GetOuterCell(cellX: number, cellY: number, cellZ: number, cellPosition: Vector3) {
-    cellPosition.set(
-        (cellX - cellX % maxScale),
-        (cellY - cellY % maxScale),
-        (cellZ - cellZ % maxScale));
-}  
-
-function GetOuterDist(
-    offsetX: number,offsetY: number, offsetZ: number,
-    cellX: number, cellY: number, cellZ: number) {
-    const x = (cellX - cellX % maxScale) + (offsetX * maxScale);
-    const y = (cellY - cellY % maxScale) + (offsetY * maxScale);
-    const z = (cellZ - cellZ % maxScale) + (offsetZ * maxScale);
-    const cellIndex = chunk.cellIndex(x,y,z);
-    return fieldSamples[cellIndex];
-}   
+ 
 
 export {ExtractSurface, 
-    OuterCornerWeight,
     CalcCellVertex,
     GetCellCornerPosition,
     GetOuterCellCornerPosition
