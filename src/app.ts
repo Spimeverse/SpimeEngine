@@ -28,6 +28,7 @@ const xSample = 0;
 //import grassTextureUrl from "../assets/grass.jpg";
 
 let objectPos = 1000;
+let positionDirty = true;
 let tunePos = 0;
 
 class App {
@@ -127,16 +128,17 @@ class App {
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
         //const field = new SdfSphere(3);
+        //const field = new SdfSphere(2);
         field.position.set(0,0,0);
 
 
         const chunk1 = new Chunk();
-        chunk1.setSize(4,8);
-        chunk1.setOrigin(-4,-2,-2);
+        chunk1.setSize({x:4, y:4, z:4},1 / 2);
+        chunk1.setOrigin({x:-4,y:-2,z:-2});
 
         const chunk2 = new Chunk();
-        chunk2.setSize(4,32);
-        chunk2.setOrigin(-0.5,-2,-2);
+        chunk2.setSize({x:4, y:4, z:4},1 / 8);
+        chunk2.setOrigin({x:-0.5,y:-2,z:-2});
         //chunk2.subSample = 2;
 
         //Create a custom mesh  
@@ -145,26 +147,30 @@ class App {
         const { customMesh : customMesh3, vertexData : vertexData3 } = this._createCustomMesh(scene);
 
         scene.onBeforeAnimationsObservable.add((theScene) => {
-            const step = theScene.getStepId();
-            //if (step % 50 == 0) 
+            if (positionDirty)
             {
-        
-                //Empty array to contain calculated values or normals added
-                const normals = new Array<number>();
+                positionDirty = false;
+                const step = theScene.getStepId();
+                //if (step % 50 == 0) 
+                {
+            
+                    //Empty array to contain calculated values or normals added
+                    const normals = new Array<number>();
 
-                //field.position = new Vector3(2 + Math.sin(step / 4000 * Math.PI * 2) * 6 ,0,0);
-                field.position = new Vector3(objectPos / 1000,0,0);
-                box.position.copyFrom(field.position);
-                //field.position = new Vector3(1.2,0,0);
+                    //field.position = new Vector3(2 + Math.sin(step / 4000 * Math.PI * 2) * 6 ,0,0);
+                    field.position = new Vector3(objectPos / 1000,0,0);
+                    box.position.copyFrom(field.position);
+                    //field.position = new Vector3(1.2,0,0);
 
-                let scales = [1,1,1,1,1,1,1,1];
-                this._updateChunk(chunk1,scales, field, vertexData, normals, customMesh);
+                    let scales = [1,1,1,1,1,1,1,1];
+                    this._updateChunk(chunk1,scales, field, vertexData, normals, customMesh);
 
-                gui.positionLabel.text = `Position ${field.position.x.toFixed(3)}`;
-                gui.samplesLabel.text = `Samples ${sparseSamples}`;
-                scales = [4,4,4,4,4,4,4,4];
-                this._updateChunk(chunk2,scales, field, vertexData2, normals, customMesh2);
+                    gui.positionLabel.text = `Position ${field.position.x.toFixed(3)}`;
+                    gui.samplesLabel.text = `Samples ${sparseSamples}`;
+                    scales = [4,4,4,4,4,4,4,4];
+                    this._updateChunk(chunk2,scales, field, vertexData2, normals, customMesh2);
 
+                }
             }
         });
 
@@ -191,7 +197,6 @@ class App {
     }
 
     private _updateChunk(chunk: Chunk,scales: number[], field: SignedDistanceField, vertexData: VertexData, normals: number[], customMesh: Mesh) {
-        chunk.tune = tunePos;
         chunk.sample(field)
         const extracted = ExtractSurface(
             chunk,
@@ -317,6 +322,7 @@ class App {
         slider.height = "20px";
         slider.onValueChangedObservable.add((value: number) => {
             objectPos = value;
+            positionDirty = true;
             samplesLabel.text = `Position ${value}`;
         });
         panel.addControl(slider);

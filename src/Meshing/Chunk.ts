@@ -1,8 +1,11 @@
-import { Vector3 } from "@babylonjs/core/Maths";
+import { Vector2,Vector3 } from "@babylonjs/core/Maths";
 import { SignedDistanceField, EMPTY_FIELD } from "../signedDistanceFields";
 
 const cellPosition = new Vector3();
+const worldPosition = new Vector3();
 const cellCenter = new Vector3();
+const cellOffset = {x:0,y:0,z:0};
+    
 const sqrt3 = Math.sqrt(3);
 let sparseSamples = 0;
 enum CORNERS {
@@ -16,7 +19,8 @@ enum CORNERS {
     rightTopBack = 7
 }
 
-
+interface XYZ { x: number; y: number; z: number}
+interface XY { x: number; y: number;}
 
 /**
  * Make working with a 1 dimensional array work like a 3d array
@@ -24,38 +28,43 @@ enum CORNERS {
  * Doesn't actually reference the array itself
  */
 class Chunk {
-    size = 0;
-    subdivisions = 0;
-    points = 0;
-    pointsSquared = 0;
-    pointsCubed = 0;
+    /**
+     * the extent of the chunk in world coordinate space
+     */
+    worldSize = new Vector3();
+    /**
+     * the number of cells in the chunk along each axis
+     */
+    cellRange = new Vector3();
+    /**
+     * stride use to convert 1 dimensional array index to 3 dimensional array
+     * e.g. index = x + y*stride.x + z*stride.y
+     */
+    stride = new Vector3();
+    /**
+     * number of distance samples in the chunk
+     */
     numSamples = 0;
-    maxSamples = 40_000
-    xOrigin = 0;
-    yOrigin = 0;
-    zOrigin = 0;
-    stepSize = 0;
-    neighbourXScale = 0;
-    neighbourYScale = 0;
-    neighbourZScale = 0;
-    tune = 0;
-    subSample = 1;
+    maxSamples = 0;
+    /**
+     * origin of the chunk in world coordinate space
+     */
+    origin = new Vector3();
+    /**
+     * the size of one cell in the chunk in world coordinate space
+     */
+    cellSize = 0;
     positiveSamples = false;
     negativeSamples = false;
 
-    markedSamples: Int16Array;
-    sampleMarker = 0;
     field: SignedDistanceField = EMPTY_FIELD;
-    fieldSamples: Float32Array;
+    fieldSamples: Float32Array = new Float32Array(0);
 
     constructor () {
-        this.numSamples = 40_000;
-        this.maxSamples = this.numSamples;
-        this.markedSamples = new Int16Array(this.numSamples);
-        this.fieldSamples = new Float32Array(this.numSamples);
+        this.maxSamples = 0;
     }
 
-    setSize(size: number, subdivisions: number) {
+    setSize(size: XYZ, cellSize: number) {
         // one more point needed than each cell
         // e.g. 4 point, = 3 cells
         // points marked 'x' and cells marked 'c'
@@ -69,64 +78,57 @@ class Chunk {
         //
         // one more cell needed to cover overlap with next chunk
         // so points = subdivisions + 2;
-        this.points = subdivisions + 1;
-        this.size = size;
-        this.numSamples = this.points * this.points * this.points;
-        this.pointsSquared = this.points * this.points;
-        this.pointsCubed = this.numSamples;
-        this.stepSize = this.size / subdivisions;
-        this.subdivisions = subdivisions;
-      }
+        CopyXyz(size,this.worldSize)
+        this.cellRange.x = (size.x / cellSize);
+        this.cellRange.y = (size.y / cellSize);
+        this.cellRange.z = (size.z / cellSize);
+        this.stride.x = this.cellRange.x + 1;
+        this.stride.y = this.stride.x * (this.cellRange.y + 1);
+        this.numSamples = this.stride.y * (this.cellRange.z + 1);
 
-    setOrigin(xOrigin: number, yOrigin: number, zOrigin: number) {
-        this.xOrigin = xOrigin;
-        this.yOrigin = yOrigin;
-        this.zOrigin = zOrigin;
+        this.cellSize = cellSize;
+        if (this.numSamples > this.maxSamples) {
+            if (this.numSamples > 65536) throw "chunk resolution exceeds 65536. aborting";
+            this.fieldSamples = new Float32Array(this.numSamples);
+            this.maxSamples = this.numSamples;
+        }
     }
 
-    cellIndexToCellPosition(cellIndex: number, cellPosition: Vector3) {
+    /**
+     * 
+     * @param origin of the chunk in world coordinates
+     */
+    setOrigin(origin: XYZ) {
+        CopyXyz(origin,this.origin);
+    }
+
+    cellIndexToCellPosition(cellIndex: number, cellPosition: XYZ) {
         let index = cellIndex;
-        cellPosition.x = cellIndex % this.points;
+        cellPosition.x = cellIndex % this.stride.x;
         index -= cellPosition.x;
-        cellPosition.y = (index % this.pointsSquared) / this.points;
-        index -= cellPosition.y * this.points;
-        cellPosition.z = index / this.pointsSquared;
+        cellPosition.y = (index % this.stride.y) / this.stride.x;
+        index -= cellPosition.y * this.stride.x;
+        cellPosition.z = index / this.stride.y;
     }
     
-    indexToWorldSpace(index: number, samplePoint: Vector3) {
+    indexToWorldSpace(index: number, samplePoint: XYZ) {
         this.cellIndexToCellPosition(index,cellPosition);
-        this.cellSpaceToWorldSpace(cellPosition.x, cellPosition.y, cellPosition.z, samplePoint);
+        this.cellSpaceToWorldSpace(cellPosition, samplePoint);
     }
 
     // get the index of array at this coordinate
     cellIndex(x: number, y: number, z: number): number {
-        return x + (y * this.points) + (z * this.pointsSquared);
+        return x + (y * this.stride.x) + (z * this.stride.y);
     }
     
-    cellSpaceToWorldSpace(cellX: number, cellY: number, cellZ: number, samplePoint: Vector3) {
-        samplePoint.x = this.xOrigin + (cellX * this.stepSize);
-        samplePoint.y = this.yOrigin + (cellY * this.stepSize);
-        samplePoint.z = this.zOrigin + (cellZ * this.stepSize);
-    }
-
-    getCenter(point: Vector3) {
-        point.x = this.xOrigin + this.size / 2;
-        point.y = this.yOrigin + this.size / 2;
-        point.z = this.zOrigin + this.size / 2;
+    cellSpaceToWorldSpace(cell: XYZ, samplePoint: XYZ) {
+        samplePoint.x = this.origin.x + (cell.x * this.cellSize);
+        samplePoint.y = this.origin.y + (cell.y * this.cellSize);
+        samplePoint.z = this.origin.z + (cell.z * this.cellSize);
     }
 
     sample (_field: SignedDistanceField): boolean {
         sparseSamples = 0;
-        // increment the marker value for each extraction
-        // then we don't need to clear or reset the markedSamples array
-        // unless we get to max value for a byte
-        this.sampleMarker++;
-        if (this.sampleMarker == 65535) {
-            // we've run out of unique marker values, 
-            // reset the marker and clear the array
-            this.sampleMarker = 1;
-            this.markedSamples.fill(0)
-        }
         this.field = _field;
         if (!this._fieldIntersectsChunk())
             return false;
@@ -138,8 +140,11 @@ class Chunk {
     }
 
     private _fieldIntersectsChunk(): boolean{
-        const halfSize = (this.size + this.stepSize) / 2;
-        cellPosition.set(this.xOrigin + halfSize, this.yOrigin + halfSize,this.zOrigin + halfSize)
+        const halfSize = Math.max(this.worldSize.x / 2,this.worldSize.y / 2,this.worldSize.z / 2);
+        cellPosition.set(
+            this.origin.x + this.worldSize.x / 2, 
+            this.origin.y + this.worldSize.y / 2,
+            this.origin.z + this.worldSize.z / 2);
         const centerDist = this.field.sample(cellPosition);
         // the maximum distance a field can be for the cell center
         // and still intersect is half the cell size * sqrt3
@@ -151,62 +156,35 @@ class Chunk {
         return true; 
     }
 
-    /**
-     * Sample the field close to the surface
-     */
-    private _extractSparseCells() {
-        sparseSamples = 0;
-        const threshold = this.stepSize * 2.5;
-        for (let cellX = 0; cellX <= this.subdivisions; cellX++) {
-            for (let cellY = 0; cellY <= this.subdivisions; cellY++) {
-                let surfaceDist = 0;
-                for (let cellZ = 0; cellZ <= this.subdivisions; cellZ++) {
-                    if (surfaceDist < threshold)
-                    {
-                        const centerIndex = this.cellIndex(cellX,cellY, cellZ);
-                        if (this.markedSamples[centerIndex] == this.sampleMarker) {
-                            surfaceDist = this.fieldSamples[centerIndex];
-                        }
-                        else
-                        {
-                            this.cellSpaceToWorldSpace(cellX, cellY, cellZ, cellCenter);
-                            surfaceDist = this.field.sample(cellCenter);
-                            this.fieldSamples[centerIndex] = surfaceDist;
-                            // mark location as calculated to avoid sampling it again
-                            this.markedSamples[centerIndex] = this.sampleMarker;
-                            sparseSamples++;
-                        }
-                        
-                        surfaceDist = Math.abs(surfaceDist);
-                    }
-                    else
-                        surfaceDist -= this.stepSize;
-                }
-            }
-        }
-    }
-
     private _sampleAllPoints() {
         sparseSamples = 0;
-        for (let cellX = 0; cellX <= this.subdivisions; cellX++) {
-            for (let cellY = 0; cellY <= this.subdivisions; cellY++) {
-                for (let cellZ = 0; cellZ <= this.subdivisions; cellZ++) {
-                    this.cellSpaceToWorldSpace(cellX, cellY, cellZ, cellPosition);
-                    const surfaceDist = this.field.sample(cellPosition);
+        for (let cellX = 0; cellX <= this.cellRange.x; cellX++) {
+            for (let cellY = 0; cellY <= this.cellRange.y; cellY++) {
+                for (let cellZ = 0; cellZ <= this.cellRange.z; cellZ++) {
+                    cellPosition.set(cellX, cellY, cellZ);
+                    this.cellSpaceToWorldSpace(cellPosition, worldPosition);
+                    const surfaceDist = this.field.sample(worldPosition);
                     this.positiveSamples &&= surfaceDist >= 0;
                     this.negativeSamples &&= surfaceDist <= 0;
                     const cellIndex = this.cellIndex(cellX, cellY, cellZ);
-                    this.fieldSamples[cellIndex] = surfaceDist;       
+                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                    this.fieldSamples![cellIndex] = surfaceDist;       
                 }
             }
         }
     }
-
-
-
 }
 
+function CopyXyz (src: XYZ, dest: XYZ) {
+    dest.x = src.x;
+    dest.y = src.y;
+    dest.z = src.z;
+}
 
+function CopyXy (src: XY, dest: XY) {
+    dest.x = src.x;
+    dest.y = src.y;
+}
 
-export {Chunk, CORNERS, sparseSamples}
+export {Chunk, CORNERS, sparseSamples,XYZ,XY,CopyXyz,CopyXy}
 

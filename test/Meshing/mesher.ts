@@ -1,4 +1,4 @@
-import { Chunk, ExtractSurface, OuterCornerWeight, CalcCellVertex, GetCellCornerPosition, GetOuterCellCornerPosition} from "../";
+import { Chunk, ExtractSurface, CalcCellVertex, GetCellCornerPosition, GetOuterCellCornerPosition} from "../";
 import { CONNECTED_CELL, XZ_FACE_ANTICLOCK, XY_FACE_ANTICLOCK, YZ_FACE_ANTICLOCK} from "../";
 import { SdfBox,SdfSphere } from "../";
 import { SampleFieldXy, SampleFieldXz, SliceSamplesXy, GreyScale, NumScale, Trim } from "../";
@@ -7,75 +7,6 @@ import { Vector3 } from "@babylonjs/core";
 
 export function TestMesher() 
 {        
-    describe("corner weights", () => {
-
-        it("be 1 when identical x on an x edge with differing values for y and z", () => {
-            const axis = new Vector3(1,0,0);
-            const innerCorner: Vector3 = new Vector3(0,1,3);
-            const outerCorner: Vector3 = new Vector3(0,2,4);
-            const weight = OuterCornerWeight(axis,innerCorner,outerCorner,2);
-            expect(weight).toBe(1);
-        })
-
-        it("be 0.5 when offset 1 x on an x edge with differing values for y and z", () => {
-            const axis = new Vector3(1,0,0);
-            const innerCorner: Vector3 = new Vector3(1,4,7);
-            const outerCorner: Vector3 = new Vector3(0,9,3);
-            const weight = OuterCornerWeight(axis,innerCorner,outerCorner,2);
-            expect(weight).toBe(0.5);
-        })
-        
-        it("be 0 when offset 2 x on an x edge with differing values for y and z", () => {
-            const axis = new Vector3(1,0,0);
-            const innerCorner: Vector3 = new Vector3(2,4,7);
-            const outerCorner: Vector3 = new Vector3(2,9,3);
-            const weight = OuterCornerWeight(axis,innerCorner,outerCorner,2);
-            expect(weight).toBe(1);
-        })
-                
-        it("be 0.5 when offset 3 x on an x edge with differing values for y and z", () => {
-            const axis = new Vector3(1,0,0);
-            const innerCorner: Vector3 = new Vector3(3,4,7);
-            const outerCorner: Vector3 = new Vector3(2,9,3);
-            const weight = OuterCornerWeight(axis,innerCorner,outerCorner,2);
-            expect(weight).toBe(0.5);
-        })
-
-        it("be 1 when identical y on an y edge with differing values for x and z", () => {
-            const axis = new Vector3(0,1,0);
-            const innerCorner: Vector3 = new Vector3(1,0,3);
-            const outerCorner: Vector3 = new Vector3(2,0,4);
-            const weight = OuterCornerWeight(axis,innerCorner,outerCorner,2);
-            expect(weight).toBe(1);
-        })
-
-        it("be 0.5 when offset 1 y on an y edge with differing values for x and z", () => {
-            const axis = new Vector3(0,1,0);
-            const innerCorner: Vector3 = new Vector3(4,1,7);
-            const outerCorner: Vector3 = new Vector3(9,0,3);
-            const weight = OuterCornerWeight(axis,innerCorner,outerCorner,2);
-            expect(weight).toBe(0.5);
-        })
-
-        
-        it("z axis start", () => {
-            const axis = new Vector3(0,0,1);
-            const innerCorner: Vector3 = new Vector3(6,5,8);
-            const outerCorner: Vector3 = new Vector3(6,6,8);
-            const weight = OuterCornerWeight(axis,innerCorner,outerCorner,2);
-            expect(weight).toBe(1);
-        })
-
-                
-        it("z axis end", () => {
-            const axis = new Vector3(0,0,1);
-            const innerCorner: Vector3 = new Vector3(6,5,9);
-            const outerCorner: Vector3 = new Vector3(6,6,10);
-            const weight = OuterCornerWeight(axis,innerCorner,outerCorner,2);
-            expect(weight).toBe(0.5);
-        })
-
-    });
 
     describe("Corner positions", () =>{
 
@@ -83,7 +14,7 @@ export function TestMesher()
             const innerPos: Vector3 = new Vector3();
             const outerPos: Vector3 = new Vector3();
             GetCellCornerPosition(0,0,0,0,innerPos);
-            GetOuterCellCornerPosition(0,0,0,0,outerPos);
+            GetOuterCellCornerPosition(0,2,0,0,0,outerPos);
             expect(innerPos.toString()).toEqual("{X: 0 Y:0 Z:0}");
             expect(outerPos.toString()).toEqual("{X: 0 Y:0 Z:0}");
         })
@@ -92,7 +23,7 @@ export function TestMesher()
             const innerPos: Vector3 = new Vector3();
             const outerPos: Vector3 = new Vector3();
             GetCellCornerPosition(0,1,0,0,innerPos);
-            GetOuterCellCornerPosition(0,1,0,0,outerPos);
+            GetOuterCellCornerPosition(0,2,1,0,0,outerPos);
             expect(innerPos.toString()).toEqual("{X: 1 Y:0 Z:0}");
             expect(outerPos.toString()).toEqual("{X: 0 Y:0 Z:0}");
         })
@@ -101,7 +32,7 @@ export function TestMesher()
             const innerPos: Vector3 = new Vector3();
             const outerPos: Vector3 = new Vector3();
             GetCellCornerPosition(1,0,0,0,innerPos);
-            GetOuterCellCornerPosition(1,0,0,0,outerPos);
+            GetOuterCellCornerPosition(1,2,0,0,0,outerPos);
             expect(innerPos.toString()).toEqual("{X: 1 Y:0 Z:0}");
             expect(outerPos.toString()).toEqual("{X: 2 Y:0 Z:0}");
         })
@@ -110,7 +41,7 @@ export function TestMesher()
             const innerPos: Vector3 = new Vector3();
             const outerPos: Vector3 = new Vector3();
             GetCellCornerPosition(1,1,0,0,innerPos);
-            GetOuterCellCornerPosition(1,1,0,0,outerPos);
+            GetOuterCellCornerPosition(1,2,1,0,0,outerPos);
             expect(innerPos.toString()).toEqual("{X: 2 Y:0 Z:0}");
             expect(outerPos.toString()).toEqual("{X: 2 Y:0 Z:0}");
         })
@@ -120,7 +51,7 @@ export function TestMesher()
             const innerPos: Vector3 = new Vector3();
             const outerPos: Vector3 = new Vector3();
             GetCellCornerPosition(1,2,0,0,innerPos);
-            GetOuterCellCornerPosition(1,2,0,0,outerPos);
+            GetOuterCellCornerPosition(1,2,2,0,0,outerPos);
             expect(innerPos.toString()).toEqual("{X: 3 Y:0 Z:0}");
             expect(outerPos.toString()).toEqual("{X: 4 Y:0 Z:0}");
         })
@@ -143,7 +74,7 @@ export function TestMesher()
             const cornerDist: Float32Array = new Float32Array([-1,1,1,1.41421356237,1,1.41421356237,1.41421356237,1.732050807568877]);
             const vertex = new Vector3();
             const edges = CalcCellVertex(cornerDist,vertex);
-            expect(roundVert(vertex)).toEqual("0.17, 0.17 0.17");
+            expect(RoundVert(vertex)).toEqual("0.17, 0.17 0.17");
             expect(edges).toEqual(CONNECTED_CELL | XZ_FACE_ANTICLOCK | XY_FACE_ANTICLOCK | YZ_FACE_ANTICLOCK)
         })
     });
@@ -153,85 +84,75 @@ export function TestMesher()
     it('creates a cube mesh', () => {
         const field = new SdfBox(4.5,4.5,4.5)
         const chunk = new Chunk();
-        chunk.setSize(24,8);
-        chunk.setOrigin(-12,-12,-12);
+        chunk.setSize({x:24,y:24,z:24},3);
+        chunk.setOrigin({x:-12,y:-12,z:-12});
         chunk.sample(field);
         const meshVerticies: number[] = [];
         const meshFaces: number[] = [];
-        ExtractSurface(chunk,meshVerticies,meshFaces);
+        const scales = [1,1,1,1,1,1,1,1];
+        ExtractSurface(chunk,scales,meshVerticies,meshFaces);
         expect(meshFaces).toEqual([
-            3, 2, 0, 0, 1, 3, 5, 1, 0, 0, 4, 5, 6, 4, 0, 0, 2, 6, 8, 3, 1, 1, 7, 8, 9, 7, 1, 1, 5, 9, 10, 8, 
-            7, 7, 9, 10, 12, 11, 2, 2, 3, 12, 13, 6, 2, 2, 11, 13, 14, 13, 11, 11, 12, 14, 15, 12, 3, 3, 8, 
-            15, 16, 14, 12, 12, 15, 16, 16, 15, 8, 8, 10, 16, 18, 5, 4, 4, 17, 18, 19, 17, 4, 4, 6, 19, 20, 
-            18, 17, 17, 19, 20, 21, 9, 5, 5, 18, 21, 22, 21, 18, 18, 20, 22, 22, 10, 9, 9, 21, 22, 23, 19, 
-            6, 6, 13, 23, 24, 23, 13, 13, 14, 24, 24, 20, 19, 19, 23, 24, 25, 24, 14, 14, 16, 25, 25, 22, 
-            20, 20, 24, 25, 25, 16, 10, 10, 22, 25]);
+            3, 1, 0, 0, 2, 3, 5, 4, 0, 0, 1, 5, 6, 2, 0, 0, 4, 6, 7, 3, 2, 2, 6, 7, 7, 5, 1, 1, 3, 7, 7, 6, 4, 4, 5, 7]);
         const roundedVertices = meshVerticies.map(x => {
             return Math.round(x * 100) / 100;
         });
-        expect(roundedVertices.length).toBe(78);
+        expect(roundedVertices.length).toBe(24);
         expect(roundedVertices).toEqual([
-            -1.89, -1.89, -1.89, -0, -1.98, -1.98, -1.98, -0, -1.98, -0, -0, -2.25, -1.98, -1.98, -0, -0, -2.25, 
-            -0, -2.25, -0, -0, 1.89, -1.89, -1.89, 1.98, -0, -1.98, 1.98, -1.98, -0, 2.25, -0, -0, -1.89, 1.89, 
-            -1.89, -0, 1.98, -1.98, -1.98, 1.98, -0, -0, 2.25, -0, 1.89, 1.89, -1.89, 1.98, 1.98, -0, -1.89, -1.89, 
-            1.89, -0, -1.98, 1.98, -1.98, -0, 1.98, -0, -0, 2.25, 1.89, -1.89, 1.89, 1.98, -0, 1.98, -1.89, 1.89, 
-            1.89, -0, 1.98, 1.98, 1.89, 1.89, 1.89]);
+            -0.75, -0.75, -0.75, -0.75, -0.75, 0.75, -0.75, 0.75, 
+            -0.75, -0.75, 0.75, 0.75, 0.75, -0.75, -0.75, 0.75, 
+            -0.75, 0.75, 0.75, 0.75, -0.75, 0.75, 0.75, 0.75]);
     })
 
     it('creates a sphere mesh', () => {
-        const field = new SdfSphere(4.5);
-        const chunk = new Chunk(24,8);
-        chunk.setOrigin(-12,-12,-12);
+        const field = new SdfSphere(2);
+        const chunk = new Chunk();
+        chunk.setSize({x:4,y:4,z:4},1);
+        chunk.setOrigin({x:-2,y:-2,z:-2});
         chunk.sample(field);
         const meshVerticies: number[] = [];
         const meshFaces: number[] = [];
-        ExtractSurface(chunk,meshVerticies,meshFaces);
-        expect(meshFaces.length).toEqual(144);
-        expect(meshFaces).toEqual([
-            3, 2, 0, 0, 1, 3, 5, 1, 0, 0, 4, 5, 6, 4, 0, 0, 2, 6, 8, 3, 1, 1, 7, 8, 9, 7, 1, 1, 5, 9, 
-            10, 8, 7, 7, 9, 10, 12, 11, 2, 2, 3, 12, 13, 6, 2, 2, 11, 13, 14, 13, 11, 11, 12, 14, 15, 
-            12, 3, 3, 8, 15, 16, 14, 12, 12, 15, 16, 16, 15, 8, 8, 10, 16, 18, 5, 4, 4, 17, 18, 19, 17, 
-            4, 4, 6, 19, 20, 18, 17, 17, 19, 20, 21, 9, 5, 5, 18, 21, 22, 21, 18, 18, 20, 22, 22, 10, 
-            9, 9, 21, 22, 23, 19, 6, 6, 13, 23, 24, 23, 13, 13, 14, 24, 24, 20, 19, 19, 23, 24, 25, 24, 
-            14, 14, 16, 25, 25, 22, 20, 20, 24, 25, 25, 16, 10, 10, 22, 25]);
-        const roundedVertices = meshVerticies.map(x => {
-            return Math.round(x * 100) / 100;
-        });
-        expect(roundedVertices.length).toEqual(78);
-        expect(roundedVertices).toEqual([
-            -2.36, -2.36, -2.36, -0, -2.68, -2.68, -2.68, -0, -2.68, -0, -0, -3.65, -2.68, -2.68, -0, -0, 
-            -3.65, -0, -3.65, -0, -0, 2.36, -2.36, -2.36, 2.68, -0, -2.68, 2.68, -2.68, -0, 3.65, -0, -0, 
-            -2.36, 2.36, -2.36, -0, 2.68, -2.68, -2.68, 2.68, -0, -0, 3.65, -0, 2.36, 2.36, -2.36, 2.68, 2.68, 
-            -0, -2.36, -2.36, 2.36, -0, -2.68, 2.68, -2.68, -0, 2.68, -0, -0, 3.65, 2.36, -2.36, 2.36, 2.68, -0, 
-            2.68, -2.36, 2.36, 2.36, -0, 2.68, 2.68, 2.36, 2.36, 2.36]);
+        const scales = [1,1,1,1,1,1,1,1];
+        ExtractSurface(chunk,scales,meshVerticies,meshFaces);
+        const facesResults = meshFaces.map(x => x.toString()).join();
+        expect(facesResults).toEqual(
+            '5,1,0,0,4,5,6,2,1,1,5,6,7,3,2,2,6,7,9,5,4,4,8,9,10,6,5,5,9,10,11,7,6,6,10,11,13,9,8,8,12,13,14,' +
+            '10,9,9,13,14,15,11,10,10,14,15,17,16,0,0,1,17,18,17,1,1,2,18,19,18,2,2,3,19,20,4,0,0,16,20,21,19,' +
+            '3,3,7,21,22,8,4,4,20,22,23,21,7,7,11,23,24,12,8,8,22,24,25,13,12,12,24,25,26,14,13,13,25,26,27,15,' +
+            '14,14,26,27,27,23,11,11,15,27,29,28,16,16,17,29,30,29,17,17,18,30,31,30,18,18,19,31,32,20,16,16,28,' +
+            '32,33,31,19,19,21,33,34,22,20,20,32,34,35,33,21,21,23,35,36,24,22,22,34,36,37,25,24,24,36,37,38,26,' +
+            '25,25,37,38,39,27,26,26,38,39,39,35,23,23,27,39,41,40,28,28,29,41,42,41,29,29,30,42,43,42,30,30,31,' +
+            '43,44,32,28,28,40,44,45,44,40,40,41,45,46,45,41,41,42,46,47,43,31,31,33,47,47,46,42,42,43,47,48,34,' +
+            '32,32,44,48,49,48,44,44,45,49,50,49,45,45,46,50,51,47,33,33,35,51,51,50,46,46,47,51,52,36,34,34,48,' +
+            '52,53,37,36,36,52,53,53,52,48,48,49,53,54,38,37,37,53,54,54,53,49,49,50,54,55,39,38,38,54,55,55,51,' +
+            '35,35,39,55,55,54,50,50,51,55');
+        const roundedVertices = meshVerticies.map(x => x.toFixed(2).toString()).join();
+        expect(roundedVertices).toEqual('-1.12,-1.12,-1.12,-1.27,-1.27,-0.50,-1.27,-1.27,0.50,-1.12,-1.12,1.12,-1.27,-0.50,-1.27,-1.70,-0.50,-0.50,-1.70,-0.50,0.50,-1.27,-0.50,1.27,-1.27,0.50,-1.27,-1.70,0.50,-0.50,-1.70,0.50,0.50,-1.27,0.50,1.27,-1.12,1.12,-1.12,-1.27,1.27,-0.50,-1.27,1.27,0.50,-1.12,1.12,1.12,-0.50,-1.27,-1.27,-0.50,-1.70,-0.50,-0.50,-1.70,0.50,-0.50,-1.27,1.27,-0.50,-0.50,-1.70,-0.50,-0.50,1.70,-0.50,0.50,-1.70,-0.50,0.50,1.70,-0.50,1.27,-1.27,-0.50,1.70,-0.50,-0.50,1.70,0.50,-0.50,1.27,1.27,0.50,-1.27,-1.27,0.50,-1.70,-0.50,0.50,-1.70,0.50,0.50,-1.27,1.27,0.50,-0.50,-1.70,0.50,-0.50,1.70,0.50,0.50,-1.70,0.50,0.50,1.70,0.50,1.27,-1.27,0.50,1.70,-0.50,0.50,1.70,0.50,0.50,1.27,1.27,1.12,-1.12,-1.12,1.27,-1.27,-0.50,1.27,-1.27,0.50,1.12,-1.12,1.12,1.27,-0.50,-1.27,1.70,-0.50,-0.50,1.70,-0.50,0.50,1.27,-0.50,1.27,1.27,0.50,-1.27,1.70,0.50,-0.50,1.70,0.50,0.50,1.27,0.50,1.27,1.12,1.12,-1.12,1.27,1.27,-0.50,1.27,1.27,0.50,1.12,1.12,1.12');
     })
 
     it('creates a sphere mesh truncated at the sample boundary', () => {
-        const field = new SdfSphere(4.5);
-        field.position.x = 14;
-        const chunk = new Chunk(24,8);
-        chunk.sample(field);
-        chunk.setOrigin(-12,-12,-12);
+        const field = new SdfSphere(2);
+        field.position.x = 2;
+        const chunk = new Chunk();
+        chunk.setSize({x:4,y:4,z:4},1);
+        chunk.setOrigin({x:-2,y:-2,z:-2});
         chunk.sample(field);
         const meshVerticies: number[] = [];
         const meshFaces: number[] = [];
-        ExtractSurface(chunk,meshVerticies,meshFaces);
-        expect(meshFaces.length).toEqual(24);
-        expect(meshFaces).toEqual([
-            3, 2, 0, 0, 1, 3, 5, 3, 1, 1, 4, 5, 7, 6, 2, 2, 3, 7, 8, 7, 3, 3, 5, 8]);
-        const roundedVertices = meshVerticies.map(x => {
-            return Math.round(x * 100) / 100;
-        });
-        expect(roundedVertices.length).toEqual(27);
-        expect(roundedVertices).toEqual([
-            11.45, -2.3, -2.3, 11.17, -0, -2.6, 11.17, -2.6, -0, 10.34, -0, -0, 11.45, 
-            2.3, -2.3, 11.17, 2.6, -0, 11.45, -2.3, 2.3, 11.17, -0, 2.6, 11.45, 2.3, 2.3]);
+        const scales = [1,1,1,1,1,1,1,1];
+        ExtractSurface(chunk,scales,meshVerticies,meshFaces);
+        const facesResults = meshFaces.map(x => x.toString()).join();
+        expect(facesResults).toEqual(
+            '5,1,0,0,4,5,6,2,1,1,5,6,7,3,2,2,6,7,9,5,4,4,8,9,10,6,5,5,9,10,11,7,6,6,10,11,13,9,8,8,12,13,14,10,9,9,13,14,' +
+            '15,11,10,10,14,15,17,16,0,0,1,17,18,17,1,1,2,18,19,18,2,2,3,19,20,4,0,0,16,20,21,19,3,3,7,21,22,8,4,4,20,22,23,' +
+            '21,7,7,11,23,24,12,8,8,22,24,25,13,12,12,24,25,26,14,13,13,25,26,27,15,14,14,26,27,27,23,11,11,15,27');
+        const roundedVertices = meshVerticies.map(x => x.toFixed(2).toString()).join();
+        expect(roundedVertices).toEqual('0.88,-1.12,-1.12,0.73,-1.27,-0.50,0.73,-1.27,0.50,0.88,-1.12,1.12,0.73,-0.50,-1.27,0.30,-0.50,-0.50,0.30,-0.50,0.50,0.73,-0.50,1.27,0.73,0.50,-1.27,0.30,0.50,-0.50,0.30,0.50,0.50,0.73,0.50,1.27,0.88,1.12,-1.12,0.73,1.27,-0.50,0.73,1.27,0.50,0.88,1.12,1.12,1.50,-1.27,-1.27,1.50,-1.70,-0.50,1.50,-1.70,0.50,1.50,-1.27,1.27,1.50,-0.50,-1.70,1.50,-0.50,1.70,1.50,0.50,-1.70,1.50,0.50,1.70,1.50,1.27,-1.27,1.50,1.70,-0.50,1.50,1.70,0.50,1.50,1.27,1.27,2.07,-1.24,-1.24,2.14,-1.43,-0.50,2.14,-1.43,0.50,2.07,-1.24,1.24,2.13,-0.50,-1.43,2.34,-0.50,-0.50,2.34,-0.50,0.50,2.13,-0.50,1.43,2.12,0.50,-1.43,2.32,0.50,-0.50,2.32,0.50,0.50,2.12,0.50,1.43,2.06,1.24,-1.24,2.12,1.43,-0.50,2.12,1.43,0.50,2.06,1.24,1.24');
     })
 
 })
 
 }
 
-function roundVert(vertex: Vector3): string {
+function RoundVert(vertex: Vector3): string {
     return `${vertex.x.toFixed(2)}, ${vertex.y.toFixed(2)} ${vertex.z.toFixed(2)}`;
 }
