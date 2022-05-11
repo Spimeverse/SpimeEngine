@@ -9,6 +9,9 @@ const cellCenter = new Vector3();
 const samplePoint = new Vector3();
 const cellPosition = new Vector3();
 const cellOffset = new Vector3();
+const vertexPoint = new Vector3();
+const normal = new Vector3();
+const pointOffset = new Vector3();
 const cornerDist: Float32Array = new Float32Array(8);
 
 // Corner numbers
@@ -122,7 +125,6 @@ function ExtractSurface (_chunk: Chunk,
 {
 
     chunk = _chunk;
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     fieldSamples = chunk.fieldSamples;
     SetupCells(chunk.numSamples);
     verticies = _verticies;
@@ -170,7 +172,11 @@ function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): bo
         cells.connections[cells.vertexCount] = edgeMask;
         cellOffset.set(cellX, cellY, cellZ);
         chunk.cellSpaceToWorldSpace(cellOffset,samplePoint);
-        AppendVertex(cellIndex);
+        vertexPoint.set(
+            cellCenter.x + samplePoint.x,
+            cellCenter.y + samplePoint.y,
+            cellCenter.z + samplePoint.z);
+        AppendVertex(cellIndex,vertexPoint);
     }
     else
     {
@@ -201,7 +207,11 @@ function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): bo
                 cellY - cellY % maxScale,
                 cellZ - cellZ % maxScale);
             chunk.cellSpaceToWorldSpace(cellOffset,samplePoint);
-            AppendVertex(cellIndex);
+            vertexPoint.set(
+                cellCenter.x + samplePoint.x,
+                cellCenter.y + samplePoint.y,
+                cellCenter.z + samplePoint.z);
+            AppendVertex(cellIndex,vertexPoint);
         }
         else {
             // if it's not the root cell just point to the vertex from the root cell previously created
@@ -213,11 +223,51 @@ function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): bo
     return true;
 }
 
-function AppendVertex(cellIndex: number) {
-    verticies.push(
-        cellCenter.x + samplePoint.x,
-        cellCenter.y + samplePoint.y,
-        cellCenter.z + samplePoint.z);
+function AppendVertex(cellIndex: number,point: Vector3) {
+    const field = chunk.field;
+    const dist = field.sample(point);
+    const offset = maxScale / 10000; // h from formula
+    if (Math.abs(dist) > offset) {
+        let offsetDist = 0;
+        normal.set(0,0,0);
+
+        // calculate normal using the Tetrahedron technique
+        // https://iquilezles.org/articles/normalsSDF/#:~:text=following%20three%20evaluations%3A-,Tetrahedron%20technique,-There%27s%20a%20nice
+        // Tetrahedron technique
+        //     const float h = 0.0001; // replace by an appropriate value
+        // const vec2 k = vec2(1,-1);
+        // return normalize( k.xyy*f( p + k.xyy*h ) + 
+        //                   k.yyx*f( p + k.yyx*h ) + 
+        //                   k.yxy*f( p + k.yxy*h ) + 
+        //                   k.xxx*f( p + k.xxx*h ) );
+
+        // k.xyy*f( p + k.xyy*h ) +
+        pointOffset.set(point.x + offset,point.y - offset,point.z - offset);
+        offsetDist = field.sample(pointOffset);
+        normal.addInPlaceFromFloats(offsetDist,-offsetDist,-offsetDist);
+
+        // k.yyx*f( p + k.yyx*h ) + 
+        pointOffset.set(point.x - offset,point.y - offset,point.z + offset);
+        offsetDist = field.sample(pointOffset);
+        normal.addInPlaceFromFloats(-offsetDist,-offsetDist,offsetDist);
+
+        // k.yxy*f( p + k.yxy*h ) + 
+        pointOffset.set(point.x - offset,point.y + offset,point.z - offset);
+        offsetDist = field.sample(pointOffset);
+        normal.addInPlaceFromFloats(-offsetDist,offsetDist,-offsetDist);
+        
+        // k.xxx*f( p + k.xxx*h )
+        pointOffset.set(point.x + offset,point.y + offset,point.z + offset);
+        offsetDist = field.sample(pointOffset);
+        normal.addInPlaceFromFloats(offsetDist,offsetDist,offsetDist);
+
+        normal.normalize();
+        normal.scaleInPlace(-dist);
+
+        point.addInPlace(normal);
+    }
+
+    verticies.push(point.x,point.y,point.z);
 
     cells.lookupVertexFromCell[cellIndex] = cells.vertexCount;
     // we'll need to find neighboring cells of this point to connect them up

@@ -123,8 +123,8 @@ class App {
         box2.material = boxMaterial2;
         box2.isVisible = false;
 
-        //const field = new SdfBox(3,3,3)
-        const field = new SdfTorus(2,1);
+        const field = new SdfBox(3,3,3)
+        //const field = new SdfTorus(2,1);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
         //const field = new SdfSphere(3);
@@ -137,7 +137,7 @@ class App {
         chunk1.setOrigin({x:-4,y:-2,z:-2});
 
         const chunk2 = new Chunk();
-        chunk2.setSize({x:4, y:4, z:4},1 / 8);
+        chunk2.setSize({x:4, y:4, z:4},1 / 4);
         chunk2.setOrigin({x:-0.5,y:-2,z:-2});
         //chunk2.subSample = 2;
 
@@ -167,7 +167,7 @@ class App {
 
                     gui.positionLabel.text = `Position ${field.position.x.toFixed(3)}`;
                     gui.samplesLabel.text = `Samples ${sparseSamples}`;
-                    scales = [4,4,4,4,4,4,4,4];
+                    scales = [2,2,2,2,2,2,2,2];
                     this._updateChunk(chunk2,scales, field, vertexData2, normals, customMesh2);
 
                 }
