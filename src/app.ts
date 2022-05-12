@@ -27,7 +27,7 @@ const xSample = 0;
 // @ts-ignore: it's an image    
 //import grassTextureUrl from "../assets/grass.jpg";
 
-let objectPos = 1000;
+let objectPos = 219;
 let positionDirty = true;
 let tunePos = 0;
 
@@ -86,7 +86,7 @@ class App {
             scene
         );
         ground.position.y = 0;
-        ground.isVisible = true;
+        ground.isVisible = false;
     
         // Load a texture to be used as the ground material
         const groundMaterial = new StandardMaterial("ground material", scene);
@@ -113,7 +113,7 @@ class App {
         boxMaterial.diffuseColor = new Color3(1,0,0);
         boxMaterial.wireframe = true;
         box.material = boxMaterial;
-        box.isVisible = true;
+        box.isVisible = false;
 
         const box2 = MeshBuilder.CreateBox("box2", {size:4}, scene);
         box2.position.x = 2;
@@ -123,8 +123,8 @@ class App {
         box2.material = boxMaterial2;
         box2.isVisible = false;
 
-        const field = new SdfBox(3,3,3)
-        //const field = new SdfTorus(2,1);
+        //const field = new SdfBox(3,3,3)
+        const field = new SdfTorus(2,1);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
         //const field = new SdfSphere(3);
@@ -133,20 +133,22 @@ class App {
 
 
         const chunk1 = new Chunk();
-        chunk1.setSize({x:4, y:4, z:4},1 / 2);
+        chunk1.setSize({x:4.5, y:4, z:4},1 / 2);
         chunk1.setOrigin({x:-4,y:-2,z:-2});
 
         const chunk2 = new Chunk();
         chunk2.setSize({x:4, y:4, z:4},1 / 4);
-        chunk2.setOrigin({x:-0.5,y:-2,z:-2});
+        chunk2.setOrigin({x:0,y:-2,z:-2});
         //chunk2.subSample = 2;
 
         //Create a custom mesh  
         const { customMesh, vertexData } = this._createCustomMesh(scene);
+        customMesh.position.y = 0.2;
         const { customMesh : customMesh2, vertexData : vertexData2 } = this._createCustomMesh(scene);
         const { customMesh : customMesh3, vertexData : vertexData3 } = this._createCustomMesh(scene);
 
         scene.onBeforeAnimationsObservable.add((theScene) => {
+            customMesh.position.y = tunePos;
             if (positionDirty)
             {
                 positionDirty = false;
@@ -251,7 +253,7 @@ class App {
         customMesh.material = voxelMaterial
         customMesh.enableEdgesRendering();
         customMesh.edgesWidth = 4.0
-        customMesh.edgesColor = new Color4(color.r / 2, color.g / 2, color.b / 2, 1);
+        customMesh.edgesColor = new Color4(0, 0, 0, 1);
     }
 
     private _createStatsGui(camera: ArcRotateCamera) {

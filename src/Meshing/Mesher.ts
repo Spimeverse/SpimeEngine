@@ -156,7 +156,7 @@ function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): bo
     let negPoints = 0;
 
     let edgeMask = 0;
-    if (maxScale == 1 || cellX >= 7) {
+    if (maxScale == 1 || cellX >= maxScale) {
         for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
             GetCellCornerPosition(cornerNum, cellX, cellY, cellZ, cellPosition);
             cornerDist[cornerNum] = SampleField(cellPosition.x, cellPosition.y, cellPosition.z);
@@ -168,15 +168,16 @@ function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): bo
             return false;
 
         edgeMask = CalcCellVertex(cornerDist,cellCenter);
+        //cellCenter.set(0.5,0.5,0.5);
         cellCenter.scaleInPlace(chunk.cellSize);
-        cells.connections[cells.vertexCount] = edgeMask;
         cellOffset.set(cellX, cellY, cellZ);
         chunk.cellSpaceToWorldSpace(cellOffset,samplePoint);
         vertexPoint.set(
             cellCenter.x + samplePoint.x,
             cellCenter.y + samplePoint.y,
             cellCenter.z + samplePoint.z);
-        AppendVertex(cellIndex,vertexPoint);
+        if (AppendVertex(cellIndex,vertexPoint))
+            cells.connections[cells.vertexCount - 1] = edgeMask;
     }
     else
     {
@@ -201,8 +202,8 @@ function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): bo
                 return false;
 
             edgeMask = CalcCellVertex(cornerDist,cellCenter);
+            //cellCenter.set(0.5,0.5,0.5);
             cellCenter.scaleInPlace(chunk.cellSize * maxScale);
-            cells.connections[cells.vertexCount] = edgeMask;
             cellOffset.set(cellX - cellX % maxScale,
                 cellY - cellY % maxScale,
                 cellZ - cellZ % maxScale);
@@ -211,7 +212,8 @@ function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): bo
                 cellCenter.x + samplePoint.x,
                 cellCenter.y + samplePoint.y,
                 cellCenter.z + samplePoint.z);
-            AppendVertex(cellIndex,vertexPoint);
+            if (AppendVertex(cellIndex,vertexPoint))
+                cells.connections[cells.vertexCount - 1] = edgeMask;
         }
         else {
             // if it's not the root cell just point to the vertex from the root cell previously created
@@ -266,7 +268,7 @@ function AppendVertex(cellIndex: number,point: Vector3) {
 
         point.addInPlace(normal);
     }
-
+    
     verticies.push(point.x,point.y,point.z);
 
     cells.lookupVertexFromCell[cellIndex] = cells.vertexCount;
@@ -274,6 +276,7 @@ function AppendVertex(cellIndex: number,point: Vector3) {
     // so record the cell index that the point was created for
     cells.lookupCellFromVertex[cells.vertexCount] = cellIndex;
     cells.vertexCount++;
+    return true;
 }
 
 function SampleField(cellX: number, cellY: number, cellZ: number) {
@@ -301,11 +304,11 @@ function ExtractCell(connectEdges: number) {
     // if (cellPosition.x >= 2)
     // continue;
     if (cellPosition.x == 0)
-        connectEdges = RestrictFacesTo(connectEdges, YZ_FACE_CLOCKWISE, YZ_FACE_ANTICLOCK);
+        connectEdges = 0; // RestrictFacesTo(connectEdges, YZ_FACE_CLOCKWISE, YZ_FACE_ANTICLOCK);
     if (cellPosition.y == 0)
-        connectEdges = RestrictFacesTo(connectEdges, XZ_FACE_CLOCKWISE, XZ_FACE_ANTICLOCK);
+        connectEdges = 0; //RestrictFacesTo(connectEdges, XZ_FACE_CLOCKWISE, XZ_FACE_ANTICLOCK);
     if (cellPosition.z == 0)
-        connectEdges = RestrictFacesTo(connectEdges, XY_FACE_CLOCKWISE, XY_FACE_ANTICLOCK);
+        connectEdges = 0;//RestrictFacesTo(connectEdges, XY_FACE_CLOCKWISE, XY_FACE_ANTICLOCK);
 
     if (cellPosition.x >= chunk.cellRange.x)
         connectEdges = 0;
@@ -401,16 +404,20 @@ const triVert = new Uint16Array(3);
 
 function ExtractFaces(cellPosition: Vector3,offsets: number[][]) {
     for (let offsetNum = 0; offsetNum < offsets.length; offsetNum += 3) {
+        let overlap = false;
         for (let i = 0; i < 3; i++) {
             const x = cellPosition.x + offsets[offsetNum + i][0];
             const y = cellPosition.y + offsets[offsetNum + i][1];
             const z = cellPosition.z + offsets[offsetNum + i][2];
             const index = chunk.cellIndex(x,y,z);
             triVert[i] = cells.lookupVertexFromCell[index];
+            const vx = verticies[triVert[i] * 3];
+            if (vx < chunk.origin.x)
+                overlap = true;
         }
         // cells for seams can emit triangles that reuse a vertex
         // only add triangles with 3 unique vertices
-        if (triVert[0] != triVert[1] && triVert[1] != triVert[2] && triVert[0] != triVert[2])
+        if (!overlap && triVert[0] != triVert[1] && triVert[1] != triVert[2] && triVert[0] != triVert[2])
             faces.push(triVert[0],triVert[1],triVert[2]);
     }
    
