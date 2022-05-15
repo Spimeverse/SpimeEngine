@@ -17,7 +17,7 @@ import { Mesh, VertexData, MeshBuilder } from "@babylonjs/core/Meshes"
 import { Rectangle, StackPanel, TextBlock, Slider, Container } from "@babylonjs/gui/2D/controls";
 import { AdvancedDynamicTexture } from "@babylonjs/gui/2D";
 
-import { ExtractSurface, ExtractSeam, CORNERS, Chunk, sparseSamples } from "./Meshing";
+import { ExtractSurface, CORNERS, Chunk } from "./Meshing";
 import { SdfBox, SdfSphere, SdfTorus,SignedDistanceField } from "./signedDistanceFields";
 
 
@@ -113,7 +113,7 @@ class App {
         boxMaterial.diffuseColor = new Color3(1,0,0);
         boxMaterial.wireframe = true;
         box.material = boxMaterial;
-        box.isVisible = false;
+        box.isVisible = true;
 
         const box2 = MeshBuilder.CreateBox("box2", {size:4}, scene);
         box2.position.x = 2;
@@ -123,8 +123,8 @@ class App {
         box2.material = boxMaterial2;
         box2.isVisible = false;
 
-        //const field = new SdfBox(3,3,3)
-        const field = new SdfTorus(2,1);
+        const field = new SdfBox(3,3,3)
+        //const field = new SdfTorus(2,1);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
         //const field = new SdfSphere(3);
@@ -137,7 +137,7 @@ class App {
         chunk1.setOrigin({x:-4,y:-2,z:-2});
 
         const chunk2 = new Chunk();
-        chunk2.setSize({x:4, y:4, z:4},1 / 4);
+        chunk2.setSize({x:4, y:4, z:4},1 / 8);
         chunk2.setOrigin({x:0,y:-2,z:-2});
         //chunk2.subSample = 2;
 
@@ -168,8 +168,7 @@ class App {
                     this._updateChunk(chunk1,scales, field, vertexData, normals, customMesh);
 
                     gui.positionLabel.text = `Position ${field.position.x.toFixed(3)}`;
-                    gui.samplesLabel.text = `Samples ${sparseSamples}`;
-                    scales = [2,2,2,2,2,2,2,2];
+                    scales = [4,4,4,4,4,4,4,4];
                     this._updateChunk(chunk2,scales, field, vertexData2, normals, customMesh2);
 
                 }
@@ -199,9 +198,9 @@ class App {
     }
 
     private _updateChunk(chunk: Chunk,scales: number[], field: SignedDistanceField, vertexData: VertexData, normals: number[], customMesh: Mesh) {
-        chunk.sample(field)
         const extracted = ExtractSurface(
             chunk,
+            field,
             scales,
             vertexData.positions as number[],
             vertexData.indices as number[])

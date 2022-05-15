@@ -1,13 +1,10 @@
 import { Vector2,Vector3 } from "@babylonjs/core/Maths";
-import { SignedDistanceField, EMPTY_FIELD } from "../signedDistanceFields";
 
 const cellPosition = new Vector3();
-const worldPosition = new Vector3();
 const cellCenter = new Vector3();
 const cellOffset = {x:0,y:0,z:0};
     
-const sqrt3 = Math.sqrt(3);
-let sparseSamples = 0;
+
 enum CORNERS {
     leftBottomFront = 0,
     rightBottomFront = 1,
@@ -54,11 +51,6 @@ class Chunk {
      * the size of one cell in the chunk in world coordinate space
      */
     cellSize = 0;
-    positiveSamples = false;
-    negativeSamples = false;
-
-    field: SignedDistanceField = EMPTY_FIELD;
-    fieldSamples: Float32Array = new Float32Array(0);
 
     constructor () {
         this.maxSamples = 0;
@@ -85,13 +77,9 @@ class Chunk {
         this.stride.x = this.cellRange.x + 1;
         this.stride.y = this.stride.x * (this.cellRange.y + 1);
         this.numSamples = this.stride.y * (this.cellRange.z + 1);
+        if (this.numSamples > 65536) throw "chunk resolution exceeds 65536. aborting";
 
         this.cellSize = cellSize;
-        if (this.numSamples > this.maxSamples) {
-            if (this.numSamples > 65536) throw "chunk resolution exceeds 65536. aborting";
-            this.fieldSamples = new Float32Array(this.numSamples);
-            this.maxSamples = this.numSamples;
-        }
     }
 
     /**
@@ -127,52 +115,7 @@ class Chunk {
         samplePoint.z = this.origin.z + (cell.z * this.cellSize);
     }
 
-    sample (_field: SignedDistanceField): boolean {
-        sparseSamples = 0;
-        this.field = _field;
-        if (!this._fieldIntersectsChunk())
-            return false;
-        this.positiveSamples = false;
-        this.negativeSamples = false;
 
-        this._sampleAllPoints();
-        return this.positiveSamples && this.negativeSamples;
-    }
-
-    private _fieldIntersectsChunk(): boolean{
-        const halfSize = Math.max(this.worldSize.x / 2,this.worldSize.y / 2,this.worldSize.z / 2);
-        cellPosition.set(
-            this.origin.x + this.worldSize.x / 2, 
-            this.origin.y + this.worldSize.y / 2,
-            this.origin.z + this.worldSize.z / 2);
-        const centerDist = this.field.sample(cellPosition);
-        // the maximum distance a field can be for the cell center
-        // and still intersect is half the cell size * sqrt3
-        // because the hypotenuse is sqrt(x*x+y*y+z*z)
-        // we can work this for x=y=z=1 ie sqrt(3)
-        // then just do halfCell*sqrt(3)
-        if (Math.abs(centerDist) > halfSize * sqrt3)
-            return false; // the surface is further away than the cell size, quit
-        return true; 
-    }
-
-    private _sampleAllPoints() {
-        sparseSamples = 0;
-        for (let cellX = 0; cellX <= this.cellRange.x; cellX++) {
-            for (let cellY = 0; cellY <= this.cellRange.y; cellY++) {
-                for (let cellZ = 0; cellZ <= this.cellRange.z; cellZ++) {
-                    cellPosition.set(cellX, cellY, cellZ);
-                    this.cellSpaceToWorldSpace(cellPosition, worldPosition);
-                    const surfaceDist = this.field.sample(worldPosition);
-                    this.positiveSamples &&= surfaceDist >= 0;
-                    this.negativeSamples &&= surfaceDist <= 0;
-                    const cellIndex = this.cellIndex(cellX, cellY, cellZ);
-                    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                    this.fieldSamples![cellIndex] = surfaceDist;       
-                }
-            }
-        }
-    }
 }
 
 function CopyXyz (src: XYZ, dest: XYZ) {
@@ -186,5 +129,5 @@ function CopyXy (src: XY, dest: XY) {
     dest.y = src.y;
 }
 
-export {Chunk, CORNERS, sparseSamples,XYZ,XY,CopyXyz,CopyXy}
+export {Chunk, CORNERS, XYZ,XY,CopyXyz,CopyXy}
 

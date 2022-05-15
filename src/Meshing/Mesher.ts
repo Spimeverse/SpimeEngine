@@ -2,6 +2,7 @@
 // https://github.com/bonsairobo/fast-surface-nets-rs/blob/main/src/lib.rs
 
 
+import { SignedDistanceField, EMPTY_FIELD } from "../signedDistanceFields";
 import { Chunk,XYZ } from ".";
 import { Vector3 } from "@babylonjs/core/Maths";
 
@@ -13,6 +14,7 @@ const vertexPoint = new Vector3();
 const normal = new Vector3();
 const pointOffset = new Vector3();
 const cornerDist: Float32Array = new Float32Array(8);
+const sqrt3 = Math.sqrt(3);
 
 // Corner numbers
 //
@@ -111,21 +113,26 @@ interface Cells {
 let verticies: number[];
 let faces: number[];
 let chunk: Chunk;
+let field: SignedDistanceField;
+let maxSamples = 0;
 let fieldSamples: Float32Array;
 let scale: number[];
 let isMixedScale = false;
 let maxScale = 1;
 const maxCells = 0;
 
+let positiveSamples = false;
+let negativeSamples = false;
 let cells: Cells;
 
 function ExtractSurface (_chunk: Chunk,
+    _field: SignedDistanceField,
     _scale: number[],
     _verticies: number[], _faces: number[]): boolean 
 {
 
     chunk = _chunk;
-    fieldSamples = chunk.fieldSamples;
+    field = _field;
     SetupCells(chunk.numSamples);
     verticies = _verticies;
     faces = _faces;
@@ -134,11 +141,68 @@ function ExtractSurface (_chunk: Chunk,
     maxScale = Math.max(...scale);
     isMixedScale = maxScale > 1;
 
+    if (chunk.numSamples > maxSamples) {
+        fieldSamples = new Float32Array(chunk.numSamples);
+        maxSamples = chunk.numSamples;
+    }
+
+
     verticies.length = 0;
     faces.length = 0;
-    CheckAllCells(chunk.cellRange);
-    ExtractAllFaces();
+    if (SampleChunkField(chunk)) {
+        CheckAllCells(chunk.cellRange);
+        ExtractAllFaces();
+    }
     return verticies.length > 0;
+}
+
+function SampleChunkField (chunk: Chunk): boolean {
+    if (!FieldIntersectsChunk(chunk))
+        return false;
+    positiveSamples = false;
+    negativeSamples = false;
+
+    SampleAllPoints(chunk);
+    return positiveSamples && negativeSamples;
+}
+
+function FieldIntersectsChunk(chunk: Chunk): boolean{
+    const {worldSize, origin} = chunk;
+    const halfSize = Math.max(worldSize.x / 2,worldSize.y / 2,worldSize.z / 2);
+    cellPosition.set(
+        origin.x + worldSize.x / 2, 
+        origin.y + worldSize.y / 2,
+        origin.z + worldSize.z / 2);
+    const centerDist = field.sample(cellPosition);
+    // the maximum distance a field can be for the cell center
+    // and still intersect is half the cell size * sqrt3
+    // because the hypotenuse is sqrt(x*x+y*y+z*z)
+    // we can work this for x=y=z=1 ie sqrt(3)
+    // then just do halfCell*sqrt(3)
+    if (Math.abs(centerDist) > halfSize * sqrt3)
+        return false; // the surface is further away than the cell size, quit
+    return true; 
+}
+
+const worldPosition = new Vector3();
+
+function SampleAllPoints(chunk: Chunk) {
+    const {cellRange} = chunk;
+    for (let cellX = 0; cellX <= cellRange.x; cellX++) {
+        for (let cellY = 0; cellY <= cellRange.y; cellY++) {
+            for (let cellZ = 0; cellZ <= cellRange.z; cellZ++) {
+                cellPosition.set(cellX, cellY, cellZ);
+                chunk.cellSpaceToWorldSpace(cellPosition, worldPosition);
+                const surfaceDist = field.sample(worldPosition);
+                if (surfaceDist >= 0)
+                    positiveSamples = true;
+                else
+                    negativeSamples = true;
+                const cellIndex = chunk.cellIndex(cellX, cellY, cellZ);
+                fieldSamples![cellIndex] = surfaceDist;       
+            }
+        }
+    }
 }
 
 function CheckAllCells(cellRange: XYZ) {
@@ -159,7 +223,8 @@ function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): bo
     if (maxScale == 1 || cellX >= maxScale) {
         for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
             GetCellCornerPosition(cornerNum, cellX, cellY, cellZ, cellPosition);
-            cornerDist[cornerNum] = SampleField(cellPosition.x, cellPosition.y, cellPosition.z);
+            const cornerIndex = chunk.cellIndex(cellPosition.x, cellPosition.y, cellPosition.z);
+            cornerDist[cornerNum] = fieldSamples[cornerIndex];
             if (cornerDist[cornerNum] < 0)
                 negPoints++;
         }
@@ -193,7 +258,8 @@ function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): bo
         {
             for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
                 GetOuterCellCornerPosition(cornerNum,maxScale, cellX, cellY, cellZ, cellPosition);
-                cornerDist[cornerNum] = SampleField(cellPosition.x, cellPosition.y, cellPosition.z);
+                const cornerIndex = chunk.cellIndex(cellPosition.x, cellPosition.y, cellPosition.z);
+                cornerDist[cornerNum] = fieldSamples[cornerIndex];
                 if (cornerDist[cornerNum] < 0)
                     negPoints++;
             }
@@ -226,7 +292,6 @@ function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): bo
 }
 
 function AppendVertex(cellIndex: number,point: Vector3) {
-    const field = chunk.field;
     const dist = field.sample(point);
     const offset = maxScale / 10000; // h from formula
     if (Math.abs(dist) > offset) {
@@ -277,11 +342,6 @@ function AppendVertex(cellIndex: number,point: Vector3) {
     cells.lookupCellFromVertex[cells.vertexCount] = cellIndex;
     cells.vertexCount++;
     return true;
-}
-
-function SampleField(cellX: number, cellY: number, cellZ: number) {
-    const cellIndex = chunk.cellIndex(cellX, cellY, cellZ);
-    return fieldSamples[cellIndex];
 }
 
 function ExtractAllFaces() {
