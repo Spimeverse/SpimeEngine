@@ -232,17 +232,7 @@ function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): bo
         if (negPoints == 0 || negPoints == 8)
             return false;
 
-        edgeMask = CalcCellVertex(cornerDist,cellCenter);
-        //cellCenter.set(0.5,0.5,0.5);
-        cellCenter.scaleInPlace(chunk.cellSize);
-        cellOffset.set(cellX, cellY, cellZ);
-        chunk.cellSpaceToWorldSpace(cellOffset,samplePoint);
-        vertexPoint.set(
-            cellCenter.x + samplePoint.x,
-            cellCenter.y + samplePoint.y,
-            cellCenter.z + samplePoint.z);
-        if (AppendVertex(cellIndex,vertexPoint))
-            cells.connections[cells.vertexCount - 1] = edgeMask;
+        edgeMask = CalcWorldVertex(edgeMask, cellX, cellY, cellZ, cellIndex,1);
     }
     else
     {
@@ -267,19 +257,7 @@ function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): bo
             if (negPoints == 0 || negPoints == 8)
                 return false;
 
-            edgeMask = CalcCellVertex(cornerDist,cellCenter);
-            //cellCenter.set(0.5,0.5,0.5);
-            cellCenter.scaleInPlace(chunk.cellSize * maxScale);
-            cellOffset.set(cellX - cellX % maxScale,
-                cellY - cellY % maxScale,
-                cellZ - cellZ % maxScale);
-            chunk.cellSpaceToWorldSpace(cellOffset,samplePoint);
-            vertexPoint.set(
-                cellCenter.x + samplePoint.x,
-                cellCenter.y + samplePoint.y,
-                cellCenter.z + samplePoint.z);
-            if (AppendVertex(cellIndex,vertexPoint))
-                cells.connections[cells.vertexCount - 1] = edgeMask;
+            edgeMask = CalcWorldVertex(edgeMask, cellX, cellY, cellZ, cellIndex,maxScale);
         }
         else {
             // if it's not the root cell just point to the vertex from the root cell previously created
@@ -289,6 +267,23 @@ function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): bo
 
 
     return true;
+}
+
+function CalcWorldVertex(edgeMask: number, cellX: number, cellY: number, cellZ: number, cellIndex: number,scale: number) {
+    edgeMask = CalcCellVertex(cornerDist, cellCenter);
+    //cellCenter.set(0.5,0.5,0.5);
+    cellCenter.scaleInPlace(chunk.cellSize * scale);
+    cellOffset.set(cellX - cellX % scale,
+        cellY - cellY % scale,
+        cellZ - cellZ % scale);
+    chunk.cellSpaceToWorldSpace(cellOffset, samplePoint);
+    vertexPoint.set(
+        cellCenter.x + samplePoint.x,
+        cellCenter.y + samplePoint.y,
+        cellCenter.z + samplePoint.z);
+    if (AppendVertex(cellIndex, vertexPoint))
+        cells.connections[cells.vertexCount - 1] = edgeMask;
+    return edgeMask;
 }
 
 function AppendVertex(cellIndex: number,point: Vector3) {
