@@ -6,10 +6,10 @@ import { SignedDistanceField, EMPTY_FIELD } from "../signedDistanceFields";
 import { Chunk,XYZ } from ".";
 import { Vector3 } from "@babylonjs/core/Maths";
 
-const cellCenter = new Vector3();
+const voxelCenter = new Vector3();
 const samplePoint = new Vector3();
-const cellPosition = new Vector3();
-const cellOffset = new Vector3();
+const voxelPosition = new Vector3();
+const voxelOffset = new Vector3();
 const vertexPoint = new Vector3();
 const normal = new Vector3();
 const pointOffset = new Vector3();
@@ -36,7 +36,7 @@ const CUBE_CORNER_OFFSETS: Vector3[] = [
     new Vector3(1.0, 1.0, 1.0), // 7
 ];
 
-// flags describing how each cell needs to be connected to it's neighbour
+// flags describing how each voxel needs to be connected to it's neighbour
 const CONNECTED_CELL =    0b0000000001; // 1
 const XZ_FACE_CLOCKWISE = 0b0000000010; // 2
 const XY_FACE_CLOCKWISE = 0b0000000100; // 4
@@ -47,9 +47,9 @@ const YZ_FACE_ANTICLOCK = 0b0001000000; // 64
 // CUBE_EDGES defines the 12 edges of the cube, from the start point to the end point
 // and also a flag to indicate if a face needs to be output.
 // only output a face on when the edge meets the far corner of the cube
-// i.e c are the cube cell corners and v are the vertices in each cell
+// i.e c are the cube voxel corners and v are the vertices in each voxel
 // c1 is the corner to generate a face around. 
-// each cell will generate a face which is offset but will meet up with the other faces
+// each voxel will generate a face which is offset but will meet up with the other faces
 //     
 //     |   v--+--v
 //     |   |  |  |
@@ -62,7 +62,7 @@ const EDGE_START_CORNER = 0;
 const EDGE_END_CORNER = 1;
 const EDGE_FACE_NORMAL = 2;
 const EDGE_FACE_REVERSED = 3;
-// only create faces on edges connecting to the cell to the left (-x), below (-y) or Outwards (-z)
+// only create faces on edges connecting to the voxel to the left (-x), below (-y) or Outwards (-z)
 // create a clockwise or anticlockwise face depending on whether the edge goes 
 // from outside to inside or inside to outside
 // 
@@ -103,10 +103,10 @@ for (let edge = 0; edge < CUBE_EDGES.length; edge++) {
 }
 
 
-interface Cells {
+interface Voxels {
     vertexCount: number;
-    lookupCellFromVertex: Uint16Array;
-    lookupVertexFromCell: Uint16Array;
+    lookupVoxelFromVertex: Uint16Array;
+    lookupVertexFromVoxel: Uint16Array;
     connections: Int8Array;
  }
 
@@ -119,11 +119,11 @@ let fieldSamples: Float32Array;
 let scale: number[];
 let isMixedScale = false;
 let maxScale = 1;
-const maxCells = 0;
+const maxVoxels = 0;
 
 let positiveSamples = false;
 let negativeSamples = false;
-let cells: Cells;
+let voxels: Voxels;
 
 function ExtractSurface (_chunk: Chunk,
     _field: SignedDistanceField,
@@ -133,7 +133,7 @@ function ExtractSurface (_chunk: Chunk,
 
     chunk = _chunk;
     field = _field;
-    SetupCells(chunk.numSamples);
+    SetupVoxels(chunk.numSamples);
     verticies = _verticies;
     faces = _faces;
 
@@ -150,7 +150,7 @@ function ExtractSurface (_chunk: Chunk,
     verticies.length = 0;
     faces.length = 0;
     if (SampleChunkField(chunk)) {
-        CheckAllCells(chunk.cellRange);
+        CheckAllVoxels(chunk.voxelRange);
         ExtractAllFaces();
     }
     return verticies.length > 0;
@@ -169,61 +169,61 @@ function SampleChunkField (chunk: Chunk): boolean {
 function FieldIntersectsChunk(chunk: Chunk): boolean{
     const {worldSize, origin} = chunk;
     const halfSize = Math.max(worldSize.x / 2,worldSize.y / 2,worldSize.z / 2);
-    cellPosition.set(
+    voxelPosition.set(
         origin.x + worldSize.x / 2, 
         origin.y + worldSize.y / 2,
         origin.z + worldSize.z / 2);
-    const centerDist = field.sample(cellPosition);
-    // the maximum distance a field can be for the cell center
-    // and still intersect is half the cell size * sqrt3
+    const centerDist = field.sample(voxelPosition);
+    // the maximum distance a field can be for the voxel center
+    // and still intersect is half the voxel size * sqrt3
     // because the hypotenuse is sqrt(x*x+y*y+z*z)
     // we can work this for x=y=z=1 ie sqrt(3)
-    // then just do halfCell*sqrt(3)
+    // then just do halfVoxel*sqrt(3)
     if (Math.abs(centerDist) > halfSize * sqrt3)
-        return false; // the surface is further away than the cell size, quit
+        return false; // the surface is further away than the voxel size, quit
     return true; 
 }
 
 const worldPosition = new Vector3();
 
 function SampleAllPoints(chunk: Chunk) {
-    const {cellRange} = chunk;
-    for (let cellX = 0; cellX <= cellRange.x; cellX++) {
-        for (let cellY = 0; cellY <= cellRange.y; cellY++) {
-            for (let cellZ = 0; cellZ <= cellRange.z; cellZ++) {
-                cellPosition.set(cellX, cellY, cellZ);
-                chunk.cellSpaceToWorldSpace(cellPosition, worldPosition);
+    const {voxelRange} = chunk;
+    for (let voxX = 0; voxX <= voxelRange.x; voxX++) {
+        for (let voxY = 0; voxY <= voxelRange.y; voxY++) {
+            for (let voxZ = 0; voxZ <= voxelRange.z; voxZ++) {
+                voxelPosition.set(voxX, voxY, voxZ);
+                chunk.voxelSpaceToWorldSpace(voxelPosition, worldPosition);
                 const surfaceDist = field.sample(worldPosition);
                 if (surfaceDist >= 0)
                     positiveSamples = true;
                 else
                     negativeSamples = true;
-                const cellIndex = chunk.cellIndex(cellX, cellY, cellZ);
-                fieldSamples![cellIndex] = surfaceDist;       
+                const voxelIndex = chunk.voxelIndex(voxX, voxY, voxZ);
+                fieldSamples![voxelIndex] = surfaceDist;       
             }
         }
     }
 }
 
-function CheckAllCells(cellRange: XYZ) {
-    for (let cellX = 0; cellX <= cellRange.x; cellX ++) {
-        for (let cellY = 0; cellY <= cellRange.y; cellY ++) {
-            for (let cellZ = 0; cellZ <= cellRange.z; cellZ ++) {
-                CheckCellIntersection(cellX, cellY, cellZ);
+function CheckAllVoxels(voxelRange: XYZ) {
+    for (let voxX = 0; voxX <= voxelRange.x; voxX ++) {
+        for (let voxY = 0; voxY <= voxelRange.y; voxY ++) {
+            for (let voxZ = 0; voxZ <= voxelRange.z; voxZ ++) {
+                CheckVoxelIntersection(voxX, voxY, voxZ);
             }
         }
     }
 }
 
-function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): boolean {
-    const cellIndex = chunk.cellIndex(cellX, cellY, cellZ);
+function CheckVoxelIntersection (voxX: number, voxY: number, voxZ: number): boolean {
+    const voxIndex = chunk.voxelIndex(voxX, voxY, voxZ);
     let negPoints = 0;
 
     let edgeMask = 0;
-    if (maxScale == 1 || cellX >= maxScale) {
+    if (maxScale == 1 || voxX >= maxScale) {
         for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
-            GetCellCornerPosition(cornerNum, cellX, cellY, cellZ, cellPosition);
-            const cornerIndex = chunk.cellIndex(cellPosition.x, cellPosition.y, cellPosition.z);
+            GetVoxelCornerPosition(cornerNum, voxX, voxY, voxZ, voxelPosition);
+            const cornerIndex = chunk.voxelIndex(voxelPosition.x, voxelPosition.y, voxelPosition.z);
             cornerDist[cornerNum] = fieldSamples[cornerIndex];
             if (cornerDist[cornerNum] < 0)
                 negPoints++;
@@ -232,23 +232,23 @@ function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): bo
         if (negPoints == 0 || negPoints == 8)
             return false;
 
-        edgeMask = CalcWorldVertex(edgeMask, cellX, cellY, cellZ, cellIndex,1);
+        edgeMask = CalcWorldVertex(edgeMask, voxX, voxY, voxZ, voxIndex,1);
     }
     else
     {
-        // We are rendering larger cells on the seams
-        // check if the cell we are processing is the first root cell of the larger cell
-        const rootCellIndex = chunk.cellIndex(
-            cellX - cellX % maxScale, 
-            cellY - cellY % maxScale, 
-            cellZ - cellZ % maxScale);
+        // We are rendering larger voxels on the seams
+        // check if the voxel we are processing is the first root voxel of the larger voxel
+        const rootVoxIndex = chunk.voxelIndex(
+            voxX - voxX % maxScale, 
+            voxY - voxY % maxScale, 
+            voxZ - voxZ % maxScale);
 
-        // if it is the root cell calc and add the vertex for the whole larger seam cell...
-        if (rootCellIndex == cellIndex)
+        // if it is the root voxel calc and add the vertex for the whole larger seam voxel...
+        if (rootVoxIndex == voxIndex)
         {
             for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
-                GetOuterCellCornerPosition(cornerNum,maxScale, cellX, cellY, cellZ, cellPosition);
-                const cornerIndex = chunk.cellIndex(cellPosition.x, cellPosition.y, cellPosition.z);
+                GetOuterVoxelCornerPosition(cornerNum,maxScale, voxX, voxY, voxZ, voxelPosition);
+                const cornerIndex = chunk.voxelIndex(voxelPosition.x, voxelPosition.y, voxelPosition.z);
                 cornerDist[cornerNum] = fieldSamples[cornerIndex];
                 if (cornerDist[cornerNum] < 0)
                     negPoints++;
@@ -257,11 +257,11 @@ function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): bo
             if (negPoints == 0 || negPoints == 8)
                 return false;
 
-            edgeMask = CalcWorldVertex(edgeMask, cellX, cellY, cellZ, cellIndex,maxScale);
+            edgeMask = CalcWorldVertex(edgeMask, voxX, voxY, voxZ, voxIndex,maxScale);
         }
         else {
-            // if it's not the root cell just point to the vertex from the root cell previously created
-            cells.lookupVertexFromCell[cellIndex] = cells.lookupVertexFromCell[rootCellIndex];
+            // if it's not the root voxel just point to the vertex from the root voxel previously created
+            voxels.lookupVertexFromVoxel[voxIndex] = voxels.lookupVertexFromVoxel[rootVoxIndex];
         }
     }
 
@@ -269,24 +269,24 @@ function CheckCellIntersection (cellX: number, cellY: number, cellZ: number): bo
     return true;
 }
 
-function CalcWorldVertex(edgeMask: number, cellX: number, cellY: number, cellZ: number, cellIndex: number,scale: number) {
-    edgeMask = CalcCellVertex(cornerDist, cellCenter);
-    //cellCenter.set(0.5,0.5,0.5);
-    cellCenter.scaleInPlace(chunk.cellSize * scale);
-    cellOffset.set(cellX - cellX % scale,
-        cellY - cellY % scale,
-        cellZ - cellZ % scale);
-    chunk.cellSpaceToWorldSpace(cellOffset, samplePoint);
+function CalcWorldVertex(edgeMask: number, voxX: number, voxY: number, voxZ: number, voxelIndex: number,scale: number) {
+    edgeMask = CalcVoxelVertex(cornerDist, voxelCenter);
+    //voxelCenter.set(0.5,0.5,0.5);
+    voxelCenter.scaleInPlace(chunk.voxelSize * scale);
+    voxelOffset.set(voxX - voxX % scale,
+        voxY - voxY % scale,
+        voxZ - voxZ % scale);
+    chunk.voxelSpaceToWorldSpace(voxelOffset, samplePoint);
     vertexPoint.set(
-        cellCenter.x + samplePoint.x,
-        cellCenter.y + samplePoint.y,
-        cellCenter.z + samplePoint.z);
-    if (AppendVertex(cellIndex, vertexPoint))
-        cells.connections[cells.vertexCount - 1] = edgeMask;
+        voxelCenter.x + samplePoint.x,
+        voxelCenter.y + samplePoint.y,
+        voxelCenter.z + samplePoint.z);
+    if (AppendVertex(voxelIndex, vertexPoint))
+        voxels.connections[voxels.vertexCount - 1] = edgeMask;
     return edgeMask;
 }
 
-function AppendVertex(cellIndex: number,point: Vector3) {
+function AppendVertex(voxelIndex: number,point: Vector3) {
     const dist = field.sample(point);
     const offset = maxScale / 10000; // h from formula
     if (Math.abs(dist) > offset) {
@@ -331,81 +331,81 @@ function AppendVertex(cellIndex: number,point: Vector3) {
     
     verticies.push(point.x,point.y,point.z);
 
-    cells.lookupVertexFromCell[cellIndex] = cells.vertexCount;
-    // we'll need to find neighboring cells of this point to connect them up
-    // so record the cell index that the point was created for
-    cells.lookupCellFromVertex[cells.vertexCount] = cellIndex;
-    cells.vertexCount++;
+    voxels.lookupVertexFromVoxel[voxelIndex] = voxels.vertexCount;
+    // we'll need to find neighboring voxels of this point to connect them up
+    // so record the voxel index that the point was created for
+    voxels.lookupVoxelFromVertex[voxels.vertexCount] = voxelIndex;
+    voxels.vertexCount++;
     return true;
 }
 
 function ExtractAllFaces() {
 
-    for (let vertexNum = 0; vertexNum < cells.vertexCount; vertexNum++)
+    for (let vertexNum = 0; vertexNum < voxels.vertexCount; vertexNum++)
     {
 
-        // each active cell contains one vertex
-        // calculate vertex for this cell
-        const cellIndex = cells.lookupCellFromVertex[vertexNum];
-        chunk.cellIndexToCellPosition(cellIndex,cellPosition);
+        // each active voxel contains one vertex
+        // calculate vertex for this voxel
+        const voxelIndex = voxels.lookupVoxelFromVertex[vertexNum];
+        chunk.voxelIndexToVoxelPosition(voxelIndex,voxelPosition);
 
-        ExtractCell(cells.connections[vertexNum]);
+        ExtractVoxel(voxels.connections[vertexNum]);
     }
 }
 
-function ExtractCell(connectEdges: number) {
-    // if (cellPosition.z >= 2)
+function ExtractVoxel(connectEdges: number) {
+    // if (voxelPosition.z >= 2)
     // continue;
-    // if (cellPosition.x >= 2)
+    // if (voxelPosition.x >= 2)
     // continue;
-    if (cellPosition.x == 0)
+    if (voxelPosition.x == 0)
         connectEdges = 0; // RestrictFacesTo(connectEdges, YZ_FACE_CLOCKWISE, YZ_FACE_ANTICLOCK);
-    if (cellPosition.y == 0)
+    if (voxelPosition.y == 0)
         connectEdges = 0; //RestrictFacesTo(connectEdges, XZ_FACE_CLOCKWISE, XZ_FACE_ANTICLOCK);
-    if (cellPosition.z == 0)
+    if (voxelPosition.z == 0)
         connectEdges = 0;//RestrictFacesTo(connectEdges, XY_FACE_CLOCKWISE, XY_FACE_ANTICLOCK);
 
-    if (cellPosition.x >= chunk.cellRange.x)
+    if (voxelPosition.x >= chunk.voxelRange.x)
         connectEdges = 0;
-    if (cellPosition.y >= chunk.cellRange.y)
+    if (voxelPosition.y >= chunk.voxelRange.y)
         connectEdges = 0;
-    if (cellPosition.z >= chunk.cellRange.z)
+    if (voxelPosition.z >= chunk.voxelRange.z)
         connectEdges = 0;
 
     if (connectEdges & XZ_FACE_CLOCKWISE) {
-        ExtractFaces(cellPosition, [
+        ExtractFaces(voxelPosition, [
             [0, 0, 0], [0, 0, -1], [-1, 0, -1],
             [-1, 0, -1], [-1, 0, 0], [0, 0, 0]
         ]);
     }
     if (connectEdges & XZ_FACE_ANTICLOCK) {
-        ExtractFaces(cellPosition, [
+        ExtractFaces(voxelPosition, [
             [0, 0, 0], [-1, 0, 0], [-1, 0, -1],
             [-1, 0, -1], [0, 0, -1], [0, 0, 0]
         ]);
     }
 
     if (connectEdges & XY_FACE_CLOCKWISE) {
-        ExtractFaces(cellPosition, [
+        ExtractFaces(voxelPosition, [
             [0, 0, 0], [-1, 0, 0], [-1, -1, 0],
             [-1, -1, 0], [0, -1, 0], [0, 0, 0]
         ]);
     }
     if (connectEdges & XY_FACE_ANTICLOCK) {
-        ExtractFaces(cellPosition, [
+        ExtractFaces(voxelPosition, [
             [0, 0, 0], [0, -1, 0], [-1, -1, 0],
             [-1, -1, 0], [-1, 0, 0], [0, 0, 0]
         ]);
     }
 
     if (connectEdges & YZ_FACE_CLOCKWISE) {
-        ExtractFaces(cellPosition, [
+        ExtractFaces(voxelPosition, [
             [0, 0, 0], [0, -1, 0], [0, -1, -1],
             [0, -1, -1], [0, 0, -1], [0, 0, 0]
         ]);
     }
     if (connectEdges & YZ_FACE_ANTICLOCK) {
-        ExtractFaces(cellPosition, [
+        ExtractFaces(voxelPosition, [
             [0, 0, 0], [0, 0, -1], [0, -1, -1],
             [0, -1, -1], [0, -1, 0], [0, 0, 0]
         ]);
@@ -413,8 +413,8 @@ function ExtractCell(connectEdges: number) {
 }
 
 
-function CalcCellVertex(cornerDist: Float32Array,cellCenter: Vector3): number {
-    cellCenter.set(0,0,0);
+function CalcVoxelVertex(cornerDist: Float32Array,voxelCenter: Vector3): number {
+    voxelCenter.set(0,0,0);
     let edgeCount = 0;
     let connectEdges = 0;
     for (let edgeNum = 0; edgeNum < 12; edgeNum++) {
@@ -438,14 +438,14 @@ function CalcCellVertex(cornerDist: Float32Array,cellCenter: Vector3): number {
             const inverseDiff = 1 - distDiff;
             const corner0 = CUBE_CORNER_OFFSETS[edgeDetails[0]];
             const corner1 = CUBE_CORNER_OFFSETS[edgeDetails[1]];
-            cellCenter.x += (corner1.x * distDiff) + (corner0.x * inverseDiff);
-            cellCenter.y += (corner1.y * distDiff) + (corner0.y * inverseDiff);
-            cellCenter.z += (corner1.z * distDiff) + (corner0.z * inverseDiff);
+            voxelCenter.x += (corner1.x * distDiff) + (corner0.x * inverseDiff);
+            voxelCenter.y += (corner1.y * distDiff) + (corner0.y * inverseDiff);
+            voxelCenter.z += (corner1.z * distDiff) + (corner0.z * inverseDiff);
         }
     }
-    cellCenter.x /= edgeCount;
-    cellCenter.y /= edgeCount;
-    cellCenter.z /= edgeCount;
+    voxelCenter.x /= edgeCount;
+    voxelCenter.y /= edgeCount;
+    voxelCenter.z /= edgeCount;
 
     return connectEdges;
 }
@@ -457,20 +457,20 @@ function RestrictFacesTo(connectedEdges: number, face1: number, face2: number): 
 
 const triVert = new Uint16Array(3);
 
-function ExtractFaces(cellPosition: Vector3,offsets: number[][]) {
+function ExtractFaces(voxelPosition: Vector3,offsets: number[][]) {
     for (let offsetNum = 0; offsetNum < offsets.length; offsetNum += 3) {
         let overlap = false;
         for (let i = 0; i < 3; i++) {
-            const x = cellPosition.x + offsets[offsetNum + i][0];
-            const y = cellPosition.y + offsets[offsetNum + i][1];
-            const z = cellPosition.z + offsets[offsetNum + i][2];
-            const index = chunk.cellIndex(x,y,z);
-            triVert[i] = cells.lookupVertexFromCell[index];
+            const x = voxelPosition.x + offsets[offsetNum + i][0];
+            const y = voxelPosition.y + offsets[offsetNum + i][1];
+            const z = voxelPosition.z + offsets[offsetNum + i][2];
+            const index = chunk.voxelIndex(x,y,z);
+            triVert[i] = voxels.lookupVertexFromVoxel[index];
             const vx = verticies[triVert[i] * 3];
             if (vx < chunk.origin.x)
                 overlap = true;
         }
-        // cells for seams can emit triangles that reuse a vertex
+        // voxels for seams can emit triangles that reuse a vertex
         // only add triangles with 3 unique vertices
         if (!overlap && triVert[0] != triVert[1] && triVert[1] != triVert[2] && triVert[0] != triVert[2])
             faces.push(triVert[0],triVert[1],triVert[2]);
@@ -479,39 +479,39 @@ function ExtractFaces(cellPosition: Vector3,offsets: number[][]) {
 }
 
 
-function SetupCells(numSamples: number) {
-    if (numSamples > maxCells) {
-        cells = {
+function SetupVoxels(numSamples: number) {
+    if (numSamples > maxVoxels) {
+        voxels = {
             vertexCount: 0,
-            lookupCellFromVertex: new Uint16Array(numSamples),
-            lookupVertexFromCell: new Uint16Array(numSamples),
+            lookupVoxelFromVertex: new Uint16Array(numSamples),
+            lookupVertexFromVoxel: new Uint16Array(numSamples),
             connections: new Int8Array(numSamples)
         }
     }
     else
-        cells.vertexCount = 0;
+        voxels.vertexCount = 0;
 }
 
 
-function GetCellCornerPosition(cornerNum: number, cellX: number, cellY: number, cellZ: number, cellPosition: Vector3) {
-    cellPosition.set(
-        cellX + CUBE_CORNER_OFFSETS[cornerNum].x, 
-        cellY + CUBE_CORNER_OFFSETS[cornerNum].y, 
-        cellZ + CUBE_CORNER_OFFSETS[cornerNum].z);
+function GetVoxelCornerPosition(cornerNum: number, voxX: number, voxY: number, voxZ: number, voxelPosition: Vector3) {
+    voxelPosition.set(
+        voxX + CUBE_CORNER_OFFSETS[cornerNum].x, 
+        voxY + CUBE_CORNER_OFFSETS[cornerNum].y, 
+        voxZ + CUBE_CORNER_OFFSETS[cornerNum].z);
 }   
 
-function GetOuterCellCornerPosition(cornerNum: number,scale: number, cellX: number, cellY: number, cellZ: number, cellPosition: Vector3) {
-    cellPosition.set(
-        (cellX - cellX % scale) + CUBE_CORNER_OFFSETS[cornerNum].x * scale, 
-        (cellY - cellY % scale) + CUBE_CORNER_OFFSETS[cornerNum].y * scale, 
-        (cellZ - cellZ % scale) + CUBE_CORNER_OFFSETS[cornerNum].z * scale);
+function GetOuterVoxelCornerPosition(cornerNum: number,scale: number, voxX: number, voxY: number, voxZ: number, voxelPosition: Vector3) {
+    voxelPosition.set(
+        (voxX - voxX % scale) + CUBE_CORNER_OFFSETS[cornerNum].x * scale, 
+        (voxY - voxY % scale) + CUBE_CORNER_OFFSETS[cornerNum].y * scale, 
+        (voxZ - voxZ % scale) + CUBE_CORNER_OFFSETS[cornerNum].z * scale);
 }   
  
 
 export {ExtractSurface, 
-    CalcCellVertex,
-    GetCellCornerPosition,
-    GetOuterCellCornerPosition
+    CalcVoxelVertex,
+    GetVoxelCornerPosition,
+    GetOuterVoxelCornerPosition
     ,CONNECTED_CELL,
     XZ_FACE_CLOCKWISE,
     XY_FACE_CLOCKWISE,

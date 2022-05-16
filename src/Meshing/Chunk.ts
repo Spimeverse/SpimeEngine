@@ -1,8 +1,8 @@
 import { Vector2,Vector3 } from "@babylonjs/core/Maths";
 
-const cellPosition = new Vector3();
-const cellCenter = new Vector3();
-const cellOffset = {x:0,y:0,z:0};
+const voxelPosition = new Vector3();
+const voxelCenter = new Vector3();
+const voxelOffset = {x:0,y:0,z:0};
     
 
 enum CORNERS {
@@ -30,9 +30,9 @@ class Chunk {
      */
     worldSize = new Vector3();
     /**
-     * the number of cells in the chunk along each axis
+     * the number of voxels in the chunk along each axis
      */
-    cellRange = new Vector3();
+    voxelRange = new Vector3();
     /**
      * stride use to convert 1 dimensional array index to 3 dimensional array
      * e.g. index = x + y*stride.x + z*stride.y
@@ -48,18 +48,18 @@ class Chunk {
      */
     origin = new Vector3();
     /**
-     * the size of one cell in the chunk in world coordinate space
+     * the size of one voxel in the chunk in world coordinate space
      */
-    cellSize = 0;
+    voxelSize = 0;
 
     constructor () {
         this.maxSamples = 0;
     }
 
-    setSize(size: XYZ, cellSize: number) {
-        // one more point needed than each cell
-        // e.g. 4 point, = 3 cells
-        // points marked 'x' and cells marked 'c'
+    setSize(size: XYZ, voxelSize: number) {
+        // one more point needed than each voxel
+        // e.g. 4 point, = 3 voxels
+        // points marked 'x' and voxels marked 'c'
         //  X   X   X   X
         //    c   c   c 
         //  X   X   X   X
@@ -68,18 +68,18 @@ class Chunk {
         //    c   c   c
         //  X   X   X   X
         //
-        // one more cell needed to cover overlap with next chunk
+        // one more voxel needed to cover overlap with next chunk
         // so points = subdivisions + 2;
         CopyXyz(size,this.worldSize)
-        this.cellRange.x = (size.x / cellSize);
-        this.cellRange.y = (size.y / cellSize);
-        this.cellRange.z = (size.z / cellSize);
-        this.stride.x = this.cellRange.x + 1;
-        this.stride.y = this.stride.x * (this.cellRange.y + 1);
-        this.numSamples = this.stride.y * (this.cellRange.z + 1);
+        this.voxelRange.x = (size.x / voxelSize);
+        this.voxelRange.y = (size.y / voxelSize);
+        this.voxelRange.z = (size.z / voxelSize);
+        this.stride.x = this.voxelRange.x + 1;
+        this.stride.y = this.stride.x * (this.voxelRange.y + 1);
+        this.numSamples = this.stride.y * (this.voxelRange.z + 1);
         if (this.numSamples > 65536) throw "chunk resolution exceeds 65536. aborting";
 
-        this.cellSize = cellSize;
+        this.voxelSize = voxelSize;
     }
 
     /**
@@ -90,29 +90,29 @@ class Chunk {
         CopyXyz(origin,this.origin);
     }
 
-    cellIndexToCellPosition(cellIndex: number, cellPosition: XYZ) {
-        let index = cellIndex;
-        cellPosition.x = cellIndex % this.stride.x;
-        index -= cellPosition.x;
-        cellPosition.y = (index % this.stride.y) / this.stride.x;
-        index -= cellPosition.y * this.stride.x;
-        cellPosition.z = index / this.stride.y;
+    voxelIndexToVoxelPosition(voxelIndex: number, voxelPosition: XYZ) {
+        let index = voxelIndex;
+        voxelPosition.x = voxelIndex % this.stride.x;
+        index -= voxelPosition.x;
+        voxelPosition.y = (index % this.stride.y) / this.stride.x;
+        index -= voxelPosition.y * this.stride.x;
+        voxelPosition.z = index / this.stride.y;
     }
     
     indexToWorldSpace(index: number, samplePoint: XYZ) {
-        this.cellIndexToCellPosition(index,cellPosition);
-        this.cellSpaceToWorldSpace(cellPosition, samplePoint);
+        this.voxelIndexToVoxelPosition(index,voxelPosition);
+        this.voxelSpaceToWorldSpace(voxelPosition, samplePoint);
     }
 
     // get the index of array at this coordinate
-    cellIndex(x: number, y: number, z: number): number {
+    voxelIndex(x: number, y: number, z: number): number {
         return x + (y * this.stride.x) + (z * this.stride.y);
     }
     
-    cellSpaceToWorldSpace(cell: XYZ, samplePoint: XYZ) {
-        samplePoint.x = this.origin.x + (cell.x * this.cellSize);
-        samplePoint.y = this.origin.y + (cell.y * this.cellSize);
-        samplePoint.z = this.origin.z + (cell.z * this.cellSize);
+    voxelSpaceToWorldSpace(voxel: XYZ, samplePoint: XYZ) {
+        samplePoint.x = this.origin.x + (voxel.x * this.voxelSize);
+        samplePoint.y = this.origin.y + (voxel.y * this.voxelSize);
+        samplePoint.z = this.origin.z + (voxel.z * this.voxelSize);
     }
 
 
