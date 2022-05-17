@@ -17,7 +17,7 @@ import { Mesh, VertexData, MeshBuilder } from "@babylonjs/core/Meshes"
 import { Rectangle, StackPanel, TextBlock, Slider, Container } from "@babylonjs/gui/2D/controls";
 import { AdvancedDynamicTexture } from "@babylonjs/gui/2D";
 
-import { ExtractSurface, CORNERS, Chunk } from "./Meshing";
+import { ExtractSurface, CORNERS, Chunk,BORDERS } from "./Meshing";
 import { SdfBox, SdfSphere, SdfTorus,SignedDistanceField } from "./signedDistanceFields";
 
 
@@ -133,11 +133,11 @@ class App {
 
 
         const chunk1 = new Chunk();
-        chunk1.setSize({x:4.5, y:4, z:4},1 / 2);
+        chunk1.setSize({x:4., y:4, z:4},1 / 4);
         chunk1.setOrigin({x:-4,y:-2,z:-2});
 
         const chunk2 = new Chunk();
-        chunk2.setSize({x:4, y:4, z:4},1 / 8);
+        chunk2.setSize({x:4, y:4, z:4},1 / 2);
         chunk2.setOrigin({x:0,y:-2,z:-2});
         //chunk2.subSample = 2;
 
@@ -164,12 +164,12 @@ class App {
                     box.position.copyFrom(field.position);
                     //field.position = new Vector3(1.2,0,0);
 
-                    let scales = [1,1,1,1,1,1,1,1];
-                    this._updateChunk(chunk1,scales, field, vertexData, normals, customMesh);
+                    chunk1.setBorderSeams(BORDERS.xMax,2);
+                    this._updateChunk(chunk1,field, vertexData, normals, customMesh);
 
                     gui.positionLabel.text = `Position ${field.position.x.toFixed(3)}`;
-                    scales = [4,4,4,4,4,4,4,4];
-                    this._updateChunk(chunk2,scales, field, vertexData2, normals, customMesh2);
+                    //chunk2.setBorderSeams(BORDERS.xMin,4);
+                    this._updateChunk(chunk2,field, vertexData2, normals, customMesh2);
 
                 }
             }
@@ -197,11 +197,10 @@ class App {
         });
     }
 
-    private _updateChunk(chunk: Chunk,scales: number[], field: SignedDistanceField, vertexData: VertexData, normals: number[], customMesh: Mesh) {
+    private _updateChunk(chunk: Chunk,field: SignedDistanceField, vertexData: VertexData, normals: number[], customMesh: Mesh) {
         const extracted = ExtractSurface(
             chunk,
             field,
-            scales,
             vertexData.positions as number[],
             vertexData.indices as number[])
 

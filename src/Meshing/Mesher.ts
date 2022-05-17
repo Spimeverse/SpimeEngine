@@ -3,7 +3,7 @@
 
 
 import { SignedDistanceField, EMPTY_FIELD } from "../signedDistanceFields";
-import { Chunk,XYZ } from ".";
+import { Chunk,XYZ,BORDERS } from ".";
 import { Vector3 } from "@babylonjs/core/Maths";
 
 const voxelCenter = new Vector3();
@@ -116,10 +116,10 @@ let chunk: Chunk;
 let field: SignedDistanceField;
 let maxSamples = 0;
 let fieldSamples: Float32Array;
-let scale: number[];
-let isMixedScale = false;
-let maxScale = 1;
+let borderSeams = 0;
+let borderScale = 1;
 const maxVoxels = 0;
+const voxelRange = new Vector3();
 
 let positiveSamples = false;
 let negativeSamples = false;
@@ -127,7 +127,6 @@ let voxels: Voxels;
 
 function ExtractSurface (_chunk: Chunk,
     _field: SignedDistanceField,
-    _scale: number[],
     _verticies: number[], _faces: number[]): boolean 
 {
 
@@ -137,15 +136,14 @@ function ExtractSurface (_chunk: Chunk,
     verticies = _verticies;
     faces = _faces;
 
-    scale = _scale;
-    maxScale = Math.max(...scale);
-    isMixedScale = maxScale > 1;
+    borderSeams = chunk.borderSeams;
+    borderScale = chunk.borderScale;
+    voxelRange.copyFrom(chunk.voxelRange);
 
     if (chunk.numSamples > maxSamples) {
         fieldSamples = new Float32Array(chunk.numSamples);
         maxSamples = chunk.numSamples;
     }
-
 
     verticies.length = 0;
     faces.length = 0;
@@ -199,7 +197,7 @@ function SampleAllPoints(chunk: Chunk) {
                 else
                     negativeSamples = true;
                 const voxelIndex = chunk.voxelIndex(voxX, voxY, voxZ);
-                fieldSamples![voxelIndex] = surfaceDist;       
+                fieldSamples[voxelIndex] = surfaceDist;       
             }
         }
     }
@@ -220,7 +218,7 @@ function CheckVoxelIntersection (voxX: number, voxY: number, voxZ: number): bool
     let negPoints = 0;
 
     let edgeMask = 0;
-    if (maxScale == 1 || voxX >= maxScale) {
+    if (borderSeams == 0 || !BorderTransition(voxX, voxY, voxZ)) {
         for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
             GetVoxelCornerPosition(cornerNum, voxX, voxY, voxZ, voxelPosition);
             const cornerIndex = chunk.voxelIndex(voxelPosition.x, voxelPosition.y, voxelPosition.z);
@@ -239,15 +237,15 @@ function CheckVoxelIntersection (voxX: number, voxY: number, voxZ: number): bool
         // We are rendering larger voxels on the seams
         // check if the voxel we are processing is the first root voxel of the larger voxel
         const rootVoxIndex = chunk.voxelIndex(
-            voxX - voxX % maxScale, 
-            voxY - voxY % maxScale, 
-            voxZ - voxZ % maxScale);
+            voxX - voxX % borderScale, 
+            voxY - voxY % borderScale, 
+            voxZ - voxZ % borderScale);
 
         // if it is the root voxel calc and add the vertex for the whole larger seam voxel...
         if (rootVoxIndex == voxIndex)
         {
             for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
-                GetOuterVoxelCornerPosition(cornerNum,maxScale, voxX, voxY, voxZ, voxelPosition);
+                GetOuterVoxelCornerPosition(cornerNum,borderScale, voxX, voxY, voxZ, voxelPosition);
                 const cornerIndex = chunk.voxelIndex(voxelPosition.x, voxelPosition.y, voxelPosition.z);
                 cornerDist[cornerNum] = fieldSamples[cornerIndex];
                 if (cornerDist[cornerNum] < 0)
@@ -257,7 +255,7 @@ function CheckVoxelIntersection (voxX: number, voxY: number, voxZ: number): bool
             if (negPoints == 0 || negPoints == 8)
                 return false;
 
-            edgeMask = CalcWorldVertex(edgeMask, voxX, voxY, voxZ, voxIndex,maxScale);
+            edgeMask = CalcWorldVertex(edgeMask, voxX, voxY, voxZ, voxIndex,borderScale);
         }
         else {
             // if it's not the root voxel just point to the vertex from the root voxel previously created
@@ -265,13 +263,32 @@ function CheckVoxelIntersection (voxX: number, voxY: number, voxZ: number): bool
         }
     }
 
-
     return true;
+}
+
+function BorderTransition(voxX: number, voxY: number, voxZ: number) {
+    return false;
+    if (borderScale > 1 && voxX < -3)
+    return true;
+    if (borderSeams & BORDERS.xMin && voxX < borderScale)
+        return true;
+    if (borderSeams & BORDERS.xMax && voxelRange.x - voxX <= borderScale)
+        return true;
+    if (borderSeams & BORDERS.yMin && voxY < borderScale)
+        return true;
+    if (borderSeams & BORDERS.yMax && voxelRange.y - voxY < borderScale)
+        return true;
+    if (borderSeams & BORDERS.zMin && voxZ < borderScale)
+        return true;
+    if (borderSeams & BORDERS.zMax && voxelRange.z - voxZ < borderScale)
+        return true;
+    return false;
 }
 
 function CalcWorldVertex(edgeMask: number, voxX: number, voxY: number, voxZ: number, voxelIndex: number,scale: number) {
     edgeMask = CalcVoxelVertex(cornerDist, voxelCenter);
-    //voxelCenter.set(0.5,0.5,0.5);
+    // todo account for this
+    voxelCenter.set(0.5,0.5,0.5);
     voxelCenter.scaleInPlace(chunk.voxelSize * scale);
     voxelOffset.set(voxX - voxX % scale,
         voxY - voxY % scale,
@@ -288,7 +305,7 @@ function CalcWorldVertex(edgeMask: number, voxX: number, voxY: number, voxZ: num
 
 function AppendVertex(voxelIndex: number,point: Vector3) {
     const dist = field.sample(point);
-    const offset = maxScale / 10000; // h from formula
+    const offset = borderScale / 10000; // h from formula
     if (Math.abs(dist) > offset) {
         let offsetDist = 0;
         normal.set(0,0,0);
@@ -519,3 +536,4 @@ export {ExtractSurface,
     XZ_FACE_ANTICLOCK, 
     XY_FACE_ANTICLOCK,
     YZ_FACE_ANTICLOCK}
+

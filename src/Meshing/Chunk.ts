@@ -16,6 +16,15 @@ enum CORNERS {
     rightTopBack = 7
 }
 
+const BORDERS = {
+     xMin : 0b000001,
+     xMax : 0b000010,
+     yMin : 0b000100,
+     yMax : 0b001000,
+     zMin : 0b010000,
+     zMax : 0b100000
+}
+
 interface XYZ { x: number; y: number; z: number}
 interface XY { x: number; y: number;}
 
@@ -52,10 +61,24 @@ class Chunk {
      */
     voxelSize = 0;
 
+    /**
+     * bit flags indicating which borders need to be down sampled
+     */
+    borderSeams = 0;
+    /**
+     * how many voxels deep the border is eg 2 if the bordering chunk is half the scale of this chunk
+     */
+    borderScale = 1;
+
     constructor () {
         this.maxSamples = 0;
     }
 
+    /**
+     * set the size of this chunk
+     * @param size size of the chunk in world coordinate space
+     * @param voxelSize size of a voxel in the chunk in world units
+     */
     setSize(size: XYZ, voxelSize: number) {
         // one more point needed than each voxel
         // e.g. 4 point, = 3 voxels
@@ -80,6 +103,19 @@ class Chunk {
         if (this.numSamples > 65536) throw "chunk resolution exceeds 65536. aborting";
 
         this.voxelSize = voxelSize;
+    }
+
+    /**
+     * set which borders need to generate a seam 
+     * at a lower resolution than the current chunk
+     * higher resolution chunks always down sample to 
+     * lower resolution never the other way around
+     * @param seams bit flags indicating which borders need to be down samples
+     * @param borderScale how many voxels deep the border is eg 2 if the bordering chunk is half the scale of this chunk
+     */
+    setBorderSeams(seams: number,borderScale: number) {
+        this.borderSeams = seams;
+        this.borderScale = borderScale;
     }
 
     /**
@@ -129,5 +165,5 @@ function CopyXy (src: XY, dest: XY) {
     dest.y = src.y;
 }
 
-export {Chunk, CORNERS, XYZ,XY,CopyXyz,CopyXy}
+export {Chunk, CORNERS,BORDERS, XYZ,XY,CopyXyz,CopyXy}
 
