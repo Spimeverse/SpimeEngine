@@ -105,6 +105,8 @@ for (let edge = 0; edge < CUBE_EDGES.length; edge++) {
 
 interface Voxels {
     vertexCount: number;
+    numEdgesVoxels: number;
+    edgeVoxels: Uint16Array;
     lookupVoxelFromVertex: Uint16Array;
     lookupVertexFromVoxel: Uint16Array;
     connections: Int8Array;
@@ -147,6 +149,7 @@ function ExtractSurface (_chunk: Chunk,
 
     verticies.length = 0;
     faces.length = 0;
+
     if (SampleChunkField(chunk)) {
         CheckAllVoxels(chunk.voxelRange);
         ExtractAllFaces();
@@ -218,7 +221,8 @@ function CheckVoxelIntersection (voxX: number, voxY: number, voxZ: number): bool
     let negPoints = 0;
 
     let edgeMask = 0;
-    if (borderSeams == 0 || !BorderTransition(voxX, voxY, voxZ)) {
+    if (borderSeams == 0 || !BorderTransition(voxX, voxY, voxZ))
+    {
         for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
             GetVoxelCornerPosition(cornerNum, voxX, voxY, voxZ, voxelPosition);
             const cornerIndex = chunk.voxelIndex(voxelPosition.x, voxelPosition.y, voxelPosition.z);
@@ -231,21 +235,30 @@ function CheckVoxelIntersection (voxX: number, voxY: number, voxZ: number): bool
             return false;
 
         edgeMask = CalcWorldVertex(edgeMask, voxX, voxY, voxZ, voxIndex,1);
+        if (AppendVertex(voxIndex, vertexPoint))
+            voxels.connections[voxIndex] = edgeMask;
     }
     else
     {
         // We are rendering larger voxels on the seams
         // check if the voxel we are processing is the first root voxel of the larger voxel
+        const outerX = voxX - voxX % borderScale;
+        const outerY = voxY - voxY % borderScale;
+        const outerZ = voxZ - voxZ % borderScale;
+        if (outerX + borderScale >= voxelRange.x - 1 ||
+            outerY + borderScale >= voxelRange.y - 1 ||
+            outerZ + borderScale >= voxelRange.z - 1)
+            return false;
         const rootVoxIndex = chunk.voxelIndex(
-            voxX - voxX % borderScale, 
-            voxY - voxY % borderScale, 
-            voxZ - voxZ % borderScale);
+            outerX, 
+            outerY, 
+            outerZ);
 
         // if it is the root voxel calc and add the vertex for the whole larger seam voxel...
         if (rootVoxIndex == voxIndex)
         {
             for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
-                GetOuterVoxelCornerPosition(cornerNum,borderScale, voxX, voxY, voxZ, voxelPosition);
+                GetOuterVoxelCornerPosition(cornerNum,borderScale, outerX, outerY, outerZ, voxelPosition);
                 const cornerIndex = chunk.voxelIndex(voxelPosition.x, voxelPosition.y, voxelPosition.z);
                 cornerDist[cornerNum] = fieldSamples[cornerIndex];
                 if (cornerDist[cornerNum] < 0)
@@ -255,21 +268,27 @@ function CheckVoxelIntersection (voxX: number, voxY: number, voxZ: number): bool
             if (negPoints == 0 || negPoints == 8)
                 return false;
 
-            edgeMask = CalcWorldVertex(edgeMask, voxX, voxY, voxZ, voxIndex,borderScale);
+            edgeMask = CalcWorldVertex(edgeMask, outerX, outerY, outerZ, voxIndex,borderScale);
+            if (AppendVertex(voxIndex, vertexPoint))
+                voxels.connections[voxIndex] = edgeMask;
         }
         else {
             // if it's not the root voxel just point to the vertex from the root voxel previously created
             voxels.lookupVertexFromVoxel[voxIndex] = voxels.lookupVertexFromVoxel[rootVoxIndex];
+            voxels.connections[voxIndex] = voxels.connections[rootVoxIndex];
+
+            voxels.edgeVoxels[voxels.numEdgesVoxels] = voxIndex;
+            voxels.numEdgesVoxels++;
         }
     }
+
+
 
     return true;
 }
 
 function BorderTransition(voxX: number, voxY: number, voxZ: number) {
-    return false;
-    if (borderScale > 1 && voxX < -3)
-    return true;
+    return (borderSeams && voxX >= 4);
     if (borderSeams & BORDERS.xMin && voxX < borderScale)
         return true;
     if (borderSeams & BORDERS.xMax && voxelRange.x - voxX <= borderScale)
@@ -290,16 +309,13 @@ function CalcWorldVertex(edgeMask: number, voxX: number, voxY: number, voxZ: num
     // todo account for this
     voxelCenter.set(0.5,0.5,0.5);
     voxelCenter.scaleInPlace(chunk.voxelSize * scale);
-    voxelOffset.set(voxX - voxX % scale,
-        voxY - voxY % scale,
-        voxZ - voxZ % scale);
+    voxelOffset.set(voxX,voxY,voxZ);
     chunk.voxelSpaceToWorldSpace(voxelOffset, samplePoint);
     vertexPoint.set(
         voxelCenter.x + samplePoint.x,
         voxelCenter.y + samplePoint.y,
         voxelCenter.z + samplePoint.z);
-    if (AppendVertex(voxelIndex, vertexPoint))
-        voxels.connections[voxels.vertexCount - 1] = edgeMask;
+
     return edgeMask;
 }
 
@@ -353,20 +369,23 @@ function AppendVertex(voxelIndex: number,point: Vector3) {
     // so record the voxel index that the point was created for
     voxels.lookupVoxelFromVertex[voxels.vertexCount] = voxelIndex;
     voxels.vertexCount++;
+
+    voxels.edgeVoxels[voxels.numEdgesVoxels] = voxelIndex;
+    voxels.numEdgesVoxels++;
     return true;
 }
 
 function ExtractAllFaces() {
 
-    for (let vertexNum = 0; vertexNum < voxels.vertexCount; vertexNum++)
+    for (let voxEdgeNum = 0; voxEdgeNum < voxels.numEdgesVoxels; voxEdgeNum++)
     {
 
         // each active voxel contains one vertex
         // calculate vertex for this voxel
-        const voxelIndex = voxels.lookupVoxelFromVertex[vertexNum];
+        const voxelIndex = voxels.edgeVoxels[voxEdgeNum];
         chunk.voxelIndexToVoxelPosition(voxelIndex,voxelPosition);
 
-        ExtractVoxel(voxels.connections[vertexNum]);
+        ExtractVoxel(voxels.connections[voxelIndex]);
     }
 }
 
@@ -475,6 +494,7 @@ function RestrictFacesTo(connectedEdges: number, face1: number, face2: number): 
 const triVert = new Uint16Array(3);
 
 function ExtractFaces(voxelPosition: Vector3,offsets: number[][]) {
+    //console.log('start vox',voxelPosition.x,voxelPosition.y,voxelPosition.z);
     for (let offsetNum = 0; offsetNum < offsets.length; offsetNum += 3) {
         let overlap = false;
         for (let i = 0; i < 3; i++) {
@@ -483,7 +503,11 @@ function ExtractFaces(voxelPosition: Vector3,offsets: number[][]) {
             const z = voxelPosition.z + offsets[offsetNum + i][2];
             const index = chunk.voxelIndex(x,y,z);
             triVert[i] = voxels.lookupVertexFromVoxel[index];
-            const vx = verticies[triVert[i] * 3];
+            const vertIndex = triVert[i] * 3;
+            const vx = verticies[vertIndex];
+            const vy = verticies[vertIndex + 1];
+            const vz = verticies[vertIndex + 2];
+            //console.log('voxel',x,y,z,'vindex',vertIndex,'pos',vx,vy,vz);
             if (vx < chunk.origin.x)
                 overlap = true;
         }
@@ -500,8 +524,10 @@ function SetupVoxels(numSamples: number) {
     if (numSamples > maxVoxels) {
         voxels = {
             vertexCount: 0,
+            numEdgesVoxels: 0,
             lookupVoxelFromVertex: new Uint16Array(numSamples),
             lookupVertexFromVoxel: new Uint16Array(numSamples),
+            edgeVoxels: new Uint16Array(numSamples),
             connections: new Int8Array(numSamples)
         }
     }
@@ -519,9 +545,9 @@ function GetVoxelCornerPosition(cornerNum: number, voxX: number, voxY: number, v
 
 function GetOuterVoxelCornerPosition(cornerNum: number,scale: number, voxX: number, voxY: number, voxZ: number, voxelPosition: Vector3) {
     voxelPosition.set(
-        (voxX - voxX % scale) + CUBE_CORNER_OFFSETS[cornerNum].x * scale, 
-        (voxY - voxY % scale) + CUBE_CORNER_OFFSETS[cornerNum].y * scale, 
-        (voxZ - voxZ % scale) + CUBE_CORNER_OFFSETS[cornerNum].z * scale);
+        voxX + CUBE_CORNER_OFFSETS[cornerNum].x * scale, 
+        voxY + CUBE_CORNER_OFFSETS[cornerNum].y * scale, 
+        voxZ + CUBE_CORNER_OFFSETS[cornerNum].z * scale);
 }   
  
 

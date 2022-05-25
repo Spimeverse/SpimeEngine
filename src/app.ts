@@ -27,7 +27,7 @@ const xSample = 0;
 // @ts-ignore: it's an image    
 //import grassTextureUrl from "../assets/grass.jpg";
 
-let objectPos = 219;
+let objectPos = -3201;
 let positionDirty = true;
 let tunePos = 0;
 
@@ -58,9 +58,9 @@ class App {
         // This creates and positions a free camera (non-mesh)
         const camera = new ArcRotateCamera(
             "camera",
-            0,
-            Math.PI / 3,
-            10,
+            -Math.PI / 4,
+            Math.PI / 4,
+            7,
             new Vector3(0, 0, 0),
             scene
         );
@@ -77,7 +77,7 @@ class App {
         // Default intensity is 1. Let's dim the light a small amount
         light.intensity = 1;
 
-        const gui = this._createStatsGui(camera);
+        // const gui = this._createStatsGui(camera);
     
         // Our built-in 'ground' shape.
         const ground = GroundBuilder.CreateGround(
@@ -109,11 +109,15 @@ class App {
 
         const box = MeshBuilder.CreateBox("box", {size:3}, scene);
         const boxMaterial = new StandardMaterial("boxMaterial", scene);
-        box.position.x = -2;
+        box.position.x = -0.093;
+        box.position.y = 1;
+        box.position.z = 0.485;
         boxMaterial.diffuseColor = new Color3(1,0,0);
         boxMaterial.wireframe = true;
         box.material = boxMaterial;
         box.isVisible = true;
+
+        camera.setTarget(box.position.clone());
 
         const box2 = MeshBuilder.CreateBox("box2", {size:4}, scene);
         box2.position.x = 2;
@@ -149,7 +153,8 @@ class App {
 
         scene.onBeforeAnimationsObservable.add((theScene) => {
             customMesh.position.y = tunePos;
-            if (positionDirty)
+            //if (positionDirty)
+            if (!field.position.equals(box.position))
             {
                 positionDirty = false;
                 const step = theScene.getStepId();
@@ -160,16 +165,17 @@ class App {
                     const normals = new Array<number>();
 
                     //field.position = new Vector3(2 + Math.sin(step / 4000 * Math.PI * 2) * 6 ,0,0);
-                    field.position = new Vector3(objectPos / 1000,0,0);
-                    box.position.copyFrom(field.position);
+                    // field.position = new Vector3(objectPos / 1000,0,0);
+                    // box.position.copyFrom(field.position);
                     //field.position = new Vector3(1.2,0,0);
+                    field.position = new Vector3(box.position.x,box.position.y,box.position.z);
 
                     chunk1.setBorderSeams(BORDERS.xMax,2);
                     this._updateChunk(chunk1,field, vertexData, normals, customMesh);
 
-                    gui.positionLabel.text = `Position ${field.position.x.toFixed(3)}`;
+                    //gui.positionLabel.text = `Position ${box.position.x.toFixed(3)}`;
                     //chunk2.setBorderSeams(BORDERS.xMin,4);
-                    this._updateChunk(chunk2,field, vertexData2, normals, customMesh2);
+                    //this._updateChunk(chunk2,field, vertexData2, normals, customMesh2);
 
                 }
             }
