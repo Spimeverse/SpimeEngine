@@ -231,12 +231,14 @@ function CheckVoxelIntersection (voxX: number, voxY: number, voxZ: number): bool
                 negPoints++;
         }
 
-        if (negPoints == 0 || negPoints == 8)
+        if (negPoints == 0 || negPoints == 8) {
+            voxels.connections[voxIndex] = 0;
             return false;
+        }
 
         edgeMask = CalcWorldVertex(edgeMask, voxX, voxY, voxZ, voxIndex,1);
-        if (AppendVertex(voxIndex, vertexPoint))
-            voxels.connections[voxIndex] = edgeMask;
+        AppendVertex(voxIndex, vertexPoint);
+        voxels.connections[voxIndex] = edgeMask;
     }
     else
     {
@@ -265,20 +267,25 @@ function CheckVoxelIntersection (voxX: number, voxY: number, voxZ: number): bool
                     negPoints++;
             }
 
-            if (negPoints == 0 || negPoints == 8)
+            if (negPoints == 0 || negPoints == 8) {
+                voxels.connections[voxIndex] = 0;
                 return false;
+            }
 
             edgeMask = CalcWorldVertex(edgeMask, outerX, outerY, outerZ, voxIndex,borderScale);
-            if (AppendVertex(voxIndex, vertexPoint))
-                voxels.connections[voxIndex] = edgeMask;
+            AppendVertex(voxIndex, vertexPoint);
+            voxels.connections[voxIndex] = edgeMask;
         }
         else {
             // if it's not the root voxel just point to the vertex from the root voxel previously created
-            voxels.lookupVertexFromVoxel[voxIndex] = voxels.lookupVertexFromVoxel[rootVoxIndex];
-            voxels.connections[voxIndex] = voxels.connections[rootVoxIndex];
-
-            voxels.edgeVoxels[voxels.numEdgesVoxels] = voxIndex;
-            voxels.numEdgesVoxels++;
+            edgeMask = voxels.connections[rootVoxIndex];
+            voxels.connections[voxIndex] = edgeMask;
+            if (edgeMask != 0) {
+                voxels.lookupVertexFromVoxel[voxIndex] = voxels.lookupVertexFromVoxel[rootVoxIndex];
+ 
+                voxels.edgeVoxels[voxels.numEdgesVoxels] = voxIndex;
+                voxels.numEdgesVoxels++;
+            }
         }
     }
 
@@ -379,7 +386,6 @@ function ExtractAllFaces() {
 
     for (let voxEdgeNum = 0; voxEdgeNum < voxels.numEdgesVoxels; voxEdgeNum++)
     {
-
         // each active voxel contains one vertex
         // calculate vertex for this voxel
         const voxelIndex = voxels.edgeVoxels[voxEdgeNum];
@@ -494,7 +500,11 @@ function RestrictFacesTo(connectedEdges: number, face1: number, face2: number): 
 const triVert = new Uint16Array(3);
 
 function ExtractFaces(voxelPosition: Vector3,offsets: number[][]) {
-    //console.log('start vox',voxelPosition.x,voxelPosition.y,voxelPosition.z);
+    // TODO move setup
+    const verts: Vector3[] = []; 
+    verts[0] = new Vector3();
+    verts[1] = new Vector3();
+    verts[2] = new Vector3();
     for (let offsetNum = 0; offsetNum < offsets.length; offsetNum += 3) {
         let overlap = false;
         for (let i = 0; i < 3; i++) {
@@ -502,21 +512,31 @@ function ExtractFaces(voxelPosition: Vector3,offsets: number[][]) {
             const y = voxelPosition.y + offsets[offsetNum + i][1];
             const z = voxelPosition.z + offsets[offsetNum + i][2];
             const index = chunk.voxelIndex(x,y,z);
+            const edgeMask = voxels.connections[index];
+            if (edgeMask == 0 )
+                return;
             triVert[i] = voxels.lookupVertexFromVoxel[index];
             const vertIndex = triVert[i] * 3;
             const vx = verticies[vertIndex];
             const vy = verticies[vertIndex + 1];
             const vz = verticies[vertIndex + 2];
-            //console.log('voxel',x,y,z,'vindex',vertIndex,'pos',vx,vy,vz);
-            if (vx < chunk.origin.x)
+            verts[i].set(vx,vy,vz);
+            if (vx <= chunk.origin.x || vy <= chunk.origin.y || vz <= chunk.origin.z)
                 overlap = true;
+        }
+        const l1 = verts[0].subtract(verts[1]).lengthSquared();
+        const l2 = verts[1].subtract(verts[2]).lengthSquared();
+        const l3 = verts[2].subtract(verts[0]).lengthSquared();
+        const epsilon = 0.0001;
+        if (l1 < epsilon || l2 < epsilon || l3 < epsilon) {
+            overlap = true;
         }
         // voxels for seams can emit triangles that reuse a vertex
         // only add triangles with 3 unique vertices
-        if (!overlap && triVert[0] != triVert[1] && triVert[1] != triVert[2] && triVert[0] != triVert[2])
+        if (!overlap && triVert[0] != triVert[1] && triVert[1] != triVert[2] && triVert[0] != triVert[2]) {
             faces.push(triVert[0],triVert[1],triVert[2]);
+        }
     }
-   
 }
 
 

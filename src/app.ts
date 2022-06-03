@@ -109,9 +109,9 @@ class App {
 
         const box = MeshBuilder.CreateBox("box", {size:3}, scene);
         const boxMaterial = new StandardMaterial("boxMaterial", scene);
-        box.position.x = -0.093;
-        box.position.y = 1;
-        box.position.z = 0.485;
+        box.position.x = -2.545;
+        box.position.y = 0.838;
+        box.position.z = -2.386;
         boxMaterial.diffuseColor = new Color3(1,0,0);
         boxMaterial.wireframe = true;
         box.material = boxMaterial;
@@ -255,7 +255,7 @@ class App {
         voxelMaterial.diffuseColor = color;
         voxelMaterial.emissiveColor = color;
         customMesh.material = voxelMaterial
-        customMesh.enableEdgesRendering();
+        customMesh.enableEdgesRendering(0);
         customMesh.edgesWidth = 4.0
         customMesh.edgesColor = new Color4(0, 0, 0, 1);
     }
