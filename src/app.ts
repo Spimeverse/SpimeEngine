@@ -107,11 +107,11 @@ class App {
         markerMaterial.emissiveColor = new Color3(1,1,0);
         marker.material = markerMaterial;
 
-        const box = MeshBuilder.CreateBox("box", {size:3}, scene);
+        const box = MeshBuilder.CreateBox("box", {size:2.5}, scene);
         const boxMaterial = new StandardMaterial("boxMaterial", scene);
-        box.position.x = -2.545;
-        box.position.y = 0.838;
-        box.position.z = -2.386;
+        box.position.x = 0.015;
+        box.position.y = 0.55;
+        box.position.z = 0.036;
         boxMaterial.diffuseColor = new Color3(1,0,0);
         boxMaterial.wireframe = true;
         box.material = boxMaterial;
@@ -127,7 +127,7 @@ class App {
         box2.material = boxMaterial2;
         box2.isVisible = false;
 
-        const field = new SdfBox(3,3,3)
+        const field = new SdfBox(2.5,2.5,2.5)
         //const field = new SdfTorus(2,1);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
@@ -137,7 +137,7 @@ class App {
 
 
         const chunk1 = new Chunk();
-        chunk1.setSize({x:4., y:4, z:4},1 / 4);
+        chunk1.setSize({x:5, y:4, z:4},1 / 4);
         chunk1.setOrigin({x:-4,y:-2,z:-2});
 
         const chunk2 = new Chunk();
@@ -175,7 +175,7 @@ class App {
 
                     //gui.positionLabel.text = `Position ${box.position.x.toFixed(3)}`;
                     //chunk2.setBorderSeams(BORDERS.xMin,4);
-                    //this._updateChunk(chunk2,field, vertexData2, normals, customMesh2);
+                    this._updateChunk(chunk2,field, vertexData2, normals, customMesh2);
 
                 }
             }

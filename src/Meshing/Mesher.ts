@@ -295,10 +295,9 @@ function CheckVoxelIntersection (voxX: number, voxY: number, voxZ: number): bool
 }
 
 function BorderTransition(voxX: number, voxY: number, voxZ: number) {
-    return (borderSeams && voxX >= 4);
     if (borderSeams & BORDERS.xMin && voxX < borderScale)
         return true;
-    if (borderSeams & BORDERS.xMax && voxelRange.x - voxX <= borderScale)
+    if (borderSeams & BORDERS.xMax && voxX >= voxelRange.x - borderScale * 2)
         return true;
     if (borderSeams & BORDERS.yMin && voxY < borderScale)
         return true;
@@ -498,15 +497,13 @@ function RestrictFacesTo(connectedEdges: number, face1: number, face2: number): 
 
 
 const triVert = new Uint16Array(3);
+const faceVertices: Vector3[] = [new Vector3(),new Vector3(),new Vector3()]; 
+const minEdgeLength = 0.000001;
 
 function ExtractFaces(voxelPosition: Vector3,offsets: number[][]) {
-    // TODO move setup
-    const verts: Vector3[] = []; 
-    verts[0] = new Vector3();
-    verts[1] = new Vector3();
-    verts[2] = new Vector3();
+
     for (let offsetNum = 0; offsetNum < offsets.length; offsetNum += 3) {
-        let overlap = false;
+        let skipFace = false;
         for (let i = 0; i < 3; i++) {
             const x = voxelPosition.x + offsets[offsetNum + i][0];
             const y = voxelPosition.y + offsets[offsetNum + i][1];
@@ -520,20 +517,17 @@ function ExtractFaces(voxelPosition: Vector3,offsets: number[][]) {
             const vx = verticies[vertIndex];
             const vy = verticies[vertIndex + 1];
             const vz = verticies[vertIndex + 2];
-            verts[i].set(vx,vy,vz);
-            if (vx <= chunk.origin.x || vy <= chunk.origin.y || vz <= chunk.origin.z)
-                overlap = true;
+            faceVertices[i].set(vx,vy,vz);
         }
-        const l1 = verts[0].subtract(verts[1]).lengthSquared();
-        const l2 = verts[1].subtract(verts[2]).lengthSquared();
-        const l3 = verts[2].subtract(verts[0]).lengthSquared();
-        const epsilon = 0.0001;
-        if (l1 < epsilon || l2 < epsilon || l3 < epsilon) {
-            overlap = true;
+        const edgeLength1 = faceVertices[0].subtract(faceVertices[1]).lengthSquared();
+        const edgeLength2 = faceVertices[1].subtract(faceVertices[2]).lengthSquared();
+        const edgeLength3 = faceVertices[2].subtract(faceVertices[0]).lengthSquared();
+        if (edgeLength1 < minEdgeLength || edgeLength2 < minEdgeLength || edgeLength3 < minEdgeLength) {
+            skipFace = true;
         }
         // voxels for seams can emit triangles that reuse a vertex
         // only add triangles with 3 unique vertices
-        if (!overlap && triVert[0] != triVert[1] && triVert[1] != triVert[2] && triVert[0] != triVert[2]) {
+        if (!skipFace) {
             faces.push(triVert[0],triVert[1],triVert[2]);
         }
     }
