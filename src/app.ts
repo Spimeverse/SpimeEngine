@@ -60,7 +60,7 @@ class App {
             "camera",
             -Math.PI / 4,
             Math.PI / 4,
-            7,
+            15,
             new Vector3(0, 0, 0),
             scene
         );
@@ -107,11 +107,11 @@ class App {
         markerMaterial.emissiveColor = new Color3(1,1,0);
         marker.material = markerMaterial;
 
-        const box = MeshBuilder.CreateBox("box", {size:2.5}, scene);
+        const box = MeshBuilder.CreateBox("box", {size:6}, scene);
         const boxMaterial = new StandardMaterial("boxMaterial", scene);
-        box.position.x = 0.015;
-        box.position.y = 0.55;
-        box.position.z = 0.036;
+        box.position.x = 12;
+        box.position.y = 0;
+        box.position.z = 0;
         boxMaterial.diffuseColor = new Color3(1,0,0);
         boxMaterial.wireframe = true;
         box.material = boxMaterial;
@@ -119,7 +119,7 @@ class App {
 
         camera.setTarget(box.position.clone());
 
-        const box2 = MeshBuilder.CreateBox("box2", {size:4}, scene);
+        const box2 = MeshBuilder.CreateBox("box2", {size:6}, scene);
         box2.position.x = 2;
         const boxMaterial2 = new StandardMaterial("boxMaterial", scene);
         boxMaterial2.diffuseColor = new Color3(1,0,0);
@@ -127,7 +127,7 @@ class App {
         box2.material = boxMaterial2;
         box2.isVisible = false;
 
-        const field = new SdfBox(2.5,2.5,2.5)
+        const field = new SdfBox(6,6,6)
         //const field = new SdfTorus(2,1);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
@@ -137,12 +137,13 @@ class App {
 
 
         const chunk1 = new Chunk();
-        chunk1.setSize({x:5, y:4, z:4},1 / 4);
-        chunk1.setOrigin({x:-4,y:-2,z:-2});
+        chunk1.setSize({x:10, y:10, z:10},2);
+         chunk1.setOrigin({x:0,y:0,z:0});
+        //chunk1.setOrigin({x:0,y:-2,z:-2});
 
         const chunk2 = new Chunk();
-        chunk2.setSize({x:4, y:4, z:4},1 / 2);
-        chunk2.setOrigin({x:0,y:-2,z:-2});
+        chunk2.setSize({x:10, y:10, z:10},1);
+        chunk2.setOrigin({x:10,y:0,z:0});
         //chunk2.subSample = 2;
 
         //Create a custom mesh  
@@ -170,11 +171,11 @@ class App {
                     //field.position = new Vector3(1.2,0,0);
                     field.position = new Vector3(box.position.x,box.position.y,box.position.z);
 
-                    chunk1.setBorderSeams(BORDERS.xMax,2);
+                    chunk1.setBorderSeams(BORDERS.xMax,1);
                     this._updateChunk(chunk1,field, vertexData, normals, customMesh);
 
                     //gui.positionLabel.text = `Position ${box.position.x.toFixed(3)}`;
-                    //chunk2.setBorderSeams(BORDERS.xMin,4);
+                    chunk2.setBorderSeams(BORDERS.xMin,2);
                     this._updateChunk(chunk2,field, vertexData2, normals, customMesh2);
 
                 }

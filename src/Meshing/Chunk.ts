@@ -60,6 +60,7 @@ class Chunk {
      * the size of one voxel in the chunk in world coordinate space
      */
     voxelSize = 0;
+    halfVoxel = 0;
 
     /**
      * bit flags indicating which borders need to be down sampled
@@ -94,15 +95,16 @@ class Chunk {
         // one more voxel needed to cover overlap with next chunk
         // so points = subdivisions + 2;
         CopyXyz(size,this.worldSize)
-        this.voxelRange.x = (size.x / voxelSize);
-        this.voxelRange.y = (size.y / voxelSize);
-        this.voxelRange.z = (size.z / voxelSize);
+        this.voxelRange.x = (size.x / voxelSize) + 1;
+        this.voxelRange.y = (size.y / voxelSize) + 1;
+        this.voxelRange.z = (size.z / voxelSize) + 1;
         this.stride.x = this.voxelRange.x + 1;
         this.stride.y = this.stride.x * (this.voxelRange.y + 1);
         this.numSamples = this.stride.y * (this.voxelRange.z + 1);
         if (this.numSamples > 65536) throw "chunk resolution exceeds 65536. aborting";
 
         this.voxelSize = voxelSize;
+        this.halfVoxel = voxelSize / 2;
     }
 
     /**

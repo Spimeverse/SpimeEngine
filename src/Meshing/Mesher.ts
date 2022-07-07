@@ -16,6 +16,8 @@ const pointOffset = new Vector3();
 const cornerDist: Float32Array = new Float32Array(8);
 const sqrt3 = Math.sqrt(3);
 
+const downsample = false;
+
 // Corner numbers
 //
 //     6 -----7
@@ -235,9 +237,46 @@ function CheckVoxelIntersection (voxX: number, voxY: number, voxZ: number): bool
             voxels.connections[voxIndex] = 0;
             return false;
         }
-
+ 
         edgeMask = CalcWorldVertex(edgeMask, voxX, voxY, voxZ, voxIndex,1);
+
+        if (voxX == 0 && borderScale == 2) {
+            const outerX = voxX - voxX % borderScale;
+            const outerY = voxY - voxY % borderScale;
+            const outerZ = voxZ - voxZ % borderScale;
+            voxelPosition.set(outerX, outerY, outerZ);
+            chunk.voxelSpaceToWorldSpace(voxelPosition, worldPosition);
+            const scale = chunk.voxelSize * borderScale;
+            for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
+                samplePoint.set(
+                    worldPosition.x + CUBE_CORNER_OFFSETS[cornerNum].x * scale, 
+                    worldPosition.y + CUBE_CORNER_OFFSETS[cornerNum].y * scale, 
+                    worldPosition.z + CUBE_CORNER_OFFSETS[cornerNum].z * scale);
+                cornerDist[cornerNum] = field.sample(samplePoint);
+            }     
+            CalcVoxelVertex(cornerDist, voxelCenter);
+            // todo account for this
+            //voxelCenter.set(0.5,0.5,0.5);
+            voxelCenter.scaleInPlace(scale);
+
+            console.log("scale",borderScale,
+                "vox point ",outerX,outerY,outerZ,
+                "world point",worldPosition.x,worldPosition.y,worldPosition.z,
+                "subvox",voxelCenter.x,voxelCenter.y,voxelCenter.z);
+
+            vertexPoint.set(
+                voxelCenter.x + worldPosition.x,
+                voxelCenter.y + worldPosition.y,
+                voxelCenter.z + worldPosition.z);
+
+            //CalcWorldVertex(edgeMask, outerX, outerY, outerZ, voxIndex,1);
+            // vertexPoint.x += 0.1;
+            // vertexPoint.y += 0.1;
+            // vertexPoint.z += 0.1;
+        }
+
         AppendVertex(voxIndex, vertexPoint);
+
         voxels.connections[voxIndex] = edgeMask;
     }
     else
@@ -295,28 +334,34 @@ function CheckVoxelIntersection (voxX: number, voxY: number, voxZ: number): bool
 }
 
 function BorderTransition(voxX: number, voxY: number, voxZ: number) {
-    if (borderSeams & BORDERS.xMin && voxX < borderScale)
-        return true;
-    if (borderSeams & BORDERS.xMax && voxX >= voxelRange.x - borderScale * 2)
-        return true;
-    if (borderSeams & BORDERS.yMin && voxY < borderScale)
-        return true;
-    if (borderSeams & BORDERS.yMax && voxelRange.y - voxY < borderScale)
-        return true;
-    if (borderSeams & BORDERS.zMin && voxZ < borderScale)
-        return true;
-    if (borderSeams & BORDERS.zMax && voxelRange.z - voxZ < borderScale)
-        return true;
+    // if (borderSeams & BORDERS.xMin && voxX < borderScale)
+    //     return true;
+    // if (borderSeams & BORDERS.xMax && voxX >= voxelRange.x - borderScale)
+    //     return true;
+    // if (borderSeams & BORDERS.yMin && voxY < borderScale)
+    //     return true;
+    // if (borderSeams & BORDERS.yMax && voxelRange.y - voxY < borderScale)
+    //     return true;
+    // if (borderSeams & BORDERS.zMin && voxZ < borderScale)
+    //     return true;
+    // if (borderSeams & BORDERS.zMax && voxelRange.z - voxZ < borderScale)
+    //     return true;
     return false;
 }
 
 function CalcWorldVertex(edgeMask: number, voxX: number, voxY: number, voxZ: number, voxelIndex: number,scale: number) {
     edgeMask = CalcVoxelVertex(cornerDist, voxelCenter);
     // todo account for this
-    voxelCenter.set(0.5,0.5,0.5);
+    //voxelCenter.set(0.5,0.5,0.5);
     voxelCenter.scaleInPlace(chunk.voxelSize * scale);
     voxelOffset.set(voxX,voxY,voxZ);
     chunk.voxelSpaceToWorldSpace(voxelOffset, samplePoint);
+    if (borderScale == 1)
+        console.log(
+            "scale",borderScale,
+            "vox point ",voxX,voxY,voxZ,
+            "world point",samplePoint.x,samplePoint.y,samplePoint.z,
+            "subvox",voxelCenter.x,voxelCenter.y,voxelCenter.z);
     vertexPoint.set(
         voxelCenter.x + samplePoint.x,
         voxelCenter.y + samplePoint.y,
@@ -365,7 +410,7 @@ function AppendVertex(voxelIndex: number,point: Vector3) {
         normal.normalize();
         normal.scaleInPlace(-dist);
 
-        point.addInPlace(normal);
+        //point.addInPlace(normal);
     }
     
     verticies.push(point.x,point.y,point.z);
