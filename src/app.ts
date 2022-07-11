@@ -100,7 +100,9 @@ class App {
         });
 
         const marker = MeshBuilder.CreateSphere("marker", {diameter:0.2}, scene);
-        marker.position.y = 2;
+        marker.position.x = 8;
+        marker.position.y = 7;
+        marker.position.z = 1.5;
         const markerMaterial = new StandardMaterial("markerMaterial", scene);
         markerMaterial.wireframe = true;
         markerMaterial.diffuseColor = new Color3(1,1,0);
@@ -109,9 +111,9 @@ class App {
 
         const box = MeshBuilder.CreateBox("box", {size:6}, scene);
         const boxMaterial = new StandardMaterial("boxMaterial", scene);
-        box.position.x = 12;
-        box.position.y = 0;
-        box.position.z = 0;
+        box.position.x = 6.43;
+        box.position.y = 4;
+        box.position.z = 1.69;
         boxMaterial.diffuseColor = new Color3(1,0,0);
         boxMaterial.wireframe = true;
         box.material = boxMaterial;
@@ -137,18 +139,20 @@ class App {
 
 
         const chunk1 = new Chunk();
-        chunk1.setSize({x:10, y:10, z:10},2);
+        chunk1.setSize({x:8, y:8, z:8},1);
          chunk1.setOrigin({x:0,y:0,z:0});
         //chunk1.setOrigin({x:0,y:-2,z:-2});
 
         const chunk2 = new Chunk();
-        chunk2.setSize({x:10, y:10, z:10},1);
-        chunk2.setOrigin({x:10,y:0,z:0});
+        chunk2.setSize({x:8, y:8, z:8},0.5);
+        chunk2.setOrigin({x:8,y:0,z:0});
         //chunk2.subSample = 2;
 
         //Create a custom mesh  
         const { customMesh, vertexData } = this._createCustomMesh(scene);
-        customMesh.position.y = 0.2;
+        customMesh.position.x = 0.1;
+        customMesh.position.y = 0.1;
+        customMesh.position.z = 0.1;
         const { customMesh : customMesh2, vertexData : vertexData2 } = this._createCustomMesh(scene);
         const { customMesh : customMesh3, vertexData : vertexData3 } = this._createCustomMesh(scene);
 

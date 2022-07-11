@@ -209,9 +209,9 @@ function SampleAllPoints(chunk: Chunk) {
 }
 
 function CheckAllVoxels(voxelRange: XYZ) {
-    for (let voxX = 0; voxX <= voxelRange.x; voxX ++) {
-        for (let voxY = 0; voxY <= voxelRange.y; voxY ++) {
-            for (let voxZ = 0; voxZ <= voxelRange.z; voxZ ++) {
+    for (let voxX = 0; voxX < voxelRange.x; voxX ++) {
+        for (let voxY = 0; voxY < voxelRange.y; voxY ++) {
+            for (let voxZ = 0; voxZ < voxelRange.z; voxZ ++) {
                 CheckVoxelIntersection(voxX, voxY, voxZ);
             }
         }
@@ -240,7 +240,7 @@ function CheckVoxelIntersection (voxX: number, voxY: number, voxZ: number): bool
  
         edgeMask = CalcWorldVertex(edgeMask, voxX, voxY, voxZ, voxIndex,1);
 
-        if (voxX == 0 && borderScale == 2) {
+        if (voxX <= 1 && borderScale == 2) {
             const outerX = voxX - voxX % borderScale;
             const outerY = voxY - voxY % borderScale;
             const outerZ = voxZ - voxZ % borderScale;
@@ -451,12 +451,12 @@ function ExtractVoxel(connectEdges: number) {
     if (voxelPosition.z == 0)
         connectEdges = 0;//RestrictFacesTo(connectEdges, XY_FACE_CLOCKWISE, XY_FACE_ANTICLOCK);
 
-    if (voxelPosition.x >= chunk.voxelRange.x)
-        connectEdges = 0;
-    if (voxelPosition.y >= chunk.voxelRange.y)
-        connectEdges = 0;
-    if (voxelPosition.z >= chunk.voxelRange.z)
-        connectEdges = 0;
+    // if (voxelPosition.x >= chunk.voxelRange.x - 1)
+    //     connectEdges = 0;
+    // if (voxelPosition.y >= chunk.voxelRange.y - 1)
+    //     connectEdges = 0;
+    // if (voxelPosition.z >= chunk.voxelRange.z - 1)
+    //     connectEdges = 0;
 
     if (connectEdges & XZ_FACE_CLOCKWISE) {
         ExtractFaces(voxelPosition, [
@@ -549,6 +549,7 @@ function ExtractFaces(voxelPosition: Vector3,offsets: number[][]) {
 
     for (let offsetNum = 0; offsetNum < offsets.length; offsetNum += 3) {
         let skipFace = false;
+        let inRange = 3;
         for (let i = 0; i < 3; i++) {
             const x = voxelPosition.x + offsets[offsetNum + i][0];
             const y = voxelPosition.y + offsets[offsetNum + i][1];
@@ -559,10 +560,12 @@ function ExtractFaces(voxelPosition: Vector3,offsets: number[][]) {
                 return;
             triVert[i] = voxels.lookupVertexFromVoxel[index];
             const vertIndex = triVert[i] * 3;
-            const vx = verticies[vertIndex];
-            const vy = verticies[vertIndex + 1];
-            const vz = verticies[vertIndex + 2];
-            faceVertices[i].set(vx,vy,vz);
+            const worldx = verticies[vertIndex];
+            const worldy = verticies[vertIndex + 1];
+            const worldz = verticies[vertIndex + 2];
+            if (worldx < chunk.origin.x + chunk.voxelSize * 2)
+                inRange--;
+            faceVertices[i].set(worldx,worldy,worldz);
         }
         const edgeLength1 = faceVertices[0].subtract(faceVertices[1]).lengthSquared();
         const edgeLength2 = faceVertices[1].subtract(faceVertices[2]).lengthSquared();
@@ -572,7 +575,9 @@ function ExtractFaces(voxelPosition: Vector3,offsets: number[][]) {
         }
         // voxels for seams can emit triangles that reuse a vertex
         // only add triangles with 3 unique vertices
-        if (!skipFace) {
+        if (!skipFace 
+            && inRange > 0
+            ) {
             faces.push(triVert[0],triVert[1],triVert[2]);
         }
     }
