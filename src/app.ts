@@ -112,8 +112,8 @@ class App {
         const box = MeshBuilder.CreateBox("box", {size:6}, scene);
         const boxMaterial = new StandardMaterial("boxMaterial", scene);
         box.position.x = 8;
-        box.position.y = 7;
-        box.position.z = 7;
+        box.position.y = 6;
+        box.position.z = 1;
         boxMaterial.diffuseColor = new Color3(1,0,0);
         boxMaterial.wireframe = true;
         box.material = boxMaterial;
@@ -129,11 +129,11 @@ class App {
         box2.material = boxMaterial2;
         box2.isVisible = false;
 
-        const field = new SdfBox(6,6,6)
+        //const field = new SdfBox(6,6,6)
         //const field = new SdfTorus(2,1);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
-        //const field = new SdfSphere(3);
+        const field = new SdfSphere(3);
         //const field = new SdfSphere(2);
         field.position.set(0,0,0);
 
