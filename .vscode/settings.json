@@ -11,6 +11,7 @@
         "outfile",
         "verticies",
         "voxel",
+        "Voxels",
         "wireframe"
     ]
 }
