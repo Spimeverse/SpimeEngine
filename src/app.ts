@@ -1,5 +1,5 @@
 //import "@babylonjs/core/Debug/debugLayer";
-import "@babylonjs/inspector";
+//import "@babylonjs/inspector";
 //import "@babylonjs/loaders/glTF";
 
 // import modules individually to help tree shaking
@@ -82,15 +82,15 @@ class App {
         // Our built-in 'ground' shape.
         const ground = GroundBuilder.CreateGround(
             "ground",
-            { width: 20, height: 20 },
+            { width: 40, height: 40 },
             scene
         );
         ground.position.y = 0;
-        ground.isVisible = false;
+        ground.isVisible = true;
     
         // Load a texture to be used as the ground material
         const groundMaterial = new StandardMaterial("ground material", scene);
-        groundMaterial.wireframe = true;
+        groundMaterial.wireframe = false;
         //groundMaterial.diffuseTexture = new Texture(grassTextureUrl, scene);
     
         ground.material = groundMaterial;
@@ -112,8 +112,8 @@ class App {
         const box = MeshBuilder.CreateBox("box", {size:6}, scene);
         const boxMaterial = new StandardMaterial("boxMaterial", scene);
         box.position.x = 8;
-        box.position.y = 6;
-        box.position.z = 1;
+        box.position.y = 5;
+        box.position.z = 4;
         boxMaterial.diffuseColor = new Color3(1,0,0);
         boxMaterial.wireframe = true;
         box.material = boxMaterial;
@@ -129,11 +129,11 @@ class App {
         box2.material = boxMaterial2;
         box2.isVisible = false;
 
-        //const field = new SdfBox(6,6,6)
+        const field = new SdfBox(6,6,6)
         //const field = new SdfTorus(2,1);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
-        const field = new SdfSphere(3);
+        //const field = new SdfSphere(3);
         //const field = new SdfSphere(2);
         field.position.set(0,0,0);
 
@@ -158,7 +158,7 @@ class App {
         scene.onBeforeAnimationsObservable.add((theScene) => {
             customMesh.position.y = tunePos;
             //if (positionDirty)
-            if (!field.position.equals(box.position))
+            //if (!field.position.equals(box.position))
             {
                 positionDirty = false;
                 const step = theScene.getStepId();
@@ -168,9 +168,9 @@ class App {
                     //Empty array to contain calculated values or normals added
                     const normals = new Array<number>();
 
-                    //field.position = new Vector3(2 + Math.sin(step / 4000 * Math.PI * 2) * 6 ,0,0);
+                    field.position = new Vector3(5 + Math.sin(step / 4000 * Math.PI * 2) * 6 ,4,4);
                     // field.position = new Vector3(objectPos / 1000,0,0);
-                    // box.position.copyFrom(field.position);
+                    box.position.copyFrom(field.position);
                     //field.position = new Vector3(1.2,0,0);
                     field.position = new Vector3(box.position.x,box.position.y,box.position.z);
 

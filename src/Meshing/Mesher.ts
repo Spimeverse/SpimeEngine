@@ -385,6 +385,14 @@ function ExtractAllFaces() {
 }
 
 function ExtractVoxel(connectEdges: number) {
+    // skip voxels extending beyond the chunk on the min edge
+    // the preceding chunk will handle this shared space
+    if (voxelPosition.x == 0)
+        connectEdges = 0; 
+    if (voxelPosition.y == 0)
+        connectEdges = 0; 
+    if (voxelPosition.z == 0)
+        connectEdges = 0;
 
     if (connectEdges & XZ_FACE_CLOCKWISE) {
         ExtractFaces(voxelPosition, [
