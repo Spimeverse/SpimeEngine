@@ -124,23 +124,5 @@ function Trim (text: string): string {
     return '\n' + lines.join('\n');
 }
 
-/**
- * take an xy slice from a buffer of samples
- * @param samples 
- * @param size 
- * @returns 
- */
-function SliceSamplesXy(samples: Float32Array, chunk: Chunk): number[][] {
-    const sample: number[][] = [];
-    const depth = Math.floor(chunk.cells / 2);
-    for (let i = 0; i < chunk.cells; i++) {
-        sample[i] = [];
-        for (let j = 0; j < chunk.cells; j++) {
-            const distance = samples[chunk.cellIndex(i,j,depth)]
-            sample[i][j] = distance;
-        }
-    }
-    return sample;
-}
 
-export { NumScale, GreyScale, SampleFieldXy, SampleFieldXz, SliceSamplesXy, Trim }
+export { NumScale, GreyScale, SampleFieldXy, SampleFieldXz, Trim }

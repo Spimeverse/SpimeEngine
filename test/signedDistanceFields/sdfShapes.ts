@@ -1,6 +1,6 @@
 
 
-import { SdfSphere,SdfBox,SdfTorus,SdfCylinder } from "../../src/signedDistanceFields"
+import { SdfSphere,SdfBox,SdfTorus,SdfCylinder } from ".."
 import { SampleFieldXy, SampleFieldXz, GreyScale, NumScale, Trim } from "./SdfHelper"
 
 export function TestSdfShapes() {

@@ -55,7 +55,23 @@ class EmptyField extends SignedDistanceField {
     }
 }
 
+class SdfUnion extends SignedDistanceField {
+
+    constructor(public fields: SignedDistanceField[]) {
+        super();
+        this.fields = fields;
+    }
+
+    sample(point: Vector3): number {
+        let minDistance = Infinity;
+        for (const field of this.fields) {
+            minDistance = Math.min(minDistance, field.sample(point));
+        }
+        return minDistance;
+    }
+}
+
 const EMPTY_FIELD = new EmptyField();
 
 
-export { SignedDistanceField,EMPTY_FIELD };
+export { SignedDistanceField, SdfUnion ,EMPTY_FIELD };

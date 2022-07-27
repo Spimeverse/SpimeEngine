@@ -18,7 +18,7 @@ import { Rectangle, StackPanel, TextBlock, Slider, Container } from "@babylonjs/
 import { AdvancedDynamicTexture } from "@babylonjs/gui/2D";
 
 import { ExtractSurface, CORNERS, Chunk,BORDERS } from "./Meshing";
-import { SdfBox, SdfSphere, SdfTorus,SignedDistanceField } from "./signedDistanceFields";
+import { SdfBox, SdfSphere, SdfUnion, SdfTorus,SignedDistanceField } from "./signedDistanceFields";
 
 
 const maxSparseSamples = 0;
@@ -133,9 +133,13 @@ class App {
         //const field = new SdfTorus(2,1);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
-        //const field = new SdfSphere(3);
+        const fieldSphere = new SdfSphere(3);
+        fieldSphere.position.set(8,5,4);
+
         //const field = new SdfSphere(2);
-        field.position.set(0,0,0);
+        field.position.set(2,0,0);
+
+        const unionField = new SdfUnion([field,fieldSphere]);
 
 
         const chunk1 = new Chunk();
@@ -175,11 +179,11 @@ class App {
                     field.position = new Vector3(box.position.x,box.position.y,box.position.z);
 
                     chunk1.setBorderSeams(BORDERS.xMax,1);
-                    this._updateChunk(chunk1,field, vertexData, normals, customMesh);
+                    this._updateChunk(chunk1,unionField, vertexData, normals, customMesh);
 
                     //gui.positionLabel.text = `Position ${box.position.x.toFixed(3)}`;
                     chunk2.setBorderSeams(BORDERS.xMin,2);
-                    this._updateChunk(chunk2,field, vertexData2, normals, customMesh2);
+                    this._updateChunk(chunk2,unionField, vertexData2, normals, customMesh2);
 
                 }
             }
