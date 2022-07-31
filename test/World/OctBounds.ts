@@ -4,46 +4,46 @@ export function TestOctBounds() {
         
     describe('OctBound', () => {
 
-        it('intersects when x overlaps', () => {
+        it('overlaps when x overlaps', () => {
             const b = new OctBound(0, 0, 0, 1, 1, 1);
             const b2 = new OctBound(0.5, 0, 0, 1, 1, 1);
-            expect(b.intersects(b2)).toBe(true);
-            expect(b2.intersects(b)).toBe(true);
+            expect(b.overlaps(b2)).toBe(true);
+            expect(b2.overlaps(b)).toBe(true);
         });
 
-        it('intersects when y overlaps', () => {
+        it('overlaps when y overlaps', () => {
             const b = new OctBound(0, 0, 0, 1, 1, 1);
             const b2 = new OctBound(0, 0.5, 0, 1, 1, 1);
-            expect(b.intersects(b2)).toBe(true);
-            expect(b2.intersects(b)).toBe(true);
+            expect(b.overlaps(b2)).toBe(true);
+            expect(b2.overlaps(b)).toBe(true);
         });
 
-        it('intersects when z overlaps', () => {
+        it('overlaps when z overlaps', () => {
             const b = new OctBound(0, 0, 0, 1, 1, 1);
             const b2 = new OctBound(0, 0, 0.5, 1, 1, 1);
-            expect(b.intersects(b2)).toBe(true);
-            expect(b2.intersects(b)).toBe(true);
+            expect(b.overlaps(b2)).toBe(true);
+            expect(b2.overlaps(b)).toBe(true);
         });
 
-        it('does not intersect when x does not overlap', () => {
+        it('does not overlap when x does not overlap', () => {
             const b = new OctBound(0, 0, 0, 1, 1, 1);
-            const b2 = new OctBound(1.001, 0, 0, 2, 1, 1);
-            expect(b.intersects(b2)).toBe(false);
-            expect(b2.intersects(b)).toBe(false);
+            const b2 = new OctBound(1, 0, 0, 2, 1, 1);
+            expect(b.overlaps(b2)).toBe(false);
+            expect(b2.overlaps(b)).toBe(false);
         });
 
-        it('does not intersect when y does not overlap', () => {
+        it('does not overlap when y does not overlap', () => {
             const b = new OctBound(0, 0, 0, 1, 1, 1);
-            const b2 = new OctBound(0, 1.001, 0, 1, 2, 1);
-            expect(b.intersects(b2)).toBe(false);
-            expect(b2.intersects(b)).toBe(false);
+            const b2 = new OctBound(0, 1, 0, 1, 2, 1);
+            expect(b.overlaps(b2)).toBe(false);
+            expect(b2.overlaps(b)).toBe(false);
         });
 
-        it('does not intersect when z does not overlap', () => {
+        it('does not overlap when z does not overlap', () => {
             const b = new OctBound(0, 0, 0, 1, 1, 1);
-            const b2 = new OctBound(0, 0, 1.001, 1, 1, 2);
-            expect(b.intersects(b2)).toBe(false);
-            expect(b2.intersects(b)).toBe(false);
+            const b2 = new OctBound(0, 0, 1, 1, 1, 2);
+            expect(b.overlaps(b2)).toBe(false);
+            expect(b2.overlaps(b)).toBe(false);
         });
 
         it('clones other bounds', () => {

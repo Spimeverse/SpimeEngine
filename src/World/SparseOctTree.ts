@@ -39,10 +39,20 @@ class OctBound {
         return newbounds;
     }
 
-    public intersects(b: OctBound): boolean {
-        return !(b.minX > this.maxX || b.maxX < this.minX ||
-            b.minY > this.maxY || b.maxY < this.minY ||
-            b.minZ > this.maxZ || b.maxZ < this.minZ);
+    public copy(b: OctBound): void {
+        this.minX = b.minX;
+        this.minY = b.minY;
+        this.minZ = b.minZ;
+        this.maxX = b.maxX;
+        this.maxY = b.maxY;
+        this.maxZ = b.maxZ;
+    }
+
+    public overlaps(b: OctBound): boolean {
+        // returns if two boxes overlap
+        return (this.minX < b.maxX && this.maxX > b.minX) &&
+            (this.minY < b.maxY && this.maxY > b.minY) &&
+            (this.minZ < b.maxX && this.maxZ > b.minZ);
     }
 
     frontLeftBottom(): OctBound {
@@ -93,7 +103,8 @@ class SparseOctTree<TYPE extends IhasOctBounds> {
     }
 
     public update(item: TYPE,newbounds: OctBound) {
-        this.rootNode.update(item,item.octBounds,newbounds,this.maxItemsPerNode,this.minNodeSize);
+        this.rootNode.update(item, item.octBounds, newbounds, this.maxItemsPerNode, this.minNodeSize);
+        item.octBounds.copy(newbounds);
     }
 
     public getItemsInBounds(bounds: OctBound,results: IhasOctBounds[]): number {
@@ -104,6 +115,7 @@ class SparseOctTree<TYPE extends IhasOctBounds> {
 // sparse quad tree to find nearby objects
 class SparseOctTreeNode<TYPE extends IhasOctBounds> {
     bounds: OctBound;
+    totalItems = 0;
 
     constructor(
         bounds: OctBound) {
@@ -116,17 +128,24 @@ class SparseOctTreeNode<TYPE extends IhasOctBounds> {
     public children: SparseOctTreeNode<TYPE>[];
 
     public insert(object: TYPE,bounds: OctBound, maxItemsPerNode: number, minNodeSize: number) {
-        if (bounds.intersects(this.bounds)) {
+        if (bounds.overlaps(this.bounds)) {
+            this.totalItems++;
             if (this.children.length > 0) {
                 for (let i = 0; i < this.children.length; i++) {
                     this.children[i].insert(object,bounds, maxItemsPerNode, minNodeSize);
                 }
             } else {
-                if (this.objects.length < maxItemsPerNode) {
+                if (this.objects.length < maxItemsPerNode || this.bounds.extent <= minNodeSize) {
                     this.objects.push(object);
                 } else {
                     this.subdivide();
-                    this.insert(object,bounds, maxItemsPerNode, minNodeSize);
+                    for (let i = 0; i < this.children.length; i++) {
+                        this.children[i].insert(object,bounds, maxItemsPerNode, minNodeSize);
+                        for (let j = 0; j < this.objects.length; j++) {
+                            this.children[i].insert(this.objects[j],this.objects[j].octBounds, maxItemsPerNode, minNodeSize);
+                        }
+                    }
+                    this.objects.length = 0;
                 }
             }
         }
@@ -163,7 +182,10 @@ class SparseOctTreeNode<TYPE extends IhasOctBounds> {
         bounds: OctBound,
         parentNode: SparseOctTreeNode<TYPE> | null,
         maxItemsPerNode: number, minNodeSize: number) {
-        if (object.octBounds.intersects(this.bounds)) {
+        if (object.octBounds.overlaps(this.bounds)) {
+            this.totalItems--;
+
+            // remove the object from this children if it exists
             if (this.children.length > 0) {
                 for (let i = 0; i < this.children.length; i++) {
                     this.children[i].remove(object,bounds,this, maxItemsPerNode, minNodeSize);
@@ -172,33 +194,34 @@ class SparseOctTreeNode<TYPE extends IhasOctBounds> {
                 const index = this.objects.indexOf(object);
                 this.objects[index] = this.objects[this.objects.length - 1];
                 this.objects.length--;
-                if (this.objects.length < maxItemsPerNode && parentNode != null) {
-                    parentNode.consolidate(maxItemsPerNode);
+            }
+            // see if we can combine all the children into this node
+            if (this.totalItems <= maxItemsPerNode && this.children.length > 0) {
+                for (let i = 0; i < this.children.length; i++) {
+                    this.children[i].addAllChildObjects(this.objects);
                 }
+                this.children.length = 0;
             }
         }
     }
 
-    consolidate(maxItemsPerNode: number) {
-        let totalChildObjects = 0;
-        for (let i = 0; i < this.children.length; i++) {
-            totalChildObjects += this.children[i].objects.length;
-        }
-
-        if (totalChildObjects <= maxItemsPerNode) {
+    addAllChildObjects(objects: TYPE[]) {
+        if (this.children.length > 0) {
             for (let i = 0; i < this.children.length; i++) {
-                for (let j = 0; j < this.children[i].objects.length; j++)
-                    this.objects.push(this.children[i].objects[j]);
-                this.children[i].objects.length = 0;
+                this.children[i].addAllChildObjects(objects);
             }
-            this.children = [];
+            this.children.length = 0;
+        } else {
+            for (let i = 0; i < this.objects.length; i++) {
+                objects.push(this.objects[i]);
+            }
+            this.objects.length = 0;
         }
-
     }
 
     public update(object: TYPE,bounds: OctBound, newbounds: OctBound, maxItemsPerNode: number, minNodeSize: number) {
-        const previouslyIntersecting = bounds.intersects(this.bounds);
-        const nowIntersecting = newbounds.intersects(this.bounds);
+        const previouslyIntersecting = bounds.overlaps(this.bounds);
+        const nowIntersecting = newbounds.overlaps(this.bounds);
         if (!previouslyIntersecting && nowIntersecting) { 
             this.insert(object,newbounds, maxItemsPerNode, minNodeSize);
         }
@@ -214,7 +237,7 @@ class SparseOctTreeNode<TYPE extends IhasOctBounds> {
 
 
     public getItemsInBounds(bounds: OctBound, results: IhasOctBounds[]): number {
-        if (bounds.intersects(this.bounds)) {
+        if (bounds.overlaps(this.bounds)) {
             for (let i = 0; i < this.objects.length; i++) {
                 results.push(this.objects[i]);
             }
