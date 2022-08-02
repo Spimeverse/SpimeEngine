@@ -120,38 +120,59 @@ class SparseOctTreeNode<TYPE extends IhasOctBounds> {
     constructor(
         bounds: OctBound) {
         this.bounds = bounds.clone();
-        this.objects = [];
+        this.items = [];
         this.children = [];
     }
 
-    public objects: TYPE[];
+    public items: TYPE[];
     public children: SparseOctTreeNode<TYPE>[];
 
-    public insert(object: TYPE,bounds: OctBound, maxItemsPerNode: number, minNodeSize: number) {
+    public insert(item: TYPE,bounds: OctBound, maxItemsPerNode: number, minNodeSize: number) {
         if (bounds.overlaps(this.bounds)) {
             this.totalItems++;
-            if (this.children.length > 0) {
-                for (let i = 0; i < this.children.length; i++) {
-                    this.children[i].insert(object,bounds, maxItemsPerNode, minNodeSize);
-                }
-            } else {
-                if (this.objects.length < maxItemsPerNode || this.bounds.extent <= minNodeSize) {
-                    this.objects.push(object);
-                } else {
-                    this.subdivide();
+            if (this._itemLargerThanChildNode(item)) {
+                this.items.push(item);
+            }
+            else {
+                if (this.children.length > 0) {
                     for (let i = 0; i < this.children.length; i++) {
-                        this.children[i].insert(object,bounds, maxItemsPerNode, minNodeSize);
-                        for (let j = 0; j < this.objects.length; j++) {
-                            this.children[i].insert(this.objects[j],this.objects[j].octBounds, maxItemsPerNode, minNodeSize);
+                        this.children[i].insert(item, bounds, maxItemsPerNode, minNodeSize);
+                    }
+                } else {
+                    const nodeHasTooManyItems = this.items.length >= maxItemsPerNode && this.bounds.extent > minNodeSize;
+                    if (!nodeHasTooManyItems) {
+                        this.items.push(item);
+                    } else {
+                        this._subdivide();
+                        for (let i = 0; i < this.children.length; i++) {
+                            const child = this.children[i];
+                            child.insert(item, bounds, maxItemsPerNode, minNodeSize);
+                            this._pushItemsToChild(child, maxItemsPerNode, minNodeSize);
                         }
                     }
-                    this.objects.length = 0;
                 }
             }
         }
     }
 
-    subdivide() {
+    private _itemLargerThanChildNode(object: TYPE): boolean {
+        return object.octBounds.extent > this.bounds.extent / 2;
+    }
+
+    private _pushItemsToChild(child: SparseOctTreeNode<TYPE>, maxItemsPerNode: number, minNodeSize: number) {
+        let itemsMoved = 0;
+        for (let j = 0; j < this.items.length; j++) {
+            const item = this.items[j];
+            if (!this._itemLargerThanChildNode(item)) {
+                child.insert(item, item.octBounds, maxItemsPerNode, minNodeSize);
+                this.items[j] = this.items[this.items.length - 1];
+                itemsMoved++;
+            }
+        }
+        this.items.length -= itemsMoved;
+    }
+
+    private _subdivide() {
         const frontLeftBottom = new SparseOctTreeNode<TYPE>(this.bounds.frontLeftBottom());
         this.children.push(frontLeftBottom);
 
@@ -178,45 +199,48 @@ class SparseOctTreeNode<TYPE extends IhasOctBounds> {
 
     }
 
-    public remove(object: TYPE,
+    public remove(item: TYPE,
         bounds: OctBound,
         parentNode: SparseOctTreeNode<TYPE> | null,
         maxItemsPerNode: number, minNodeSize: number) {
-        if (object.octBounds.overlaps(this.bounds)) {
+        if (item.octBounds.overlaps(this.bounds)) {
             this.totalItems--;
 
-            // remove the object from this children if it exists
-            if (this.children.length > 0) {
-                for (let i = 0; i < this.children.length; i++) {
-                    this.children[i].remove(object,bounds,this, maxItemsPerNode, minNodeSize);
-                }
-            } else {
-                const index = this.objects.indexOf(object);
-                this.objects[index] = this.objects[this.objects.length - 1];
-                this.objects.length--;
+            if (this.children.length == 0 ||
+                this._itemLargerThanChildNode(item)) {
+                const index = this.items.indexOf(item);
+                this.items[index] = this.items[this.items.length - 1];
+                this.items.length--;
             }
+            else {
+            // remove the object from this children if it exists
+                for (let i = 0; i < this.children.length; i++) {
+                    this.children[i].remove(item,bounds,this, maxItemsPerNode, minNodeSize);
+                }
+            }
+
             // see if we can combine all the children into this node
             if (this.totalItems <= maxItemsPerNode && this.children.length > 0) {
                 for (let i = 0; i < this.children.length; i++) {
-                    this.children[i].addAllChildObjects(this.objects);
+                    this.children[i]._addItemsToParent(this.items);
                 }
                 this.children.length = 0;
             }
         }
     }
 
-    addAllChildObjects(objects: TYPE[]) {
+    private _addItemsToParent(parentItems: TYPE[]) {
         if (this.children.length > 0) {
             for (let i = 0; i < this.children.length; i++) {
-                this.children[i].addAllChildObjects(objects);
+                this.children[i]._addItemsToParent(parentItems);
             }
             this.children.length = 0;
-        } else {
-            for (let i = 0; i < this.objects.length; i++) {
-                objects.push(this.objects[i]);
-            }
-            this.objects.length = 0;
+        } 
+
+        for (let i = 0; i < this.items.length; i++) {
+            parentItems.push(this.items[i]);
         }
+        this.items.length = 0;
     }
 
     public update(object: TYPE,bounds: OctBound, newbounds: OctBound, maxItemsPerNode: number, minNodeSize: number) {
@@ -238,8 +262,8 @@ class SparseOctTreeNode<TYPE extends IhasOctBounds> {
 
     public getItemsInBounds(bounds: OctBound, results: IhasOctBounds[]): number {
         if (bounds.overlaps(this.bounds)) {
-            for (let i = 0; i < this.objects.length; i++) {
-                results.push(this.objects[i]);
+            for (let i = 0; i < this.items.length; i++) {
+                results.push(this.items[i]);
             }
             for (let i = 0; i < this.children.length; i++) {
                 this.children[i].getItemsInBounds(bounds,results);
