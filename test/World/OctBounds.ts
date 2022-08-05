@@ -46,6 +46,13 @@ export function TestOctBounds() {
             expect(b2.overlaps(b)).toBe(false);
         });
 
+        it('does not overlap when z does not overlap', () => {
+            const b = new OctBound(3, 3, 3, 4, 4, 4);
+            const b2 = new OctBound(2, 2, 0, 4, 4, 2);
+            expect(b.overlaps(b2)).toBe(false);
+            expect(b2.overlaps(b)).toBe(false);
+        });
+
         it('clones other bounds', () => {
             const b = new OctBound(0, 1, 2, 3, 4, 5);
             const b2 = b.clone();
