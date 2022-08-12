@@ -1,11 +1,12 @@
 import { TestSdfShapes,TestSdfTransforms } from "./signedDistanceFields";
 import { TestMesher,TestChunkDimensions } from "./Meshing";
-import { TestOctBounds,TestSparseOctTree } from "./World";
+import { TestAxisAlignedBoxBounds,TestSparseOctTree, TestSphereBoxBounds } from "./World";
 
 
 TestSdfShapes();
 TestSdfTransforms();
 TestMesher();
 TestChunkDimensions();
-TestOctBounds();
+TestAxisAlignedBoxBounds();
 TestSparseOctTree();
+TestSphereBoxBounds();

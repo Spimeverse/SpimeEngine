@@ -1,13 +1,13 @@
-import { SparseOctTree, SparseOctTreeNode, OctBound, IhasOctBounds } from ".."
+import { SparseOctTree, SparseOctTreeNode, AxisAlignedBoxBound, SphereBound, IhasSphereBounds } from ".."
 
 export function TestSparseOctTree() {
         
     describe('SparseOctTree', () => {
 
         it('contains one object', () => {
-            const bounds = new OctBound(0, 0, 0, 8, 8, 8);
+            const bounds = new AxisAlignedBoxBound(0, 0, 0, 8, 8, 8);
             const tree = new SparseOctTree<TestObject>(bounds, 2, 2);
-            const obj = new TestObject('dog', new OctBound(0, 0, 0, 1, 1, 1));
+            const obj = new TestObject('dog', new SphereBound(0.5, 0.5, 0.5, 0.5));
             tree.insert(obj);
             expect(tree.rootNode.items.length).toBe(1);
             expect(TreeState(tree)).toBe(
@@ -16,10 +16,10 @@ export function TestSparseOctTree() {
         });
 
         it('contains two objects', () => {
-            const bounds = new OctBound(0, 0, 0, 8, 8, 8);
+            const bounds = new AxisAlignedBoxBound(0, 0, 0, 8, 8, 8);
             const tree = new SparseOctTree<TestObject>(bounds, 2, 2);
-            const obj1 = new TestObject('dog', new OctBound(0, 0, 0, 1, 1, 1));
-            const obj2 = new TestObject('cat', new OctBound(0, 0, 0, 1, 1, 1));
+            const obj1 = new TestObject('dog', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj2 = new TestObject('cat', new SphereBound(0.5, 0.5, 0.5, 0.5));
             tree.insert(obj1);
             tree.insert(obj2);
             expect(tree.rootNode.items.length).toBe(2);
@@ -30,11 +30,11 @@ export function TestSparseOctTree() {
         });
 
         it('subdivides when nodes fill up', () => {
-            const bounds = new OctBound(0, 0, 0, 8, 8, 8);
+            const bounds = new AxisAlignedBoxBound(0, 0, 0, 8, 8, 8);
             const tree = new SparseOctTree<TestObject>(bounds, 2, 2);
-            const obj1 = new TestObject('dog', new OctBound(0, 0, 0, 1, 1, 1));
-            const obj2 = new TestObject('cat', new OctBound(0, 0, 0, 1, 1, 1));
-            const obj3 = new TestObject('mouse', new OctBound(0, 0, 0, 1, 1, 1));
+            const obj1 = new TestObject('dog', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj2 = new TestObject('cat', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj3 = new TestObject('mouse', new SphereBound(0.5, 0.5, 0.5, 0.5));
             tree.insert(obj1);
             tree.insert(obj2);
             tree.insert(obj3);
@@ -49,11 +49,11 @@ export function TestSparseOctTree() {
         });
 
         it('collapses when nodes are removed', () => {
-            const bounds = new OctBound(0, 0, 0, 8, 8, 8);
+            const bounds = new AxisAlignedBoxBound(0, 0, 0, 8, 8, 8);
             const tree = new SparseOctTree<TestObject>(bounds, 2, 2);
-            const obj1 = new TestObject('dog', new OctBound(0, 0, 0, 1, 1, 1));
-            const obj2 = new TestObject('cat', new OctBound(0, 0, 0, 1, 1, 1));
-            const obj3 = new TestObject('mouse', new OctBound(0, 0, 0, 1, 1, 1));
+            const obj1 = new TestObject('dog', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj2 = new TestObject('cat', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj3 = new TestObject('mouse', new SphereBound(0.5, 0.5, 0.5, 0.5));
             tree.insert(obj1);
             tree.insert(obj2);
             tree.insert(obj3);
@@ -65,12 +65,12 @@ export function TestSparseOctTree() {
                 "\n..mouse - [0 0 0 1 1 1]");
         });
 
-        it('Adds items to nodes that they intersect', () => {
-            const bounds = new OctBound(0, 0, 0, 8, 8, 8);
+        it('Adds items to nodes that they overlap not just touch', () => {
+            const bounds = new AxisAlignedBoxBound(0, 0, 0, 8, 8, 8);
             const tree = new SparseOctTree<TestObject>(bounds, 2, 2);
-            const obj1 = new TestObject('dog', new OctBound(0, 0, 0, 1, 1, 1));
-            const obj2 = new TestObject('cat', new OctBound(3, 0, 0, 4, 1, 1));
-            const obj3 = new TestObject('mouse', new OctBound(0, 0, 0, 1, 1, 1));
+            const obj1 = new TestObject('dog', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj2 = new TestObject('cat', new SphereBound(3.5, 0.5, 0.5, 0.5));
+            const obj3 = new TestObject('mouse', new SphereBound(0.5, 0.5, 0.5, 0.5));
             tree.insert(obj1);
             tree.insert(obj2);
             tree.insert(obj3);
@@ -87,11 +87,11 @@ export function TestSparseOctTree() {
 
         
         it('Collapse nodes with separate children', () => {
-            const bounds = new OctBound(0, 0, 0, 8, 8, 8);
+            const bounds = new AxisAlignedBoxBound(0, 0, 0, 8, 8, 8);
             const tree = new SparseOctTree<TestObject>(bounds, 2, 2);
-            const obj1 = new TestObject('dog', new OctBound(0, 0, 0, 1, 1, 1));
-            const obj2 = new TestObject('cat', new OctBound(3, 0, 0, 4, 1, 1));
-            const obj3 = new TestObject('mouse', new OctBound(0, 0, 0, 1, 1, 1));
+            const obj1 = new TestObject('dog', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj2 = new TestObject('cat', new SphereBound(3, 0, 0, 0.5));
+            const obj3 = new TestObject('mouse', new SphereBound(0.5, 0.5, 0.5, 0.5));
             tree.insert(obj1);
             tree.insert(obj2);
             tree.insert(obj3);
@@ -104,64 +104,141 @@ export function TestSparseOctTree() {
         });
 
         it('can have items in multiple nodes', () => { 
-            const bounds = new OctBound(0, 0, 0, 8, 8, 8);
+            const bounds = new AxisAlignedBoxBound(0, 0, 0, 8, 8, 8);
             const tree = new SparseOctTree<TestObject>(bounds, 2, 2);
-            const obj1 = new TestObject('dog', new OctBound(0, 0, 0, 1, 1, 1));
-            const obj2 = new TestObject('cow', new OctBound(3, 3, 3, 4, 4, 5));
-            const obj3 = new TestObject('mouse', new OctBound(0, 0, 0, 1, 1, 1));
+            const obj1 = new TestObject('dog', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj2 = new TestObject('cow', new SphereBound(2, 2, 2, 1));
+            const obj3 = new TestObject('mouse', new SphereBound(0.5, 0.5, 0.5, 0.5));
             tree.insert(obj1);
             tree.insert(obj2);
             tree.insert(obj3);
-            expect(tree.rootNode.items.length).toBe(0);
-            expect(TreeState(tree)).toBe(
+
+            expect(TreeState(tree)).withContext('before').toBe(
                 "\n##[0 0 0 8 8 8] - 3" +
                 "\n####[0 0 0 4 4 4] - 3" +
-                "\n######[0 0 0 2 2 2] - 2" +
+                "\n######[0 0 0 2 2 2] - 3" +
+                "\n......cow - [1 1 1 3 3 3]" +
                 "\n......dog - [0 0 0 1 1 1]" +
                 "\n......mouse - [0 0 0 1 1 1]" +
+                "\n######[0 2 0 2 4 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 0 0 4 2 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 2 0 4 4 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[0 0 2 2 2 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[0 2 2 2 4 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 0 2 4 2 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
                 "\n######[2 2 2 4 4 4] - 1" +
-                "\n......cow - [3 3 3 4 4 5]" +
-                "\n####[0 0 4 4 4 8] - 1" +
-                "\n....cow - [3 3 3 4 4 5]");
+                "\n......cow - [1 1 1 3 3 3]");
         });
 
-        it(`collapsing items does'nt cause duplicates`, () => { 
-            const bounds = new OctBound(0, 0, 0, 8, 8, 8);
+        it('can have items in multiple nodes, results same with different insert order', () => { 
+            const bounds = new AxisAlignedBoxBound(0, 0, 0, 8, 8, 8);
             const tree = new SparseOctTree<TestObject>(bounds, 2, 2);
-            const obj1 = new TestObject('dog', new OctBound(0, 0, 0, 1, 1, 1));
-            const obj2 = new TestObject('cow', new OctBound(3, 3, 3, 4, 4, 5));
-            const obj3 = new TestObject('mouse', new OctBound(0, 0, 0, 1, 1, 1));
+            const obj1 = new TestObject('dog', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj2 = new TestObject('cow', new SphereBound(2, 2, 2, 1));
+            const obj3 = new TestObject('mouse', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            tree.insert(obj1);
+            tree.insert(obj3);
+            tree.insert(obj2);
+
+            expect(TreeState(tree)).withContext('before').toBe(
+                "\n##[0 0 0 8 8 8] - 3" +
+                "\n####[0 0 0 4 4 4] - 3" +
+                "\n######[0 0 0 2 2 2] - 3" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n......dog - [0 0 0 1 1 1]" +
+                "\n......mouse - [0 0 0 1 1 1]" +
+                "\n######[0 2 0 2 4 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 0 0 4 2 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 2 0 4 4 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[0 0 2 2 2 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[0 2 2 2 4 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 0 2 4 2 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 2 2 4 4 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]");
+        });
+
+        it(`collapsing items does'nt cause duplicates`, () => {
+            const bounds = new AxisAlignedBoxBound(0, 0, 0, 8, 8, 8);
+            const tree = new SparseOctTree<TestObject>(bounds, 2, 2);
+            const obj1 = new TestObject('dog', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj2 = new TestObject('cow', new SphereBound(2, 2, 2, 1));
+            const obj3 = new TestObject('mouse', new SphereBound(0.5, 0.5, 0.5, 0.5));
             tree.insert(obj1);
             tree.insert(obj2);
             tree.insert(obj3);
             expect(TreeState(tree)).withContext('before').toBe(
                 "\n##[0 0 0 8 8 8] - 3" +
                 "\n####[0 0 0 4 4 4] - 3" +
-                "\n######[0 0 0 2 2 2] - 2" +
+                "\n######[0 0 0 2 2 2] - 3" +
+                "\n......cow - [1 1 1 3 3 3]" +
                 "\n......dog - [0 0 0 1 1 1]" +
                 "\n......mouse - [0 0 0 1 1 1]" +
+                "\n######[0 2 0 2 4 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 0 0 4 2 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 2 0 4 4 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[0 0 2 2 2 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[0 2 2 2 4 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 0 2 4 2 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
                 "\n######[2 2 2 4 4 4] - 1" +
-                "\n......cow - [3 3 3 4 4 5]" +
-                "\n####[0 0 4 4 4 8] - 1" +
-                "\n....cow - [3 3 3 4 4 5]");
+                "\n......cow - [1 1 1 3 3 3]");
             
             tree.remove(obj1);
             // cow only has one item even though it was in 2 children
             expect(TreeState(tree)).withContext('after').toBe(
                 "\n##[0 0 0 8 8 8] - 2" +
-                "\n..cow - [3 3 3 4 4 5]" +
+                "\n..cow - [1 1 1 3 3 3]" +
                 "\n..mouse - [0 0 0 1 1 1]");
         });
 
         it('can remove items in multiple nodes', () => {
-            const bounds = new OctBound(0, 0, 0, 8, 8, 8);
+            const bounds = new AxisAlignedBoxBound(0, 0, 0, 8, 8, 8);
             const tree = new SparseOctTree<TestObject>(bounds, 2, 2);
-            const obj1 = new TestObject('dog', new OctBound(0, 0, 0, 1, 1, 1));
-            const obj2 = new TestObject('house', new OctBound(0, 0, 0, 4, 4, 4));
-            const obj3 = new TestObject('mouse', new OctBound(0, 0, 0, 1, 1, 1));
+            const obj1 = new TestObject('dog', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj2 = new TestObject('cow', new SphereBound(2, 2, 2, 1));
+            const obj3 = new TestObject('mouse', new SphereBound(0.5, 0.5, 0.5, 0.5));
             tree.insert(obj1);
             tree.insert(obj2);
             tree.insert(obj3);
+            expect(TreeState(tree)).withContext('before').toBe(
+                "\n##[0 0 0 8 8 8] - 3" +
+                "\n####[0 0 0 4 4 4] - 3" +
+                "\n######[0 0 0 2 2 2] - 3" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n......dog - [0 0 0 1 1 1]" +
+                "\n......mouse - [0 0 0 1 1 1]" +
+                "\n######[0 2 0 2 4 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 0 0 4 2 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 2 0 4 4 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[0 0 2 2 2 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[0 2 2 2 4 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 0 2 4 2 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 2 2 4 4 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]");
+            
             tree.remove(obj2);
             expect(tree.rootNode.items.length).toBe(2);
             expect(TreeState(tree)).toBe(
@@ -170,12 +247,12 @@ export function TestSparseOctTree() {
                 "\n..mouse - [0 0 0 1 1 1]");
         });
 
-        it('can move items between nodes', () => { 
-            const bounds = new OctBound(0, 0, 0, 8, 8, 8);
+        it('can move items between nodes', () => {
+            const bounds = new AxisAlignedBoxBound(0, 0, 0, 8, 8, 8);
             const tree = new SparseOctTree<TestObject>(bounds, 2, 2);
-            const obj1 = new TestObject('dog', new OctBound(0, 0, 0, 1, 1, 1));
-            const obj2 = new TestObject('cow', new OctBound(3, 3, 3, 4, 4, 4));
-            const obj3 = new TestObject('mouse', new OctBound(0, 0, 0, 1, 1, 1));
+            const obj1 = new TestObject('dog', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj2 = new TestObject('cow', new SphereBound(3, 3, 3, 1));
+            const obj3 = new TestObject('mouse', new SphereBound(0.5, 0.5, 0.5, 0.5));
             tree.insert(obj1);
             tree.insert(obj2);
             tree.insert(obj3);
@@ -186,25 +263,25 @@ export function TestSparseOctTree() {
                 "\n......dog - [0 0 0 1 1 1]" +
                 "\n......mouse - [0 0 0 1 1 1]" +
                 "\n######[2 2 2 4 4 4] - 1" +
-                "\n......cow - [3 3 3 4 4 4]");
+                "\n......cow - [2 2 2 4 4 4]");
             
-            tree.update(obj2, new OctBound(0, 0, 0, 1, 1, 1));
+            tree.update(obj2, new SphereBound(1, 1, 1, 1));
 
             expect(TreeState(tree)).withContext('after').toBe(
                 "\n##[0 0 0 8 8 8] - 3" +
                 "\n####[0 0 0 4 4 4] - 3" +
                 "\n######[0 0 0 2 2 2] - 3" +
-                "\n......cow - [0 0 0 1 1 1]" +
+                "\n......cow - [0 0 0 2 2 2]" +
                 "\n......dog - [0 0 0 1 1 1]" +
                 "\n......mouse - [0 0 0 1 1 1]");
         });
 
         it('can move items that span multiple child nodes', () => { 
-            const bounds = new OctBound(0, 0, 0, 8, 8, 8);
+            const bounds = new AxisAlignedBoxBound(0, 0, 0, 8, 8, 8);
             const tree = new SparseOctTree<TestObject>(bounds, 2, 2);
-            const obj1 = new TestObject('dog', new OctBound(0, 0, 0, 1, 1, 1));
-            const obj2 = new TestObject('cow', new OctBound(3, 3, 3, 5, 4, 4));
-            const obj3 = new TestObject('mouse', new OctBound(0, 0, 0, 1, 1, 1));
+            const obj1 = new TestObject('dog', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj2 = new TestObject('cow', new SphereBound(2, 2, 2, 1));
+            const obj3 = new TestObject('mouse', new SphereBound(0.5, 0.5, 0.5, 0.5));
             tree.insert(obj1);
             tree.insert(obj2);
             tree.insert(obj3);
@@ -212,33 +289,43 @@ export function TestSparseOctTree() {
             expect(TreeState(tree)).withContext('before').toBe(
                 "\n##[0 0 0 8 8 8] - 3" +
                 "\n####[0 0 0 4 4 4] - 3" +
-                "\n######[0 0 0 2 2 2] - 2" +
+                "\n######[0 0 0 2 2 2] - 3" +
+                "\n......cow - [1 1 1 3 3 3]" +
                 "\n......dog - [0 0 0 1 1 1]" +
                 "\n......mouse - [0 0 0 1 1 1]" +
+                "\n######[0 2 0 2 4 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 0 0 4 2 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 2 0 4 4 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[0 0 2 2 2 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[0 2 2 2 4 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 0 2 4 2 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
                 "\n######[2 2 2 4 4 4] - 1" +
-                "\n......cow - [3 3 3 5 4 4]" +
-                "\n####[4 0 0 8 4 4] - 1" +
-                "\n....cow - [3 3 3 5 4 4]");
+                "\n......cow - [1 1 1 3 3 3]");
 
-            tree.update(obj2, new OctBound(3, 2, 0, 4, 3, 1));
+            tree.update(obj2, new SphereBound(1, 1, 1, 1));
 
             expect(TreeState(tree)).withContext('after').toBe(
                 "\n##[0 0 0 8 8 8] - 3" +
                 "\n####[0 0 0 4 4 4] - 3" +
-                "\n######[0 0 0 2 2 2] - 2" +
+                "\n######[0 0 0 2 2 2] - 3" +
+                "\n......cow - [0 0 0 2 2 2]" +
                 "\n......dog - [0 0 0 1 1 1]" +
-                "\n......mouse - [0 0 0 1 1 1]" +
-                "\n######[2 2 0 4 4 2] - 1" +
-                "\n......cow - [3 2 0 4 3 1]");
+                "\n......mouse - [0 0 0 1 1 1]");
         });
 
         it('Stores large objects higher up the tree', () => { 
-            const bounds = new OctBound(0, 0, 0, 8, 8, 8);
+            const bounds = new AxisAlignedBoxBound(0, 0, 0, 8, 8, 8);
             const tree = new SparseOctTree<TestObject>(bounds, 2, 2);
-            const obj1 = new TestObject('cat', new OctBound(0, 0, 0, 1, 1, 1));
-            const obj2 = new TestObject('dog', new OctBound(0, 0, 0, 1, 1, 1));
-            const obj3 = new TestObject('mouse', new OctBound(0, 0, 0, 1, 1, 1));
-            const obj4 = new TestObject('truck', new OctBound(0, 0, 0, 5, 1, 1));
+            const obj1 = new TestObject('cat', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj2 = new TestObject('dog', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj3 = new TestObject('mouse', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj4 = new TestObject('truck', new SphereBound(2.5, 2.5, 2.5, 2.5));
             tree.insert(obj1);
             tree.insert(obj2);
             tree.insert(obj3);
@@ -246,7 +333,7 @@ export function TestSparseOctTree() {
             // truck doesn't get pushed down because it's too big
             expect(TreeState(tree)).toBe(
                 "\n##[0 0 0 8 8 8] - 4" +
-                "\n..truck - [0 0 0 5 1 1]" +
+                "\n..truck - [0 0 0 5 5 5]" +
                 "\n####[0 0 0 4 4 4] - 3" +
                 "\n######[0 0 0 2 2 2] - 3" +
                 "\n......cat - [0 0 0 1 1 1]" +
@@ -255,11 +342,11 @@ export function TestSparseOctTree() {
         });
 
         it('gets each unique item once within a bound', () => {
-            const bounds = new OctBound(0, 0, 0, 8, 8, 8);
+            const bounds = new AxisAlignedBoxBound(0, 0, 0, 8, 8, 8);
             const tree = new SparseOctTree<TestObject>(bounds, 2, 2);
-            const obj1 = new TestObject('dog', new OctBound(0, 0, 0, 1, 1, 1));
-            const obj2 = new TestObject('cow', new OctBound(3, 3, 3, 5, 4, 4));
-            const obj3 = new TestObject('mouse', new OctBound(0, 0, 0, 1, 1, 1));
+            const obj1 = new TestObject('dog', new SphereBound(0.5, 0.5, 0.5, 0.5));
+            const obj2 = new TestObject('cow', new SphereBound(4, 4, 4, 1));
+            const obj3 = new TestObject('mouse', new SphereBound(0.5, 0.5, 0.5, 0.5));
             tree.insert(obj1);
             tree.insert(obj2);
             tree.insert(obj3);
@@ -270,12 +357,24 @@ export function TestSparseOctTree() {
                 "\n......dog - [0 0 0 1 1 1]" +
                 "\n......mouse - [0 0 0 1 1 1]" +
                 "\n######[2 2 2 4 4 4] - 1" +
-                "\n......cow - [3 3 3 5 4 4]" +
+                "\n......cow - [3 3 3 5 5 5]" +
+                "\n####[0 4 0 4 8 4] - 1" +
+                "\n....cow - [3 3 3 5 5 5]" +
                 "\n####[4 0 0 8 4 4] - 1" +
-                "\n....cow - [3 3 3 5 4 4]");
+                "\n....cow - [3 3 3 5 5 5]" +
+                "\n####[4 4 0 8 8 4] - 1" +
+                "\n....cow - [3 3 3 5 5 5]" +
+                "\n####[0 0 4 4 4 8] - 1" +
+                "\n....cow - [3 3 3 5 5 5]" +
+                "\n####[0 4 4 4 8 8] - 1" +
+                "\n....cow - [3 3 3 5 5 5]" +
+                "\n####[4 0 4 8 4 8] - 1" +
+                "\n....cow - [3 3 3 5 5 5]" +
+                "\n####[4 4 4 8 8 8] - 1" +
+                "\n....cow - [3 3 3 5 5 5]");
             
             const items: TestObject[] = [];
-            let searchBounds = new OctBound(0, 0, 0, 1, 1, 1);
+            let searchBounds = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
             tree.getItemsInBounds(searchBounds,items);
             expect(ItemList(searchBounds,items)).withContext("single node").toBe(
                 "\n## [0 0 0 1 1 1]" +
@@ -283,26 +382,28 @@ export function TestSparseOctTree() {
                 "\nmouse - [0 0 0 1 1 1]");
             
             items.length = 0;
-            searchBounds = new OctBound(1, 1, 1, 8, 8, 8);
+            searchBounds = new AxisAlignedBoxBound(1, 1, 1, 8, 8, 8);
             tree.getItemsInBounds(searchBounds,items);
             expect(ItemList(searchBounds,items)).withContext("single node").toBe(
                 "\n## [1 1 1 8 8 8]" +
-                "\ncow - [3 3 3 5 4 4]");
+                "\ncow - [3 3 3 5 5 5]");
         });
+
+
 
     });
 }
 
-class TestObject implements IhasOctBounds {
-    constructor(public name: string, public octBounds: OctBound) {
+class TestObject implements IhasSphereBounds {
+    constructor(public name: string, public currentBounds: SphereBound) {
     }
 
     toString() {
-        return this.name + " - " + this.octBounds.toString();
+        return this.name + " - " + this.currentBounds.toString();
     }
 }
 
-function ItemList(bounds: OctBound,items: TestObject[]) {
+function ItemList(bounds: AxisAlignedBoxBound,items: TestObject[]) {
     items.sort((a, b) => a.name.localeCompare(b.name));
     return "\n## " + bounds.toString() + "\n" + items.map(item => item.toString()).join('\n');
 }
@@ -323,7 +424,7 @@ function NodeState(node: SparseOctTreeNode<TestObject>,depth: number): string {
         });
         for (let i = 0; i < node.items.length; i++)
         {
-            s += '\n' + '..'.repeat(depth) + node.items[i].name + " - " + node.items[i].octBounds.toString();
+            s += '\n' + '..'.repeat(depth) + node.items[i].name + " - " + node.items[i].currentBounds.toString();
         }
         for (let i = 0; i < node.children.length; i++)
         {

@@ -1,10 +1,27 @@
 
-interface IhasOctBounds {
-    octBounds: OctBound;
+interface IhasSphereBounds {
+    currentBounds: SphereBound;
 }
 
+class SphereBound {
 
-class OctBound {
+    public constructor (public xPos: number, public yPos: number, public zPos: number, public radius: number) {
+    }
+
+    copy(newBounds: SphereBound) {
+        this.xPos = newBounds.xPos;
+        this.yPos = newBounds.yPos;
+        this.zPos = newBounds.zPos;
+        this.radius = newBounds.radius;
+    }
+
+    public toString(): string {
+        return `[${this.xPos - this.radius} ${this.yPos - this.radius} ${this.zPos - this.radius} ${this.xPos + this.radius} ${this.yPos + this.radius} ${this.zPos + this.radius}]`;
+    }  
+}
+
+class AxisAlignedBoxBound {
+
     public get halfExtent() {
         return (this.maxX - this.minX) / 2;
     }
@@ -28,18 +45,18 @@ class OctBound {
         this.maxZ = maxZ;
     }
 
-    public clone (): OctBound {
-        const newbounds = new OctBound();
-        newbounds.minX = this.minX;
-        newbounds.minY = this.minY;
-        newbounds.minZ = this.minZ;
-        newbounds.maxX = this.maxX;
-        newbounds.maxY = this.maxY;
-        newbounds.maxZ = this.maxZ;
-        return newbounds;
+    public clone (): AxisAlignedBoxBound {
+        const newBounds = new AxisAlignedBoxBound();
+        newBounds.minX = this.minX;
+        newBounds.minY = this.minY;
+        newBounds.minZ = this.minZ;
+        newBounds.maxX = this.maxX;
+        newBounds.maxY = this.maxY;
+        newBounds.maxZ = this.maxZ;
+        return newBounds;
     }
 
-    public copy(b: OctBound): void {
+    public copy(b: AxisAlignedBoxBound): void {
         this.minX = b.minX;
         this.minY = b.minY;
         this.minZ = b.minZ;
@@ -48,36 +65,71 @@ class OctBound {
         this.maxZ = b.maxZ;
     }
 
-    public overlaps(b: OctBound): boolean {
-        // returns if two boxes overlap
-        return (this.minX < b.maxX && this.maxX > b.minX) &&
-            (this.minY < b.maxY && this.maxY > b.minY) &&
-            (this.minZ < b.maxZ && this.maxZ > b.minZ);
+    public overlapSphere(sphere: SphereBound): boolean {
+        // returns if box overlaps sphere
+        let s = 0;
+        let distSquared = 0;
+
+        if (sphere.xPos < this.minX) {
+            s = sphere.xPos - this.minX;
+            distSquared += s * s;
+        }
+        else if (sphere.xPos > this.maxX) {
+            s = sphere.xPos - this.maxX;
+            distSquared += s * s;
+        }
+
+        if (sphere.yPos < this.minY) {
+            s = sphere.yPos - this.minY;
+            distSquared += s * s;
+        }
+        else if (sphere.yPos > this.maxY) {
+            s = sphere.yPos - this.maxY;
+            distSquared += s * s;
+        }
+
+        if (sphere.zPos < this.minZ) {
+            s = sphere.zPos - this.minZ;
+            distSquared += s * s;
+        }
+        else if (sphere.zPos > this.maxZ) {
+            s = sphere.zPos - this.maxZ;
+            distSquared += s * s;
+        }
+
+        return distSquared < sphere.radius * sphere.radius;
     }
 
-    frontLeftBottom(): OctBound {
-        return new OctBound(this.minX, this.minY, this.minZ, this.minX + this.halfExtent, this.minY + this.halfExtent, this.minZ + this.halfExtent);
+    public overlapAABB(boxBounds: AxisAlignedBoxBound): boolean {
+        // returns if two boxes overlap
+        return (this.minX < boxBounds.maxX && this.maxX > boxBounds.minX) &&
+            (this.minY < boxBounds.maxY && this.maxY > boxBounds.minY) &&
+            (this.minZ < boxBounds.maxZ && this.maxZ > boxBounds.minZ);
     }
-    frontLeftTop(): OctBound {
-        return new OctBound(this.minX, this.minY + this.halfExtent, this.minZ, this.minX + this.halfExtent, this.maxY, this.minZ + this.halfExtent);
+
+    frontLeftBottom(): AxisAlignedBoxBound {
+        return new AxisAlignedBoxBound(this.minX, this.minY, this.minZ, this.minX + this.halfExtent, this.minY + this.halfExtent, this.minZ + this.halfExtent);
     }
-    frontRightBottom(): OctBound {
-        return new OctBound(this.minX + this.halfExtent, this.minY, this.minZ, this.maxX, this.minY + this.halfExtent, this.minZ + this.halfExtent);
+    frontLeftTop(): AxisAlignedBoxBound {
+        return new AxisAlignedBoxBound(this.minX, this.minY + this.halfExtent, this.minZ, this.minX + this.halfExtent, this.maxY, this.minZ + this.halfExtent);
     }
-    frontRightTop(): OctBound {
-         return new OctBound(this.minX + this.halfExtent, this.minY + this.halfExtent, this.minZ, this.maxX, this.maxY, this.minZ + this.halfExtent);
+    frontRightBottom(): AxisAlignedBoxBound {
+        return new AxisAlignedBoxBound(this.minX + this.halfExtent, this.minY, this.minZ, this.maxX, this.minY + this.halfExtent, this.minZ + this.halfExtent);
     }
-    backLeftBottom(): OctBound {
-        return new OctBound(this.minX, this.minY, this.minZ + this.halfExtent, this.minX + this.halfExtent, this.minY + this.halfExtent, this.maxZ);
+    frontRightTop(): AxisAlignedBoxBound {
+         return new AxisAlignedBoxBound(this.minX + this.halfExtent, this.minY + this.halfExtent, this.minZ, this.maxX, this.maxY, this.minZ + this.halfExtent);
     }
-    backLeftTop(): OctBound {
-        return new OctBound(this.minX, this.minY + this.halfExtent, this.minZ + this.halfExtent, this.minX + this.halfExtent, this.maxY, this.maxZ);
+    backLeftBottom(): AxisAlignedBoxBound {
+        return new AxisAlignedBoxBound(this.minX, this.minY, this.minZ + this.halfExtent, this.minX + this.halfExtent, this.minY + this.halfExtent, this.maxZ);
     }
-    backRightBottom(): OctBound {
-        return new OctBound(this.minX + this.halfExtent, this.minY, this.minZ + this.halfExtent, this.maxX, this.minY + this.halfExtent, this.maxZ);
+    backLeftTop(): AxisAlignedBoxBound {
+        return new AxisAlignedBoxBound(this.minX, this.minY + this.halfExtent, this.minZ + this.halfExtent, this.minX + this.halfExtent, this.maxY, this.maxZ);
     }
-    backRightTop(): OctBound {
-        return new OctBound(this.minX + this.halfExtent, this.minY + this.halfExtent, this.minZ + this.halfExtent, this.maxX, this.maxY, this.maxZ);
+    backRightBottom(): AxisAlignedBoxBound {
+        return new AxisAlignedBoxBound(this.minX + this.halfExtent, this.minY, this.minZ + this.halfExtent, this.maxX, this.minY + this.halfExtent, this.maxZ);
+    }
+    backRightTop(): AxisAlignedBoxBound {
+        return new AxisAlignedBoxBound(this.minX + this.halfExtent, this.minY + this.halfExtent, this.minZ + this.halfExtent, this.maxX, this.maxY, this.maxZ);
     }
 
     public toString(): string {
@@ -85,35 +137,37 @@ class OctBound {
     }   
 }
 
-class SparseOctTree<TYPE extends IhasOctBounds> {
+class SparseOctTree<TYPE extends IhasSphereBounds> {
+
     rootNode: SparseOctTreeNode<TYPE>;
     uniqueResults: Set<TYPE>;
 
     constructor(
-        bounds: OctBound,
+        bounds: AxisAlignedBoxBound,
         public maxItemsPerNode: number, public minNodeSize: number) {
         this.rootNode = new SparseOctTreeNode<TYPE>(bounds,this);
         this.uniqueResults = new Set<TYPE>();
     }
 
     public insert(item: TYPE) {
-        this.rootNode.insert(item,item.octBounds);
+        this.rootNode.insert(item,item.currentBounds);
     }
 
     public remove(item: TYPE) {
-        this.rootNode.remove(item,item.octBounds);
+        this.rootNode.remove(item,item.currentBounds);
     }
 
-    public update(item: TYPE,newbounds: OctBound) {
-        this.rootNode.update(item, item.octBounds, newbounds);
-        item.octBounds.copy(newbounds);
+    public update(item: TYPE,newBounds: SphereBound) {
+        this.rootNode.update(item, item.currentBounds, newBounds);
+        item.currentBounds.copy(newBounds);
     }
 
     public nodeHasTooManyItems(node: SparseOctTreeNode<TYPE>): boolean {
         return node.items.length >= this.maxItemsPerNode && node.bounds.extent > this.minNodeSize;
     }
 
-    public getItemsInBounds(bounds: OctBound, results: IhasOctBounds[]): number {
+    public getItemsInBounds(bounds: AxisAlignedBoxBound, results: TYPE[]): number {
+        this.uniqueResults.clear();
         this.rootNode.getItemsInBounds(bounds, this.uniqueResults);
         // loop through the unique results and add them to the results array
         results.length = this.uniqueResults.size;
@@ -121,18 +175,19 @@ class SparseOctTree<TYPE extends IhasOctBounds> {
         for (const item of this.uniqueResults) {
             results[i++] = item;
         }
-        this.uniqueResults.clear();
         return results.length;
     }
+
+
 }
 
 // sparse quad tree to find nearby objects
-class SparseOctTreeNode<TYPE extends IhasOctBounds> {
-    bounds: OctBound;
+class SparseOctTreeNode<TYPE extends IhasSphereBounds> {
+    bounds: AxisAlignedBoxBound;
     totalItems = 0;
 
     constructor(
-        private _bounds: OctBound,
+        private _bounds: AxisAlignedBoxBound,
         private _owner: SparseOctTree<TYPE>) {
         this.bounds = _bounds.clone();
         this.items = [];
@@ -142,8 +197,8 @@ class SparseOctTreeNode<TYPE extends IhasOctBounds> {
     public items: TYPE[];
     public children: SparseOctTreeNode<TYPE>[];
 
-    public insert(newItem: TYPE,newBounds: OctBound) {
-        if (newBounds.overlaps(this.bounds)) {
+    public insert(newItem: TYPE,newBounds: SphereBound) {
+        if (this.bounds.overlapSphere(newBounds)) {
             if (this._itemLargerThanChildNode(newItem)) {
                 this.totalItems++;
                 this.items.push(newItem);
@@ -173,7 +228,7 @@ class SparseOctTreeNode<TYPE extends IhasOctBounds> {
         for (let i = this.items.length - 1; i >= 0; i--) {
             const currentItem = this.items[i];
             if (!this._itemLargerThanChildNode(currentItem)) {
-                this.insert(currentItem, currentItem.octBounds);
+                this.insert(currentItem, currentItem.currentBounds);
                 this.items[i] = this.items[this.items.length - 1];
                 itemsMoved++;
             }
@@ -183,7 +238,9 @@ class SparseOctTreeNode<TYPE extends IhasOctBounds> {
     }
 
     private _itemLargerThanChildNode(object: TYPE): boolean {
-        return object.octBounds.extent > this.bounds.extent / 2;
+        const diameter = object.currentBounds.radius * 2;
+        const childExtent = this.bounds.extent / 2;
+        return diameter > childExtent;
     }
 
     private _subdivide() {
@@ -215,8 +272,8 @@ class SparseOctTreeNode<TYPE extends IhasOctBounds> {
     }
 
     public remove(item: TYPE,
-        bounds: OctBound) {
-        if (item.octBounds.overlaps(this.bounds)) {
+        bounds: SphereBound) {
+        if (this.bounds.overlapSphere(item.currentBounds)) {
             this.totalItems--;
 
             if (this.children.length == 0 ||
@@ -247,7 +304,6 @@ class SparseOctTreeNode<TYPE extends IhasOctBounds> {
             for (const item of uniqueResults) {
                 this.items[i++] = item;
             }
-            uniqueResults.clear();
 
         }
     }
@@ -266,28 +322,28 @@ class SparseOctTreeNode<TYPE extends IhasOctBounds> {
         this.items.length = 0;
     }
 
-    public update(object: TYPE,bounds: OctBound, newbounds: OctBound) {
-        const previouslyIntersecting = bounds.overlaps(this.bounds);
-        const nowIntersecting = newbounds.overlaps(this.bounds);
+    public update(object: TYPE,bounds: SphereBound, newBounds: SphereBound) {
+        const previouslyIntersecting = this.bounds.overlapSphere(bounds);
+        const nowIntersecting = this.bounds.overlapSphere(newBounds);
         if (!previouslyIntersecting && nowIntersecting) { 
-            this.insert(object,newbounds);
+            this.insert(object,newBounds);
         }
         if (previouslyIntersecting && !nowIntersecting) {
             this.remove(object,bounds);
         }
         if (previouslyIntersecting && nowIntersecting && this.children.length > 0) {
             for (let i = 0; i < this.children.length; i++) {
-                this.children[i].update(object,bounds,newbounds);
+                this.children[i].update(object,bounds,newBounds);
             }
         }
     }
 
 
-    public getItemsInBounds(bounds: OctBound, results: Set<TYPE>): number {
-        if (bounds.overlaps(this.bounds)) {
+    public getItemsInBounds(bounds: AxisAlignedBoxBound, results: Set<TYPE>): number {
+        if (bounds.overlapAABB(this.bounds)) {
             for (let i = 0; i < this.items.length; i++) {
                 const item = this.items[i];
-                if (item.octBounds.overlaps(bounds)) {
+                if (bounds.overlapSphere(item.currentBounds)) {
                     results.add(item);
                 }
             }
@@ -299,4 +355,4 @@ class SparseOctTreeNode<TYPE extends IhasOctBounds> {
     }
 }
 
-export { SparseOctTree, OctBound, IhasOctBounds, SparseOctTreeNode };
+export { SparseOctTree, AxisAlignedBoxBound, SphereBound, IhasSphereBounds, SparseOctTreeNode };

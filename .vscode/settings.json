@@ -3,6 +3,7 @@
     "eslint.format.enable": true,
     "eslint.packageManager": "yarn",
     "cSpell.words": [
+        "AABB",
         "ANTICLOCK",
         "babylonjs",
         "BILLBOARDMODE",

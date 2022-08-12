@@ -1,13 +1,16 @@
 
 
 import { Vector3, Matrix,Quaternion } from "@babylonjs/core/Maths";
+import { IhasSphereBounds, SphereBound } from "..";
 
 // see https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
 
 const transformedPoint: Vector3 = new Vector3();
 const NO_SCALING: Vector3 = Vector3.One();
 
-abstract class SignedDistanceField {
+abstract class SignedDistanceField { //implements IhasSphereBounds {
+    //currentBounds = new SphereBound(0,0,0,0);
+    
     public get position(): Vector3 {
         return this._position;
     }
@@ -46,6 +49,7 @@ abstract class SignedDistanceField {
 
     abstract sample(point: Vector3): number;
 
+    abstract updateBounds(): void;
 }
 
 class EmptyField extends SignedDistanceField {

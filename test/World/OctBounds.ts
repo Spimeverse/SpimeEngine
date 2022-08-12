@@ -1,60 +1,60 @@
-import { OctBound } from ".."
+import { AxisAlignedBoxBound } from ".."
 
-export function TestOctBounds() {
+export function TestAxisAlignedBoxBounds() {
         
-    describe('OctBound', () => {
+    describe('AxisAlignedBoxBound', () => {
 
-        it('overlaps when x overlaps', () => {
-            const b = new OctBound(0, 0, 0, 1, 1, 1);
-            const b2 = new OctBound(0.5, 0, 0, 1, 1, 1);
-            expect(b.overlaps(b2)).toBe(true);
-            expect(b2.overlaps(b)).toBe(true);
+        it('overlapAABB when x overlapAABB', () => {
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
+            const b2 = new AxisAlignedBoxBound(0.5, 0, 0, 1, 1, 1);
+            expect(b.overlapAABB(b2)).toBe(true);
+            expect(b2.overlapAABB(b)).toBe(true);
         });
 
-        it('overlaps when y overlaps', () => {
-            const b = new OctBound(0, 0, 0, 1, 1, 1);
-            const b2 = new OctBound(0, 0.5, 0, 1, 1, 1);
-            expect(b.overlaps(b2)).toBe(true);
-            expect(b2.overlaps(b)).toBe(true);
+        it('overlapAABB when y overlapAABB', () => {
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
+            const b2 = new AxisAlignedBoxBound(0, 0.5, 0, 1, 1, 1);
+            expect(b.overlapAABB(b2)).toBe(true);
+            expect(b2.overlapAABB(b)).toBe(true);
         });
 
-        it('overlaps when z overlaps', () => {
-            const b = new OctBound(0, 0, 0, 1, 1, 1);
-            const b2 = new OctBound(0, 0, 0.5, 1, 1, 1);
-            expect(b.overlaps(b2)).toBe(true);
-            expect(b2.overlaps(b)).toBe(true);
+        it('overlapAABB when z overlapAABB', () => {
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
+            const b2 = new AxisAlignedBoxBound(0, 0, 0.5, 1, 1, 1);
+            expect(b.overlapAABB(b2)).toBe(true);
+            expect(b2.overlapAABB(b)).toBe(true);
         });
 
         it('does not overlap when x does not overlap', () => {
-            const b = new OctBound(0, 0, 0, 1, 1, 1);
-            const b2 = new OctBound(1, 0, 0, 2, 1, 1);
-            expect(b.overlaps(b2)).toBe(false);
-            expect(b2.overlaps(b)).toBe(false);
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
+            const b2 = new AxisAlignedBoxBound(1, 0, 0, 2, 1, 1);
+            expect(b.overlapAABB(b2)).toBe(false);
+            expect(b2.overlapAABB(b)).toBe(false);
         });
 
         it('does not overlap when y does not overlap', () => {
-            const b = new OctBound(0, 0, 0, 1, 1, 1);
-            const b2 = new OctBound(0, 1, 0, 1, 2, 1);
-            expect(b.overlaps(b2)).toBe(false);
-            expect(b2.overlaps(b)).toBe(false);
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
+            const b2 = new AxisAlignedBoxBound(0, 1, 0, 1, 2, 1);
+            expect(b.overlapAABB(b2)).toBe(false);
+            expect(b2.overlapAABB(b)).toBe(false);
         });
 
         it('does not overlap when z does not overlap', () => {
-            const b = new OctBound(0, 0, 0, 1, 1, 1);
-            const b2 = new OctBound(0, 0, 1, 1, 1, 2);
-            expect(b.overlaps(b2)).toBe(false);
-            expect(b2.overlaps(b)).toBe(false);
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
+            const b2 = new AxisAlignedBoxBound(0, 0, 1, 1, 1, 2);
+            expect(b.overlapAABB(b2)).toBe(false);
+            expect(b2.overlapAABB(b)).toBe(false);
         });
 
         it('does not overlap when z does not overlap', () => {
-            const b = new OctBound(3, 3, 3, 4, 4, 4);
-            const b2 = new OctBound(2, 2, 0, 4, 4, 2);
-            expect(b.overlaps(b2)).toBe(false);
-            expect(b2.overlaps(b)).toBe(false);
+            const b = new AxisAlignedBoxBound(3, 3, 3, 4, 4, 4);
+            const b2 = new AxisAlignedBoxBound(2, 2, 0, 4, 4, 2);
+            expect(b.overlapAABB(b2)).toBe(false);
+            expect(b2.overlapAABB(b)).toBe(false);
         });
 
         it('clones other bounds', () => {
-            const b = new OctBound(0, 1, 2, 3, 4, 5);
+            const b = new AxisAlignedBoxBound(0, 1, 2, 3, 4, 5);
             const b2 = b.clone();
             // reset the original to confirm it was not modified
             b.set(0,0,0,1,1,1);
@@ -67,13 +67,13 @@ export function TestOctBounds() {
         });
 
         it('calculates extents',() => {
-            const b = new OctBound(0, 0, 0, 1, 1, 1);
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
             expect(b.extent).toBe(1);
             expect(b.halfExtent).toBe(0.5);
         });
 
         it('returns frontLeftBottom',() => {
-            const b = new OctBound(0, 0, 0, 1, 1, 1);
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
             const flb = b.frontLeftBottom();
             expect(flb.minX).toBe(0);
             expect(flb.minY).toBe(0);
@@ -84,7 +84,7 @@ export function TestOctBounds() {
         });
 
         it('returns frontLeftTop',() => {
-            const b = new OctBound(0, 0, 0, 1, 1, 1);
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
             const flt = b.frontLeftTop();
             expect(flt.minX).toBe(0);
             expect(flt.minY).toBe(0.5);
@@ -95,7 +95,7 @@ export function TestOctBounds() {
         });
 
         it('returns frontRightBottom',() => {
-            const b = new OctBound(0, 0, 0, 1, 1, 1);
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
             const frb = b.frontRightBottom();
             expect(frb.minX).toBe(0.5);
             expect(frb.minY).toBe(0);
@@ -106,7 +106,7 @@ export function TestOctBounds() {
         });
 
         it('returns frontRightTop',() => {
-            const b = new OctBound(0, 0, 0, 1, 1, 1);
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
             const frt = b.frontRightTop();
             expect(frt.minX).toBe(0.5);
             expect(frt.minY).toBe(0.5);
@@ -117,7 +117,7 @@ export function TestOctBounds() {
         });
 
         it('returns backLeftBottom',() => {
-            const b = new OctBound(0, 0, 0, 1, 1, 1);
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
             const blb = b.backLeftBottom();
             expect(blb.minX).toBe(0);
             expect(blb.minY).toBe(0);
@@ -128,7 +128,7 @@ export function TestOctBounds() {
         });
 
         it('returns backLeftTop',() => {
-            const b = new OctBound(0, 0, 0, 1, 1, 1);
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
             const blt = b.backLeftTop();
             expect(blt.minX).toBe(0);
             expect(blt.minY).toBe(0.5);
@@ -139,7 +139,7 @@ export function TestOctBounds() {
         });
 
         it('returns backRightBottom',() => {
-            const b = new OctBound(0, 0, 0, 1, 1, 1);
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
             const brb = b.backRightBottom();
             expect(brb.minX).toBe(0.5);
             expect(brb.minY).toBe(0);
@@ -150,7 +150,7 @@ export function TestOctBounds() {
         });
 
         it('returns backRightTop',() => {
-            const b = new OctBound(0, 0, 0, 1, 1, 1);
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
             const brt = b.backRightTop();
             expect(brt.minX).toBe(0.5);
             expect(brt.minY).toBe(0.5);
