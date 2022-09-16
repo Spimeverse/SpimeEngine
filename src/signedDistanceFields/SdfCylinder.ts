@@ -20,7 +20,9 @@ class SdfCylinder extends SignedDistanceField {
 
     constructor(height: number, radius: number) {
         super();
-        this.hr.set(height / 2,radius);
+        const halfHeight = height / 2;
+        this.hr.set(halfHeight, radius);
+        this.boundingRadius = Math.sqrt((halfHeight * halfHeight) + (radius * radius));
     }
 
     sample(point: Vector3): number {

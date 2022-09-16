@@ -14,21 +14,23 @@ const q = new Vector3();
 const maxq = new Vector3();
 
 class SdfBox extends SignedDistanceField {
-    width: number;
-    height: number;
-    depth: number;
+
+    halfWidth: number;
+    halfHeight: number;
+    halfDepth: number;
 
     constructor(width: number, height: number, depth: number) {
         super();
-        this.width = width / 2;
-        this.height = height / 2;
-        this.depth = depth / 2;
+        this.halfWidth = width / 2;
+        this.halfHeight = height / 2;
+        this.halfDepth = depth / 2;
+        this.boundingRadius = Math.sqrt((this.halfWidth * this.halfWidth) + (this.halfHeight * this.halfHeight) + (this.halfDepth * this.halfDepth));
     }
 
     sample(samplePoint: Vector3): number {
         const point = super.transformPoint(samplePoint);
         AbsVec3(point,q);
-        SubVec3(q,this.width,this.height,this.depth,q);
+        SubVec3(q,this.halfWidth,this.halfHeight,this.halfDepth,q);
         MaxVec3(q,Vector3.Zero(),maxq);
         const d = Max3(q.x,q.y,q.z);
         if (d > 0)

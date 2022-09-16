@@ -9,17 +9,18 @@ import { SignedDistanceField } from "./SignedDistanceField"
 
 
 class SdfSphere extends SignedDistanceField {
+
     
-    radius: number;
+    boundingRadius: number;
 
     constructor(radius: number) {
         super();
-        this.radius = radius;
+        this.boundingRadius = radius;
     }
 
     sample(samplePoint: Vector3): number {
         const point = super.transformPoint(samplePoint);
-        return point.length() - this.radius;
+        return point.length() - this.boundingRadius;
     }
 
 }

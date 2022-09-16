@@ -10,7 +10,7 @@ export function TestSdfTransforms() {
 
         it('translates a sphere', () => {
             const field = new SdfSphere(45);
-            field.position = new Vector3(25,0,0);
+            field.setPosition(25,0,0);
             const samples = SampleFieldXy(100,100,5,field);
             const numField = NumScale(samples);
             expect(Trim(numField)).toEqual(Trim(`

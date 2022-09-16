@@ -13,20 +13,21 @@ const q = new Vector2();
 const pxz = new Vector2();
 
 class SdfTorus extends SignedDistanceField {
-    tx: number;
-    ty: number;
+    ringRadius: number;
+    thickness: number;
 
-    constructor(tx: number, ty: number) {
+    constructor(ringRadius: number, thickness: number) {
         super();
-        this.tx = tx;
-        this.ty = ty;
+        this.ringRadius = ringRadius;
+        this.thickness = thickness;
+        this.boundingRadius = ringRadius + thickness;
     }
 
     sample(samplePoint: Vector3): number {
         const point = super.transformPoint(samplePoint);
         pxz.set(point.x,point.z);
-        q.set(pxz.length() - this.tx,point.y);
-        return q.length() - this.ty;
+        q.set(pxz.length() - this.ringRadius,point.y);
+        return q.length() - this.thickness;
     }
 
 }

@@ -119,15 +119,19 @@ let faces: number[];
 let chunk: Chunk;
 let field: SignedDistanceField;
 let maxSamples = 0;
+let numSamples = 0;
 let fieldSamples: Float32Array;
 let borderSeams = 0;
 let borderScale = 1;
 const maxVoxels = 0;
 const voxelRange = new Vector3();
+const origin = new Vector3();
+const worldSize = new Vector3();
 
 let positiveSamples = false;
 let negativeSamples = false;
 let voxels: Voxels;
+let voxelSize = 0;
 
 function ExtractSurface (_chunk: Chunk,
     _field: SignedDistanceField,
@@ -136,31 +140,37 @@ function ExtractSurface (_chunk: Chunk,
 
     chunk = _chunk;
     field = _field;
-    SetupVoxels(chunk.numSamples);
+    numSamples = chunk.getNumSamples();
+    SetupVoxels(numSamples);
     verticies = _verticies;
     faces = _faces;
 
-    borderSeams = chunk.borderSeams;
-    borderScale = chunk.borderScale;
-    voxelRange.copyFrom(chunk.voxelRange);
+    borderSeams = chunk.getBorderSeams();
+    borderScale = chunk.getBorderScale();
+    chunk.copyVoxelRangeTo(voxelRange);
+    chunk.copyOriginTo(origin);
 
-    if (chunk.numSamples > maxSamples) {
-        fieldSamples = new Float32Array(chunk.numSamples);
-        maxSamples = chunk.numSamples;
+    chunk.copyWorldSizeTo(worldSize);
+    voxelSize = chunk.getVoxelSize();
+
+
+    if (numSamples > maxSamples) {
+        fieldSamples = new Float32Array(numSamples);
+        maxSamples = numSamples;
     }
 
     verticies.length = 0;
     faces.length = 0;
 
-    if (SampleChunkField(chunk)) {
-        CheckAllVoxels(chunk.voxelRange);
+    if (SampleChunkField()) {
+        CheckAllVoxels(voxelRange);
         ExtractAllFaces();
     }
     return verticies.length > 0;
 }
 
-function SampleChunkField (chunk: Chunk): boolean {
-    if (!FieldIntersectsChunk(chunk))
+function SampleChunkField (): boolean {
+    if (!FieldIntersectsChunk())
         return false;
     positiveSamples = false;
     negativeSamples = false;
@@ -169,8 +179,7 @@ function SampleChunkField (chunk: Chunk): boolean {
     return positiveSamples && negativeSamples;
 }
 
-function FieldIntersectsChunk(chunk: Chunk): boolean{
-    const {worldSize, origin} = chunk;
+function FieldIntersectsChunk(): boolean{
     const halfSize = Math.max(worldSize.x / 2,worldSize.y / 2,worldSize.z / 2);
     voxelPosition.set(
         origin.x + worldSize.x / 2, 
@@ -190,7 +199,6 @@ function FieldIntersectsChunk(chunk: Chunk): boolean{
 const worldPosition = new Vector3();
 
 function SampleAllPoints(chunk: Chunk) {
-    const {voxelRange} = chunk;
     for (let voxX = 0; voxX <= voxelRange.x; voxX++) {
         for (let voxY = 0; voxY <= voxelRange.y; voxY++) {
             for (let voxZ = 0; voxZ <= voxelRange.z; voxZ++) {
@@ -262,7 +270,7 @@ function CalcSeamVertex(voxX: number, voxY: number, voxZ: number) {
     const lowResZ = voxZ - voxZ % borderScale;
     voxelPosition.set(lowResX, lowResY, lowResZ);
     chunk.voxelSpaceToWorldSpace(voxelPosition, worldPosition);
-    const scale = chunk.voxelSize * borderScale;
+    const scale = voxelSize * borderScale;
     for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
         samplePoint.set(
             worldPosition.x + CUBE_CORNER_OFFSETS[cornerNum].x * scale,
@@ -303,7 +311,7 @@ function CalcWorldVertex(edgeMask: number, voxX: number, voxY: number, voxZ: num
     edgeMask = CalcVoxelVertex(cornerDist, voxelCenter);
     // todo account for this
     //voxelCenter.set(0.5,0.5,0.5);
-    voxelCenter.scaleInPlace(chunk.voxelSize * scale);
+    voxelCenter.scaleInPlace(voxelSize * scale);
     voxelOffset.set(voxX,voxY,voxZ);
     chunk.voxelSpaceToWorldSpace(voxelOffset, samplePoint);
 

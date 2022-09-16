@@ -1,23 +1,32 @@
 
 
 import { Vector3, Matrix,Quaternion } from "@babylonjs/core/Maths";
-import { IhasSphereBounds, SphereBound } from "..";
+import { IhasSphereBounds, SphereBound } from "../World";
 
 // see https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
 
 const transformedPoint: Vector3 = new Vector3();
 const NO_SCALING: Vector3 = Vector3.One();
 
-abstract class SignedDistanceField { //implements IhasSphereBounds {
-    //currentBounds = new SphereBound(0,0,0,0);
+abstract class SignedDistanceField implements IhasSphereBounds {
+    currentBounds: SphereBound;
+    newBounds: SphereBound;
+    protected boundingRadius: number;
     
-    public get position(): Vector3 {
-        return this._position;
+    constructor() {
+        this.currentBounds = new SphereBound(0, 0, 0, 0);
+        this.newBounds = new SphereBound(0, 0, 0, 0);
+        this.boundingRadius = 0;
     }
 
-    public set position(newPosition: Vector3) {
-        this._position = newPosition;
+    public setPosition(x: number, y: number, z: number) {
+        this._position.set(x, y, z);
+        this.updateBounds();
         this._calcMatrix = true;
+    }
+
+    copyPositionTo(position: Vector3) {
+        position.copyFrom(this._position);
     }
 
     public get rotation(): Vector3 {
@@ -25,7 +34,7 @@ abstract class SignedDistanceField { //implements IhasSphereBounds {
     }
 
     public set rotation(newRotation: Vector3) {
-        this._rotation = newRotation;
+        this._rotation.copyFrom(newRotation);
         this._calcMatrix = true;
     }
 
@@ -49,7 +58,12 @@ abstract class SignedDistanceField { //implements IhasSphereBounds {
 
     abstract sample(point: Vector3): number;
 
-    abstract updateBounds(): void;
+    updateBounds(): void {
+        this.newBounds.set(this._position.x, this._position.y, this._position.z, this.boundingRadius);
+        if (this.currentBounds.radius === 0) {
+            this.currentBounds.copyFrom(this.newBounds);
+        }   
+    }
 }
 
 class EmptyField extends SignedDistanceField {

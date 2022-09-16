@@ -68,7 +68,7 @@ export function TestMesher()
 
     it('creates a sphere mesh truncated at the sample boundary', () => {
         const field = new SdfSphere(2);
-        field.position.x = 2;
+        field.setPosition(2, 0, 0);
         const chunk = new Chunk();
         chunk.setSize({x:4,y:4,z:4},1);
         chunk.setOrigin({x:-2,y:-2,z:-2});

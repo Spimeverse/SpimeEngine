@@ -1,5 +1,5 @@
-//import "@babylonjs/core/Debug/debugLayer";
-//import "@babylonjs/inspector";
+import "@babylonjs/core/Debug/debugLayer";
+import "@babylonjs/inspector";
 //import "@babylonjs/loaders/glTF";
 
 // import modules individually to help tree shaking
@@ -18,7 +18,8 @@ import { Rectangle, StackPanel, TextBlock, Slider, Container } from "@babylonjs/
 import { AdvancedDynamicTexture } from "@babylonjs/gui/2D";
 
 import { ExtractSurface, CORNERS, Chunk,BORDERS } from "./Meshing";
-import { SdfBox, SdfSphere, SdfUnion, SdfTorus,SignedDistanceField } from "./signedDistanceFields";
+import { SdfBox, SdfSphere, SdfUnion, SdfTorus, SignedDistanceField } from "./signedDistanceFields";
+import { ChunkManager } from "./World"
 
 
 const maxSparseSamples = 0;
@@ -86,7 +87,7 @@ class App {
             scene
         );
         ground.position.y = 0;
-        ground.isVisible = true;
+        ground.isVisible = false;
     
         // Load a texture to be used as the ground material
         const groundMaterial = new StandardMaterial("ground material", scene);
@@ -100,13 +101,12 @@ class App {
         });
 
         const marker = MeshBuilder.CreateSphere("marker", {diameter:0.2}, scene);
-        marker.position.x = 8.5;
-        marker.position.y = 7;
-        marker.position.z = 4;
+        marker.position.x = -5 ;
+        marker.position.y = 0;
+        marker.position.z = 0;
         const markerMaterial = new StandardMaterial("markerMaterial", scene);
         markerMaterial.wireframe = true;
         markerMaterial.diffuseColor = new Color3(1,1,0);
-        markerMaterial.emissiveColor = new Color3(1,1,0);
         marker.material = markerMaterial;
 
         const box = MeshBuilder.CreateBox("box", {size:6}, scene);
@@ -119,7 +119,7 @@ class App {
         box.material = boxMaterial;
         box.isVisible = true;
 
-        camera.setTarget(box.position.clone());
+        //camera.setTarget(box.position.clone());
 
         const box2 = MeshBuilder.CreateBox("box2", {size:6}, scene);
         box2.position.x = 2;
@@ -129,19 +129,25 @@ class App {
         box2.material = boxMaterial2;
         box2.isVisible = false;
 
-        const field = new SdfBox(6,6,6)
-        //const field = new SdfTorus(2,1);
+        //const field = new SdfBox(512,128,512)
+        //const field = new SdfTorus(3,2);
+        const field = new SdfSphere(5);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
         const fieldSphere = new SdfSphere(3);
-        fieldSphere.position.set(8,5,4);
+        fieldSphere.setPosition(8,5,4);
 
         //const field = new SdfSphere(2);
-        field.position.set(2,0,0);
+        field.setPosition(0,0,0);
 
         const unionField = new SdfUnion([field,fieldSphere]);
 
+        const chunkManager = new ChunkManager();
 
+        //chunkManager.addField(fieldSphere);
+        chunkManager.addField(field);
+
+        /*
         const chunk1 = new Chunk();
         chunk1.setSize({x:8, y:8, z:8},1);
          chunk1.setOrigin({x:0,y:0,z:0});
@@ -151,6 +157,14 @@ class App {
         chunk2.setOrigin({x:8,y:0,z:0});
         //chunk2.subSample = 2;
 
+        */
+
+        for (const chunk of chunkManager.getChunks())
+        {
+            chunk.createMesh(scene);
+        }
+
+        /*
         //Create a custom mesh  
         const { customMesh, vertexData } = this._createCustomMesh(scene);
         // customMesh.position.x = 0.1;
@@ -158,7 +172,17 @@ class App {
         // customMesh.position.z = 0.1;
         const { customMesh : customMesh2, vertexData : vertexData2 } = this._createCustomMesh(scene);
         const { customMesh : customMesh3, vertexData : vertexData3 } = this._createCustomMesh(scene);
+        */
 
+        let count = 0;
+        for (const chunk of chunkManager.getChunks())
+        {
+            chunk.updateMesh(field);
+            count++;
+        }
+        console.log("chunks count: " + count);
+
+        /*
         scene.onBeforeAnimationsObservable.add((theScene) => {
             customMesh.position.y = tunePos;
             //if (positionDirty)
@@ -172,11 +196,11 @@ class App {
                     //Empty array to contain calculated values or normals added
                     const normals = new Array<number>();
 
-                    field.position = new Vector3(5 + Math.sin(step / 4000 * Math.PI * 2) * 6 ,4,4);
+                    field.setPosition(5 + Math.sin(step / 4000 * Math.PI * 2) * 6 ,4,4);
                     // field.position = new Vector3(objectPos / 1000,0,0);
-                    box.position.copyFrom(field.position);
+                    field.copyPositionTo(box.position);
                     //field.position = new Vector3(1.2,0,0);
-                    field.position = new Vector3(box.position.x,box.position.y,box.position.z);
+                    field.setPosition(box.position.x,box.position.y,box.position.z);
 
                     chunk1.setBorderSeams(BORDERS.xMax,1);
                     this._updateChunk(chunk1,unionField, vertexData, normals, customMesh);
@@ -192,6 +216,7 @@ class App {
         this._setupVoxMaterial(scene, customMesh, new Color3(0,1,0));
         this._setupVoxMaterial(scene, customMesh2, new Color3(1,1,0));
         this._setupVoxMaterial(scene, customMesh3, new Color3(1,1,1));
+        */
 
         // hide/show the Inspector
         window.addEventListener("keydown", (ev) => {
@@ -201,6 +226,14 @@ class App {
                     scene.debugLayer.hide();
                 } else {
                     scene.debugLayer.show();
+                }
+            }
+
+            // if keycode is "W"
+            if (ev.keyCode === 87) {
+                // set all meshes to wireframe
+                for (const chunk of chunkManager.getChunks()) {
+                    chunk.toggleWireframe();
                 }
             }
         });
