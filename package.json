@@ -22,17 +22,25 @@
   "author": "DocVox",
   "license": "ISC",
   "devDependencies": {
-    "@babylonjs/core": "^4.2.0",
-    "@babylonjs/inspector": "^4.2.0",
-    "@types/jasmine": "^3.10.2",
+    "@babylonjs/core": "^5.22.0",
+    "@babylonjs/gui": "^5.22.0",
+    "@babylonjs/gui-editor": "^5.22.0",
+    "@babylonjs/inspector": "^5.22.0",
+    "@babylonjs/loaders": "^5.22.0",
+    "@babylonjs/materials": "^5.22.0",
+    "@babylonjs/serializers": "^5.22.0",
+    "babylonjs-gltf2interface": "^5.22.0",
+    "@types/jasmine": "^4.3.0",
+    "@types/react": "^16.7.3",
+    "@types/react-dom":"^16.0.9",
     "@typescript-eslint/eslint-plugin": "^5.8.1",
-    "@typescript-eslint/parser": "^5.8.1",
-    "esbuild": "^0.14.8",
+    "@typescript-eslint/parser": "^5.37.0",
+    "esbuild": "^0.15.7",
     "esbuild-plugin-resolve": "^1.0.3",
-    "eslint": "^8.5.0",
-    "typescript": "^4.5.4"
+    "eslint": "^8.23.1",
+    "typescript": "^4.8.3"
   },
   "dependencies": {
-    "babylonjs-gui": "^4.2.1"
+    "babylonjs-gui": "^5.22.0"
   }
 }

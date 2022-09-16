@@ -14,8 +14,6 @@ import { StandardMaterial } from "@babylonjs/core/Materials"
 import { Texture } from "@babylonjs/core/Materials/Textures"
 import { Mesh, VertexData, MeshBuilder } from "@babylonjs/core/Meshes"
 // import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh"
-import { Rectangle, StackPanel, TextBlock, Slider, Container } from "@babylonjs/gui/2D/controls";
-import { AdvancedDynamicTexture } from "@babylonjs/gui/2D";
 
 import { ExtractSurface, CORNERS, Chunk,BORDERS } from "./Meshing";
 import { SdfBox, SdfSphere, SdfUnion, SdfTorus, SignedDistanceField } from "./signedDistanceFields";
@@ -28,16 +26,9 @@ const xSample = 0;
 // @ts-ignore: it's an image    
 //import grassTextureUrl from "../assets/grass.jpg";
 
-let objectPos = -3201;
-let positionDirty = true;
-let tunePos = 0;
-
 class App {
     engine: Engine;
     canvas: HTMLCanvasElement;
-    advancedTexture: AdvancedDynamicTexture | undefined;
-    mesh1Label: TextBlock | undefined;
-    panel1: { label: TextBlock; samplesSlider: Slider; timeLabel: TextBlock; timeSlider: Slider; } | null;
 
     constructor() {
         // create the canvas html element and attach it to the webpage
@@ -49,7 +40,6 @@ class App {
             deterministicLockstep: true,
             lockstepMaxSteps: 4,
           }); 
-        this.panel1 = null;
     }
 
     async setup(): Promise<void> {
@@ -301,29 +291,6 @@ class App {
         customMesh.edgesColor = new Color4(0, 0, 0, 1);
     }
 
-    private _createStatsGui(camera: ArcRotateCamera) {
-        // GUI
-        const plane = MeshBuilder.CreatePlane("plane", {width:2,height:1.5});
-        plane.position.y = 3;
-        plane.billboardMode = Mesh.BILLBOARDMODE_Y;
-
-        this.advancedTexture = AdvancedDynamicTexture.CreateForMesh(plane);
-        this.advancedTexture.idealWidth = 200;
-
-        const guiPanel = new StackPanel();
-        guiPanel.isVertical = false;
-        this.advancedTexture.addControl(guiPanel);
-
-        guiPanel.onPointerEnterObservable.add((x) => {
-            camera.detachControl();
-        });
-
-        guiPanel.onPointerOutObservable.add((x) => {
-            camera.attachControl(this.canvas, true);
-        });
-
-        return this._createGuiRect(guiPanel);
-    }
 
     private _createCustomMesh(scene: Scene) {
         const customMesh = new Mesh("custom", scene);
@@ -334,67 +301,7 @@ class App {
         return { customMesh, vertexData };
     }
 
-    private _createGuiRect(parent: Container) {
-        const guiContainer = new Rectangle();
-        guiContainer.width = "200px";
-        guiContainer.height = "120px";
-        guiContainer.cornerRadius = 10;
-        guiContainer.color = "Grey";
-        guiContainer.thickness = 4;
-        guiContainer.background = "White";
-        parent.addControl(guiContainer);
 
-        const panel = new StackPanel();
-        guiContainer.addControl(panel);
-
-        const samplesLabel = new TextBlock();
-        samplesLabel.text = `Samples`;
-        samplesLabel.fontSize = "14px";
-        samplesLabel.paddingTop = "4px";
-        samplesLabel.height = "20px";
-        panel.addControl(samplesLabel);
-
-        const positionLabel = new TextBlock();
-        positionLabel.text = `Position ${objectPos}`;
-        positionLabel.fontSize = "14px";
-        positionLabel.paddingTop = "4px";
-        positionLabel.height = "20px";
-        panel.addControl(positionLabel);
-
-        const slider = new Slider();
-        slider.color = "Orange";
-        slider.minimum = -7000;
-        slider.maximum = 7000;
-        slider.value = objectPos;
-        slider.height = "20px";
-        slider.onValueChangedObservable.add((value: number) => {
-            objectPos = value;
-            positionDirty = true;
-            samplesLabel.text = `Position ${value}`;
-        });
-        panel.addControl(slider);
-
-        const tuneLabel = new TextBlock();
-        tuneLabel.text = `Samples`;
-        tuneLabel.fontSize = "14px";
-        tuneLabel.paddingTop = "4px";
-        tuneLabel.height = "20px";
-        panel.addControl(tuneLabel);
-
-        const tuneSlider = new Slider();
-        tuneSlider.color = "Green";
-        tuneSlider.minimum = 0;
-        tuneSlider.maximum = 1000;
-        tuneSlider.value = objectPos;
-        tuneSlider.height = "20px";
-        tuneSlider.onValueChangedObservable.add((value: number) => {
-            tunePos = value / 1000;
-            tuneLabel.text = `Position ${tunePos.toFixed(3)}`;
-        });
-        panel.addControl(tuneSlider);
-
-        return {samplesLabel,positionLabel};
-    }
 }
 
 
