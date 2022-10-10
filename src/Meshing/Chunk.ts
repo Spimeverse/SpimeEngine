@@ -1,7 +1,7 @@
 import { Scene, StandardMaterial } from "@babylonjs/core"
 import { Nullable } from "@babylonjs/core";
 import { Color3, Vector3 } from "@babylonjs/core/Maths";
-import { Mesh, VertexData } from "@babylonjs/core/Meshes"
+import { Mesh, VertexData, MeshBuilder } from "@babylonjs/core/Meshes"
 import { AxisAlignedBoxBound } from "..";
 import { SignedDistanceField } from "..";
 import { Bounds } from "..";
@@ -42,6 +42,7 @@ const normals = new Array<number>();
  * Doesn't actually reference the array itself
  */
 class Chunk implements IhasBounds {
+    box: Mesh | null = null;
 
 
     //  X   X   X   X
@@ -159,10 +160,6 @@ class Chunk implements IhasBounds {
         CopyXyz(size,this._worldSize)
         this._voxelSize = voxelSize;
         this._halfVoxel = voxelSize / 2;
- 
-        this._origin.x -= voxelSize / 2;
-        this._origin.y -= voxelSize / 2;
-        this._origin.z -= voxelSize / 2;
         
         this._updateOverlap(1);
     }
@@ -237,6 +234,15 @@ class Chunk implements IhasBounds {
         //Create a vertexData object
         this._vertexData.positions = [];
         this._vertexData.indices = [];
+
+        const boxMaterial = new StandardMaterial("meshMaterial", scene);
+        boxMaterial.diffuseColor = new Color3(1, 1, 1);
+        boxMaterial.alpha = 0.5;
+        const box = MeshBuilder.CreateBox("box", { size: this._worldSize._x }, scene);
+        box.position.set(this._origin.x + this._worldSize._x / 2, this._origin.y + this._worldSize._y / 2, this._origin.z + this._worldSize._z / 2);
+        box.material = boxMaterial;
+        box.isVisible = false;
+        this.box = box;
     }
 
     toggleWireframe() {
@@ -248,7 +254,7 @@ class Chunk implements IhasBounds {
     updateMesh(field: SignedDistanceField) {
         if (this._chunkMesh == null) return;
         
-        this._chunkMesh.name = "chunk at " + this._origin.x + " " + this._origin.y + " " + this._origin.z + " " + this._worldSize.x + " " + this._worldSize.y + " " + this._worldSize.z + " " + this._voxelSize;
+        this._chunkMesh.name = this.toString();
         const extracted = ExtractSurface(
             this,
             field,
@@ -265,7 +271,11 @@ class Chunk implements IhasBounds {
             //Apply vertexData to custom mesh
             this._vertexData.applyToMesh(this._chunkMesh, false)
 
-            this._chunkMesh.isVisible = true
+            this._chunkMesh.isVisible = true;
+            if (this.box != null) {
+                this.box.isVisible = true;
+                this.box.name = this._chunkMesh.name + " box";
+            }
         }
         else
             this._chunkMesh.isVisible = false;
@@ -290,49 +300,78 @@ class Chunk implements IhasBounds {
 
         if (this._voxelSize < newChunk._voxelSize)
         {
+            // eslint-disable-next-line @typescript-eslint/no-this-alias
             smallerChunk = this;
             largerChunk = newChunk;
         }
         else
         {
+            // eslint-disable-next-line @typescript-eslint/no-this-alias
             largerChunk = this;
             smallerChunk = newChunk;
         }
-        const borderScale = largerChunk._voxelSize / smallerChunk._voxelSize;
-        smallerChunk._borderScale = borderScale;
 
-        largerChunk._borderScale = 1;
+
+        
         const smallerBounds = smallerChunk.currentBounds as AxisAlignedBoxBound;
         const largerBounds = largerChunk.currentBounds as AxisAlignedBoxBound;
-        if (smallerBounds.maxX == largerBounds.minX)
+
+        let sharedFace = false;
+        // shared border on the x axis
+        if (largerBounds.minX == smallerBounds.maxX &&
+            largerBounds.minY < smallerBounds.maxY && largerBounds.maxY > smallerBounds.minY &&
+            largerBounds.minZ < smallerBounds.maxZ && largerBounds.maxZ > smallerBounds.minZ)
         {
-            smallerChunk._borderSeams |= BORDERS.xMax;
             largerChunk._borderSeams |= BORDERS.xMin;
+            smallerChunk._borderSeams |= BORDERS.xMax;
+            sharedFace = true;
         }
-        if (smallerBounds.minX == largerBounds.maxX)
-        {
-            smallerChunk._borderSeams |= BORDERS.xMin;
+        if (largerBounds.maxX == smallerBounds.minX &&
+            largerBounds.minY < smallerBounds.maxY && largerBounds.maxY > smallerBounds.minY &&
+            largerBounds.minZ < smallerBounds.maxZ && largerBounds.maxZ > smallerBounds.minZ) {
             largerChunk._borderSeams |= BORDERS.xMax;
+            smallerChunk._borderSeams |= BORDERS.xMin;
         }
-        if (smallerBounds.maxY == largerBounds.minY)
+
+        // shared border on the y axis
+        if (largerBounds.minY == smallerBounds.maxY &&
+            largerBounds.minX < smallerBounds.maxX && largerBounds.maxX > smallerBounds.minX &&
+            largerBounds.minZ < smallerBounds.maxZ && largerBounds.maxZ > smallerBounds.minZ)
         {
-            smallerChunk._borderSeams |= BORDERS.yMax;
             largerChunk._borderSeams |= BORDERS.yMin;
+            smallerChunk._borderSeams |= BORDERS.yMax;
+            sharedFace = true;
         }
-        if (smallerBounds.minY == largerBounds.maxY)
+        if (largerBounds.maxY == smallerBounds.minY &&
+            largerBounds.minX < smallerBounds.maxX && largerBounds.maxX > smallerBounds.minX &&
+            largerBounds.minZ < smallerBounds.maxZ && largerBounds.maxZ > smallerBounds.minZ)
         {
-            smallerChunk._borderSeams |= BORDERS.yMin;
             largerChunk._borderSeams |= BORDERS.yMax;
+            smallerChunk._borderSeams |= BORDERS.yMin;
+            sharedFace = true;
         }
-        if (smallerBounds.maxZ == largerBounds.minZ)
+
+        // shared border on the z axis
+        if (largerBounds.minZ == smallerBounds.maxZ &&
+            largerBounds.minX < smallerBounds.maxX && largerBounds.maxX > smallerBounds.minX &&
+            largerBounds.minY < smallerBounds.maxY && largerBounds.maxY > smallerBounds.minY)
         {
-            smallerChunk._borderSeams |= BORDERS.zMax;
             largerChunk._borderSeams |= BORDERS.zMin;
+            smallerChunk._borderSeams |= BORDERS.zMax;
+            sharedFace = true;
         }
-        if (smallerBounds.minZ == largerBounds.maxZ)
+        if (largerBounds.maxZ == smallerBounds.minZ &&
+            largerBounds.minX < smallerBounds.maxX && largerBounds.maxX > smallerBounds.minX &&
+            largerBounds.minY < smallerBounds.maxY && largerBounds.maxY > smallerBounds.minY)
         {
-            smallerChunk._borderSeams |= BORDERS.zMin;
             largerChunk._borderSeams |= BORDERS.zMax;
+            smallerChunk._borderSeams |= BORDERS.zMin;
+            sharedFace = true;
+        }
+
+        if (sharedFace) {
+            const borderScale = largerChunk._voxelSize / smallerChunk._voxelSize;
+            smallerChunk._borderScale = borderScale;
         }
     }
 
@@ -341,6 +380,7 @@ class Chunk implements IhasBounds {
         return `Origin: ${this._origin.x},${this._origin.y},${this._origin.z} Size: ${this._worldSize.x},${this._worldSize.y},${this._worldSize.z} VoxelSize: ${this._voxelSize}`;
     }
 }
+
 
 function CopyXyz (src: XYZ, dest: XYZ) {
     dest.x = src.x;

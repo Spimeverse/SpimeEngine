@@ -55,6 +55,7 @@ class App {
             new Vector3(0, 0, 0),
             scene
         );
+        camera.wheelDeltaPercentage = 0.01;
     
         // This targets the camera to scene origin
         camera.setTarget(Vector3.Zero());
@@ -90,9 +91,12 @@ class App {
             floorMeshes: [ground]
         });
 
-        const marker = MeshBuilder.CreateSphere("marker", {diameter:0.2}, scene);
-        marker.position.x = -5 ;
-        marker.position.y = 0;
+        // TODO chunks go missing at 85+
+        // TODO seams can self overlap and cause bad normals
+        const testSize = 85;
+        const marker = MeshBuilder.CreateSphere("marker", {diameter:4 / 8}, scene);
+        marker.position.x = 40 ;
+        marker.position.y = -40;
         marker.position.z = 0;
         const markerMaterial = new StandardMaterial("markerMaterial", scene);
         markerMaterial.wireframe = true;
@@ -109,7 +113,7 @@ class App {
         box.material = boxMaterial;
         box.isVisible = true;
 
-        //camera.setTarget(box.position.clone());
+        camera.setTarget(marker.position.clone());
 
         const box2 = MeshBuilder.CreateBox("box2", {size:6}, scene);
         box2.position.x = 2;
@@ -121,16 +125,16 @@ class App {
 
         //const field = new SdfBox(512,128,512)
         //const field = new SdfTorus(3,2);
-        const field = new SdfSphere(5);
+        const field = new SdfSphere(testSize);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
-        const fieldSphere = new SdfSphere(3);
-        fieldSphere.setPosition(8,5,4);
+        // const fieldSphere = new SdfSphere(3);
+        // fieldSphere.setPosition(8,5,4);
 
         //const field = new SdfSphere(2);
         field.setPosition(0,0,0);
 
-        const unionField = new SdfUnion([field,fieldSphere]);
+        // const unionField = new SdfUnion([field,fieldSphere]);
 
         const chunkManager = new ChunkManager();
 
@@ -211,7 +215,7 @@ class App {
         // hide/show the Inspector
         window.addEventListener("keydown", (ev) => {
             // Shift+Ctrl+Alt+I
-            if (ev.shiftKey && ev.ctrlKey && ev.altKey && ev.keyCode === 73) {
+            if (ev.key === "i") {
                 if (scene.debugLayer.isVisible()) {
                     scene.debugLayer.hide();
                 } else {
@@ -220,7 +224,7 @@ class App {
             }
 
             // if keycode is "W"
-            if (ev.keyCode === 87) {
+            if (ev.key === "w") {
                 // set all meshes to wireframe
                 for (const chunk of chunkManager.getChunks()) {
                     chunk.toggleWireframe();

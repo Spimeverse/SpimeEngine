@@ -88,12 +88,15 @@ class SparseOctTreeNode<TYPE extends IhasBounds> {
 
     private _pushDownCurrentItems() {
         let itemsMoved = 0;
+        let copyFrom = this.items.length - 1;
         for (let i = this.items.length - 1; i >= 0; i--) {
             const currentItem = this.items[i];
             if (!this._itemLargerThanChildNode(currentItem)) {
                 this.insert(currentItem, currentItem.currentBounds);
-                this.items[i] = this.items[this.items.length - 1];
+                if (copyFrom !== i)
+                    this.items[i] = this.items[copyFrom];
                 itemsMoved++;
+                copyFrom--;
             }
         }
         this.totalItems -= itemsMoved; // account for reinserting items that were already in the node
