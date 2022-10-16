@@ -127,6 +127,8 @@ class Chunk implements IhasBounds {
      */
     private _borderScale = 1;
 
+    private _overlap = 1;
+
     private _vertexData = new VertexData();
 
     private _chunkMesh: Nullable<Mesh> = null;
@@ -165,6 +167,7 @@ class Chunk implements IhasBounds {
     }
 
     private _updateOverlap(overlap: number) {
+        this._overlap = overlap;
         this._voxelRange.x = (this._worldSize.x / this._voxelSize) + overlap;
         this._voxelRange.y = (this._worldSize.y / this._voxelSize) + overlap;
         this._voxelRange.z = (this._worldSize.z / this._voxelSize) + overlap;
@@ -216,9 +219,10 @@ class Chunk implements IhasBounds {
     }
     
     voxelSpaceToWorldSpace(voxel: XYZ, samplePoint: XYZ) {
-        samplePoint.x = this._origin.x + (voxel.x * this._voxelSize);
-        samplePoint.y = this._origin.y + (voxel.y * this._voxelSize);
-        samplePoint.z = this._origin.z + (voxel.z * this._voxelSize);
+        const offset = this._voxelSize * this._overlap;
+        samplePoint.x = this._origin.x + (voxel.x * this._voxelSize) - offset;
+        samplePoint.y = this._origin.y + (voxel.y * this._voxelSize) - offset;
+        samplePoint.z = this._origin.z + (voxel.z * this._voxelSize) - offset;
     }
 
     createMesh(scene: Scene) {
@@ -235,14 +239,14 @@ class Chunk implements IhasBounds {
         this._vertexData.positions = [];
         this._vertexData.indices = [];
 
-        const boxMaterial = new StandardMaterial("meshMaterial", scene);
-        boxMaterial.diffuseColor = new Color3(1, 1, 1);
-        boxMaterial.alpha = 0.5;
-        const box = MeshBuilder.CreateBox("box", { size: this._worldSize._x }, scene);
-        box.position.set(this._origin.x + this._worldSize._x / 2, this._origin.y + this._worldSize._y / 2, this._origin.z + this._worldSize._z / 2);
-        box.material = boxMaterial;
-        box.isVisible = false;
-        this.box = box;
+        // const boxMaterial = new StandardMaterial("meshMaterial", scene);
+        // boxMaterial.diffuseColor = new Color3(1, 1, 1);
+        // boxMaterial.alpha = 0.5;
+        // const box = MeshBuilder.CreateBox("box", { size: this._worldSize._x }, scene);
+        // box.position.set(this._origin.x + this._worldSize._x / 2, this._origin.y + this._worldSize._y / 2, this._origin.z + this._worldSize._z / 2);
+        // box.material = boxMaterial;
+        // box.isVisible = false;
+        // this.box = box;
     }
 
     toggleWireframe() {
@@ -372,6 +376,7 @@ class Chunk implements IhasBounds {
         if (sharedFace) {
             const borderScale = largerChunk._voxelSize / smallerChunk._voxelSize;
             smallerChunk._borderScale = borderScale;
+            smallerChunk._updateOverlap(2);
         }
     }
 

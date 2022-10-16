@@ -77,11 +77,12 @@ class ChunkManager {
                 "Origin: -64,-128,-64 Size: 64,64,64 VoxelSize: 4"]
  
             const filterChunks = [
-                "Origin: 64,-64,-64 Size: 64,64,64 VoxelSize: 4",
-                "Origin: 32,-64,-32 Size: 32,32,32 VoxelSize: 2"]
-            if (!filterChunks.includes(newChunk.toString())) {
-                return;
-            }
+                "Origin: 16,0,16 Size: 16,16,16 VoxelSize: 1",
+                "Origin: 0,0,32 Size: 32,32,32 VoxelSize: 2"
+            ]
+            // if (!filterChunks.includes(newChunk.toString())) {
+            //     return;
+            // }
 
             newChunk.updateCurrentBounds();
 

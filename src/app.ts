@@ -92,12 +92,10 @@ class App {
         });
 
         // TODO chunks go missing at 85+
-        // TODO seams can self overlap and cause bad normals
-        const testSize = 85;
         const marker = MeshBuilder.CreateSphere("marker", {diameter:4 / 8}, scene);
-        marker.position.x = 40 ;
-        marker.position.y = -40;
-        marker.position.z = 0;
+        marker.position.x = 15 ;
+        marker.position.y = 15;
+        marker.position.z = 15;
         const markerMaterial = new StandardMaterial("markerMaterial", scene);
         markerMaterial.wireframe = true;
         markerMaterial.diffuseColor = new Color3(1,1,0);
@@ -125,14 +123,14 @@ class App {
 
         //const field = new SdfBox(512,128,512)
         //const field = new SdfTorus(3,2);
-        const field = new SdfSphere(testSize);
+        const field = new SdfSphere(20);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
-        // const fieldSphere = new SdfSphere(3);
-        // fieldSphere.setPosition(8,5,4);
+        // const fieldSphere = new SdfSphere(10);
+        // fieldSphere.setPosition(0,-5,0);
 
         //const field = new SdfSphere(2);
-        field.setPosition(0,0,0);
+        field.setPosition(15,15,15);
 
         // const unionField = new SdfUnion([field,fieldSphere]);
 

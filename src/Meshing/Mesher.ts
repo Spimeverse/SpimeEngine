@@ -199,6 +199,12 @@ function FieldIntersectsChunk(): boolean{
 const worldPosition = new Vector3();
 
 function SampleAllPoints(chunk: Chunk) {
+    voxelPosition.set(0, 0, 0);
+    chunk.voxelSpaceToWorldSpace(voxelPosition, worldPosition);
+    console.log(chunk.toString() , " min " , worldPosition.x, worldPosition.y, worldPosition.z);
+    voxelPosition.set(voxelRange.x , voxelRange.y , voxelRange.z );
+    chunk.voxelSpaceToWorldSpace(voxelPosition, worldPosition);
+    console.log(chunk.toString() , " max " , worldPosition.x, worldPosition.y, worldPosition.z);
     for (let voxX = 0; voxX <= voxelRange.x; voxX++) {
         for (let voxY = 0; voxY <= voxelRange.y; voxY++) {
             for (let voxZ = 0; voxZ <= voxelRange.z; voxZ++) {
@@ -297,11 +303,11 @@ function RequiresSeam(voxX: number, voxY: number, voxZ: number) {
     if (borderSeams & BORDERS.zMin && voxZ < borderScale)
         return true;
 
-    if (borderSeams & BORDERS.xMax && voxX > voxelRange.x - borderScale)
+    if (borderSeams & BORDERS.xMax && voxX >= voxelRange.x - borderScale)
         return true;
-    if (borderSeams & BORDERS.yMax && voxY > voxelRange.y - borderScale)
+    if (borderSeams & BORDERS.yMax && voxY >= voxelRange.y - borderScale)
         return true;
-    if (borderSeams & BORDERS.zMax && voxZ > voxelRange.z - borderScale)
+    if (borderSeams & BORDERS.zMax && voxZ >= voxelRange.z - borderScale)
         return true;
 
     return false;
