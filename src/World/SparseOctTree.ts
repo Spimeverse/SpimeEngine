@@ -23,6 +23,7 @@ class SparseOctTree<TYPE extends IhasBounds> {
 
     public update(item: TYPE,newBounds: Bounds) {
         this.rootNode.update(item, item.currentBounds, newBounds);
+        item.currentBounds.copyFrom(newBounds);
     }
 
     public nodeHasTooManyItems(node: SparseOctTreeNode<TYPE>): boolean {

@@ -35,16 +35,18 @@ class ChunkManager {
     private _addObjectToChunks(sdf: SignedDistanceField, minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number) {
         const voxels = 16;  //Math.max(8,1 << 31 - Math.clz32(32 - (chunkDist / 2)));
 
-        const offset = (maxX - minX) / voxels;
-        chunkBounds.set(minX, minY, minZ, maxX + offset, maxY + offset, maxZ + offset);
+        // TODO not sure why this was needed, probably should take it out altogether
+        // const offset = Math.abs(maxX - minX) / voxels;
+        // chunkBounds.set(minX, minY, minZ, maxX + offset, maxY + offset, maxZ + offset);
+        chunkBounds.set(minX, minY, minZ, maxX, maxY, maxZ);
         if (!chunkBounds.overlapSphere(sdf.currentBounds)) {
             // sdf does not overlap chunk bounds so skip it
             return;
         }
-        chunkBounds.set(minX, minY, minZ, maxX, maxY, maxZ);
+        //chunkBounds.set(minX, minY, minZ, maxX, maxY, maxZ);
         
         const chunkExtent = chunkBounds.extent;
-        const chunkDist = chunkBounds.distanceTo(this._origin);
+        const chunkDist = Math.abs(chunkBounds.distanceTo(this._origin));
         const target = 4 + chunkDist;
         
         // use larger chunks further away
@@ -72,21 +74,8 @@ class ChunkManager {
             // use fewer voxels per chunk further away
             newChunk.setSize({ x: extent, y: extent, z: extent }, extent / voxels);
 
-            // TODO remove this debug code
-            const chunks = [
-                "Origin: -64,-128,-64 Size: 64,64,64 VoxelSize: 4"]
- 
-            const filterChunks = [
-                "Origin: 16,0,16 Size: 16,16,16 VoxelSize: 1",
-                "Origin: 0,0,32 Size: 32,32,32 VoxelSize: 2"
-            ]
-            // if (!filterChunks.includes(newChunk.toString())) {
-            //     return;
-            // }
 
             newChunk.updateCurrentBounds();
-
-
 
             const expandBy = chunkBounds.extent * 0.1;
             chunkBounds.expandByScalar(expandBy);
@@ -96,7 +85,6 @@ class ChunkManager {
                 chunk.copyOriginTo(chunkOrigin);
                 if (chunk.isAtSamePositionAs(newChunk)) {
                     // chunk already exists, so skip it
-                    console.log(`Chunk already exists at, ${chunkBounds.minX}, ${chunkBounds.minY}, ${chunkBounds.minZ}`);
                     return;
                 }
                 else
@@ -108,40 +96,9 @@ class ChunkManager {
 
             this._chunkTree.insert(newChunk);
 
-            console.log(`Added chunk at, ${chunkBounds.minX}, ${chunkBounds.minY}, ${chunkBounds.minZ}, with extent ${extent}, nearby chunks ${nearbyChunks.length}`);
-
         }
     }
 
-}
-
-function TreeState(tree: SparseOctTree<Chunk>): string {
-    return NodeState(tree.rootNode,1);
-}
-
-function NodeState(node: SparseOctTreeNode<Chunk>,depth: number): string {
-    if (node.children.length > 0 || node.items.length > 0 || node.totalItems > 0)
-    {
-        let s = '\n' + '##'.repeat(depth) + node.bounds.toString() + " - " + node.totalItems;
-        // sort node items by name for consistent output
-        node.items.sort((a, b) => {
-            const aName = a.toString();
-            const bName = b.toString();
-            if (aName < bName) return -1;
-            if (aName > bName) return 1;
-            return 0;
-        });
-        for (let i = 0; i < node.items.length; i++)
-        {
-            s += '\n' + '..'.repeat(depth) + node.items[i].toString() + " - " + node.items[i].currentBounds.toString();
-        }
-        for (let i = 0; i < node.children.length; i++)
-        {
-            s += NodeState(node.children[i],depth + 1);
-        }
-        return s;
-    }
-    return "";
 }
 
 export { ChunkManager };

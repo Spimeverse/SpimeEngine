@@ -11,6 +11,21 @@ enum BoundTypes {
 }
 
 abstract class Bounds {
+    copyFrom(newBounds: Bounds) {
+        if (newBounds.boundType !== this.boundType) {
+            throw new Error("Bounds.copyFrom: newBounds.boundType !== this.boundType");
+        }
+        else {
+            if (this.boundType == BoundTypes.sphereBound) {
+                (this as unknown as SphereBound).copyFrom(newBounds as SphereBound);
+            }
+            else if (this.boundType == BoundTypes.axisAlignedBoxBound) {
+                (this as unknown as AxisAlignedBoxBound).copyFrom(newBounds as AxisAlignedBoxBound);
+            }
+            else
+                throw new Error("Bounds.copyFrom: unknown bound type");
+        }
+    }
 
     abstract get extent(): number;
 

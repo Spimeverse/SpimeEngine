@@ -6,14 +6,14 @@ export function TestChunkDimensions()
 {        
     describe('Chunk dimensions ', () => {
 
-    it('calculates how many samples are needed', () => {
+        it('calculates how many samples are needed', () => {
         let chunk = new Chunk();
         chunk.setSize({x:16,y:16,z:16},1);
-        expect(chunk.numSamples).toBe(18 * 18 * 18);
+        expect(chunk.getNumSamples()).toBe(18 * 18 * 18);
 
         chunk = new Chunk();
         chunk.setSize({x:10,y:20,z:30},2);
-        expect(chunk.numSamples).toBe(7 * 12 * 17);
+        expect(chunk.getNumSamples()).toBe(7 * 12 * 17);
     })
 
 
@@ -23,15 +23,15 @@ export function TestChunkDimensions()
         chunk.setOrigin({x:10,y:20,z:30});
         const samplePoint = new Vector3();
         chunk.indexToWorldSpace(0,samplePoint);
-        expect(samplePoint.toString()).toBe("{X: 10 Y:20 Z:30}");
+        expect(samplePoint.toString()).toBe("{X: 9 Y: 19 Z: 29}");
         chunk.indexToWorldSpace(1,samplePoint);
-        expect(samplePoint.toString()).toBe("{X: 11 Y:20 Z:30}");
+        expect(samplePoint.toString()).toBe("{X: 10 Y: 19 Z: 29}");
         chunk.indexToWorldSpace(10,samplePoint);
-        expect(samplePoint.toString()).toBe("{X: 10 Y:21 Z:30}");
+        expect(samplePoint.toString()).toBe("{X: 9 Y: 20 Z: 29}");
         chunk.indexToWorldSpace(100,samplePoint);
-        expect(samplePoint.toString()).toBe("{X: 10 Y:20 Z:31}");
+        expect(samplePoint.toString()).toBe("{X: 9 Y: 19 Z: 30}");
         chunk.indexToWorldSpace(111,samplePoint);
-        expect(samplePoint.toString()).toBe("{X: 11 Y:21 Z:31}");
+        expect(samplePoint.toString()).toBe("{X: 10 Y: 20 Z: 30}");
     })
     
     it('converts cell space world space', () => {
@@ -40,15 +40,15 @@ export function TestChunkDimensions()
         chunk.setOrigin({x:10,y:20,z:30});
         const samplePoint = new Vector3();
         chunk.voxelSpaceToWorldSpace({x:0,y:0,z:0},samplePoint);
-        expect(samplePoint.toString()).toBe("{X: 10 Y:20 Z:30}");
+        expect(samplePoint.toString()).toBe("{X: 9 Y: 19 Z: 29}");
         chunk.voxelSpaceToWorldSpace({x:1,y:0,z:0},samplePoint);
-        expect(samplePoint.toString()).toBe("{X: 11 Y:20 Z:30}");
+        expect(samplePoint.toString()).toBe("{X: 10 Y: 19 Z: 29}");
         chunk.voxelSpaceToWorldSpace({x:0,y:1,z:0},samplePoint);
-        expect(samplePoint.toString()).toBe("{X: 10 Y:21 Z:30}");
+        expect(samplePoint.toString()).toBe("{X: 9 Y: 20 Z: 29}");
         chunk.voxelSpaceToWorldSpace({x:0,y:0,z:1},samplePoint);
-        expect(samplePoint.toString()).toBe("{X: 10 Y:20 Z:31}");
+        expect(samplePoint.toString()).toBe("{X: 9 Y: 19 Z: 30}");
         chunk.voxelSpaceToWorldSpace({x:2,y:2,z:2},samplePoint);
-        expect(samplePoint.toString()).toBe("{X: 12 Y:22 Z:32}");
+        expect(samplePoint.toString()).toBe("{X: 11 Y: 21 Z: 31}");
     })
 
 })

@@ -239,14 +239,6 @@ class Chunk implements IhasBounds {
         this._vertexData.positions = [];
         this._vertexData.indices = [];
 
-        // const boxMaterial = new StandardMaterial("meshMaterial", scene);
-        // boxMaterial.diffuseColor = new Color3(1, 1, 1);
-        // boxMaterial.alpha = 0.5;
-        // const box = MeshBuilder.CreateBox("box", { size: this._worldSize._x }, scene);
-        // box.position.set(this._origin.x + this._worldSize._x / 2, this._origin.y + this._worldSize._y / 2, this._origin.z + this._worldSize._z / 2);
-        // box.material = boxMaterial;
-        // box.isVisible = false;
-        // this.box = box;
     }
 
     toggleWireframe() {
