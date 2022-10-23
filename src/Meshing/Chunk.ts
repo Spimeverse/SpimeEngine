@@ -313,6 +313,7 @@ class Chunk implements IhasBounds {
         const largerBounds = largerChunk.currentBounds as AxisAlignedBoxBound;
 
         let sharedFace = false;
+
         // shared border on the x axis
         if (largerBounds.minX == smallerBounds.maxX &&
             largerBounds.minY < smallerBounds.maxY && largerBounds.maxY > smallerBounds.minY &&
@@ -324,9 +325,11 @@ class Chunk implements IhasBounds {
         }
         if (largerBounds.maxX == smallerBounds.minX &&
             largerBounds.minY < smallerBounds.maxY && largerBounds.maxY > smallerBounds.minY &&
-            largerBounds.minZ < smallerBounds.maxZ && largerBounds.maxZ > smallerBounds.minZ) {
+            largerBounds.minZ < smallerBounds.maxZ && largerBounds.maxZ > smallerBounds.minZ)
+        {
             largerChunk._borderSeams |= BORDERS.xMax;
             smallerChunk._borderSeams |= BORDERS.xMin;
+            sharedFace = true;
         }
 
         // shared border on the y axis
@@ -369,6 +372,7 @@ class Chunk implements IhasBounds {
             const borderScale = largerChunk._voxelSize / smallerChunk._voxelSize;
             smallerChunk._borderScale = borderScale;
             smallerChunk._updateOverlap(2);
+            console.log(smallerChunk.toString(), "border scale", smallerChunk._borderScale);
         }
     }
 

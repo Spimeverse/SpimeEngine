@@ -64,6 +64,7 @@ const EDGE_START_CORNER = 0;
 const EDGE_END_CORNER = 1;
 const EDGE_FACE_NORMAL = 2;
 const EDGE_FACE_REVERSED = 3;
+
 // only create faces on edges connecting to the voxel to the left (-x), below (-y) or Outwards (-z)
 // create a clockwise or anticlockwise face depending on whether the edge goes 
 // from outside to inside or inside to outside
@@ -79,18 +80,18 @@ const EDGE_FACE_REVERSED = 3;
 //   +----0---!
 //
 const CUBE_EDGES = [
-    [0, 1, YZ_FACE_CLOCKWISE, YZ_FACE_ANTICLOCK], // 0
-    [0, 2, XZ_FACE_CLOCKWISE, XZ_FACE_ANTICLOCK], // 1
-    [0, 4, XY_FACE_CLOCKWISE, XY_FACE_ANTICLOCK], // 2
-    [1, 3, 0, 0], // 3
-    [1, 5, 0, 0], // 4
-    [2, 3, 0, 0], // 5
-    [2, 6, 0, 0], // 6 
-    [3, 7, 0, 0], // 7
-    [4, 5, 0, 0], // 8
-    [4, 6, 0, 0], // 9
-    [5, 7, 0, 0], // 10
-    [6, 7, 0, 0], // 11 
+    [0, 1, YZ_FACE_CLOCKWISE, YZ_FACE_ANTICLOCK], // edge 0 
+    [0, 2, XZ_FACE_CLOCKWISE, XZ_FACE_ANTICLOCK], // edge 1 
+    [0, 4, XY_FACE_CLOCKWISE, XY_FACE_ANTICLOCK], // edge 2 
+    [1, 3, 0, 0], // edge 3 
+    [1, 5, 0, 0], // edge 4 
+    [2, 3, 0, 0], // edge 5 
+    [2, 6, 0, 0], // edge 6
+    [3, 7, 0, 0], // edge 7 
+    [4, 5, 0, 0], // edge 8 
+    [4, 6, 0, 0], // edge 9 
+    [5, 7, 0, 0], // edge 10 
+    [6, 7, 0, 0], // edge 11   
 ];
 
 /**
@@ -201,10 +202,8 @@ const worldPosition = new Vector3();
 function SampleAllPoints(chunk: Chunk) {
     voxelPosition.set(0, 0, 0);
     chunk.voxelSpaceToWorldSpace(voxelPosition, worldPosition);
-    console.log(chunk.toString() , " min " , worldPosition.x, worldPosition.y, worldPosition.z);
     voxelPosition.set(voxelRange.x , voxelRange.y , voxelRange.z );
     chunk.voxelSpaceToWorldSpace(voxelPosition, worldPosition);
-    console.log(chunk.toString() , " max " , worldPosition.x, worldPosition.y, worldPosition.z);
     for (let voxX = 0; voxX <= voxelRange.x; voxX++) {
         for (let voxY = 0; voxY <= voxelRange.y; voxY++) {
             for (let voxZ = 0; voxZ <= voxelRange.z; voxZ++) {
@@ -369,7 +368,7 @@ function AppendVertex(voxelIndex: number,point: Vector3) {
         normal.normalize();
         normal.scaleInPlace(-dist);
 
-        //point.addInPlace(normal);
+        point.addInPlace(normal);
     }
     
     verticies.push(point.x,point.y,point.z);

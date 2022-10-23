@@ -1,4 +1,4 @@
-import { Vector3 } from "@babylonjs/core";
+import { Vector3,Camera, Matrix } from "@babylonjs/core";
 import { AxisAlignedBoxBound } from "./Bounds";
 import { SignedDistanceField, Chunk } from "..";
 import { SparseOctTree, SparseOctTreeNode } from "."
@@ -18,9 +18,13 @@ class ChunkManager {
 
     constructor() {
         this._worldBounds = new AxisAlignedBoxBound(-halfWorld,-halfWorld,-halfWorld,halfWorld,halfWorld,halfWorld)
-        this._chunkTree = new SparseOctTree<Chunk>(this._worldBounds, 32, 4)
-    }
+        this._chunkTree = new SparseOctTree<Chunk>(this._worldBounds, 32, 4);
+     }
     
+    setViewOrigin(origin: Vector3) {
+        this._origin.copyFrom(origin);
+    }
+
     getChunks(): IterableIterator<Chunk> {
         const chunks: Chunk[] = [];
         this._chunkTree.getItemsInBounds(this._worldBounds, chunks);
@@ -46,11 +50,15 @@ class ChunkManager {
         //chunkBounds.set(minX, minY, minZ, maxX, maxY, maxZ);
         
         const chunkExtent = chunkBounds.extent;
-        const chunkDist = Math.abs(chunkBounds.distanceTo(this._origin));
-        const target = 4 + chunkDist;
+        // note chunkDist will be negative if origin is inside the chunk
+        const chunkDist = chunkBounds.distanceTo(this._origin);
+
+        const scalingFactor = 0.50741;
+        const targetSize = Math.max(chunkDist * scalingFactor,2);
         
+        const viewPointInChunk = chunkDist < 0;
         // use larger chunks further away
-        if ((chunkDist < 0 || chunkExtent > target) && chunkExtent > 1) {
+        if (viewPointInChunk || chunkExtent > targetSize) {
             // subdivide chunk bounds until it is smaller than the target scale
             const halfExtent = (maxX - minX) / 2;
             const middleX = minX + halfExtent;
@@ -77,10 +85,20 @@ class ChunkManager {
 
             newChunk.updateCurrentBounds();
 
-            const expandBy = chunkBounds.extent * 0.1;
+            // const chunks = [
+            //     "Origin: 2048,-1024,0 Size: 1024,1024,1024 VoxelSize: 64",
+            //     "Origin: 2048,0,0 Size: 1024,1024,1024 VoxelSize: 64",
+            //     "Origin: 3072,-512,0 Size: 512,512,512 VoxelSize: 32",
+            //     "Origin: 3072,0,0 Size: 512,512,512 VoxelSize: 32"
+            // ];
+            // if (!chunks.find(x => newChunk.toString() === x))
+            //     return;
+
+            const expandBy = newChunk.getVoxelSize() * 2;
             chunkBounds.expandByScalar(expandBy);
             this._chunkTree.getItemsInBounds(chunkBounds, nearbyChunks);
             for (const chunk of nearbyChunks) {
+                console.log("Chunk: ", chunk.toString(), "near ", newChunk.toString());
                                 
                 chunk.copyOriginTo(chunkOrigin);
                 if (chunk.isAtSamePositionAs(newChunk)) {

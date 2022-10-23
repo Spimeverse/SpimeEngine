@@ -7,10 +7,10 @@ import { Engine } from "@babylonjs/core/Engines/engine"
 import { Scene } from "@babylonjs/core"
 // import { TransformNode } from "@babylonjs/core/Meshes/transformNode"
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera"
-import { Vector3,Color4,Color3 } from "@babylonjs/core/Maths"
+import { Vector3,Color4,Color3, Matrix } from "@babylonjs/core/Maths"
 import { HemisphericLight } from "@babylonjs/core/Lights"
 import { GroundBuilder } from "@babylonjs/core/Meshes/Builders"
-import { StandardMaterial } from "@babylonjs/core/Materials"
+import { ScaleBlock, StandardMaterial } from "@babylonjs/core/Materials"
 import { Texture } from "@babylonjs/core/Materials/Textures"
 import { Mesh, VertexData, MeshBuilder } from "@babylonjs/core/Meshes"
 // import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh"
@@ -55,6 +55,7 @@ class App {
             new Vector3(0, 0, 0),
             scene
         );
+        
         camera.wheelDeltaPercentage = 0.01;
     
         // This targets the camera to scene origin
@@ -91,11 +92,10 @@ class App {
             floorMeshes: [ground]
         });
 
-        // TODO chunks go missing at 85+
-        const marker = MeshBuilder.CreateSphere("marker", {diameter:4 / 8}, scene);
-        marker.position.x = 15 ;
-        marker.position.y = 15;
-        marker.position.z = 15;
+        const marker = MeshBuilder.CreateSphere("marker", {diameter:1}, scene);
+        marker.position.x = 0 ;
+        marker.position.y = 0;
+        marker.position.z = 0;
         const markerMaterial = new StandardMaterial("markerMaterial", scene);
         markerMaterial.wireframe = true;
         markerMaterial.diffuseColor = new Color3(1,1,0);
@@ -121,20 +121,21 @@ class App {
         box2.material = boxMaterial2;
         box2.isVisible = false;
 
-        //const field = new SdfBox(512,128,512)
+        const field = new SdfBox(10000,20,200)
         //const field = new SdfTorus(3,2);
-        const field = new SdfSphere(20);
+        //const field = new SdfSphere(1);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
         // const fieldSphere = new SdfSphere(10);
         // fieldSphere.setPosition(0,-5,0);
 
         //const field = new SdfSphere(2);
-        field.setPosition(15,15,15);
+        field.setPosition(5000,0,0);
 
         // const unionField = new SdfUnion([field,fieldSphere]);
 
         const chunkManager = new ChunkManager();
+        chunkManager.setViewOrigin(new Vector3(0,0,0));
 
         //chunkManager.addField(fieldSphere);
         chunkManager.addField(field);
