@@ -8,6 +8,8 @@ const worldSize = 16384;
 const halfWorld = worldSize / 2;
 const nearbyChunks: Chunk[] = [];
 const chunkOrigin = new Vector3();
+const chunkCenter = new Vector3();
+const sqrt3 = Math.sqrt(3);
 
 class ChunkManager {
 
@@ -39,16 +41,22 @@ class ChunkManager {
     private _addObjectToChunks(sdf: SignedDistanceField, minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number) {
         const voxels = 16;  //Math.max(8,1 << 31 - Math.clz32(32 - (chunkDist / 2)));
 
-        // TODO not sure why this was needed, probably should take it out altogether
-        // const offset = Math.abs(maxX - minX) / voxels;
-        // chunkBounds.set(minX, minY, minZ, maxX + offset, maxY + offset, maxZ + offset);
+        // fast rejection, compare chunk bounds to sdf bounds
         chunkBounds.set(minX, minY, minZ, maxX, maxY, maxZ);
         if (!chunkBounds.overlapSphere(sdf.currentBounds)) {
             // sdf does not overlap chunk bounds so skip it
             return;
         }
-        //chunkBounds.set(minX, minY, minZ, maxX, maxY, maxZ);
         
+        // slower rejection, compare chunk center to sdf distance
+        chunkCenter.set((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2);
+        const distToCenter = sdf.sample(chunkCenter);
+        const chunkRadius = (Math.abs(maxX - minX) / 2) * sqrt3;
+        if (distToCenter > chunkRadius) {
+            // sdf is further away than the chunk radius so skip it
+            return;
+        }
+
         const chunkExtent = chunkBounds.extent;
         // note chunkDist will be negative if origin is inside the chunk
         const chunkDist = chunkBounds.distanceTo(this._origin);
@@ -98,8 +106,7 @@ class ChunkManager {
             chunkBounds.expandByScalar(expandBy);
             this._chunkTree.getItemsInBounds(chunkBounds, nearbyChunks);
             for (const chunk of nearbyChunks) {
-                console.log("Chunk: ", chunk.toString(), "near ", newChunk.toString());
-                                
+                               
                 chunk.copyOriginTo(chunkOrigin);
                 if (chunk.isAtSamePositionAs(newChunk)) {
                     // chunk already exists, so skip it

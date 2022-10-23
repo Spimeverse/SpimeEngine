@@ -152,10 +152,6 @@ class App {
 
         */
 
-        for (const chunk of chunkManager.getChunks())
-        {
-            chunk.createMesh(scene);
-        }
 
         /*
         //Create a custom mesh  
@@ -170,8 +166,8 @@ class App {
         let count = 0;
         for (const chunk of chunkManager.getChunks())
         {
-            chunk.updateMesh(field);
-            count++;
+            if (chunk.updateMesh(field, scene));
+                count++;
         }
         console.log("chunks count: " + count);
 
