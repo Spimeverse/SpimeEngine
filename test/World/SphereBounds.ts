@@ -1,7 +1,96 @@
 import { AxisAlignedBoxBound, SphereBound } from ".."
 
 export function TestSphereBoxBounds() {
-        
+    
+    describe('Spherebound overlaps Spherebound', () => {
+
+        it('overlaps when x separation is less than radius', () => {
+            const sphere1 = new SphereBound(0, 0, 0, 0.5);
+            const sphere2 = new SphereBound(0.9, 0, 0, 0.5);
+            expect(sphere1.overlapSphere(sphere2)).toBe(true);
+            expect(sphere2.overlapSphere(sphere1)).toBe(true);
+        });
+
+        it('does not overlaps when x separation is greater than radius', () => {
+            const sphere1 = new SphereBound(0, 0, 0, 0.5);
+            const sphere2 = new SphereBound(1.1, 0, 0, 0.5);
+            expect(sphere1.overlapSphere(sphere2)).toBe(false);
+            expect(sphere2.overlapSphere(sphere1)).toBe(false);
+        });
+
+        it('overlaps when y separation is less than radius', () => {
+            const sphere1 = new SphereBound(0, 0, 0, 0.5);
+            const sphere2 = new SphereBound(0, 0.9, 0, 0.5);
+            expect(sphere1.overlapSphere(sphere2)).toBe(true);
+            expect(sphere2.overlapSphere(sphere1)).toBe(true);
+        });
+
+        it('does not overlaps when y separation is greater than radius', () => {
+            const sphere1 = new SphereBound(0, 0, 0, 0.5);
+            const sphere2 = new SphereBound(0, 1.1, 0, 0.5);
+            expect(sphere1.overlapSphere(sphere2)).toBe(false);
+            expect(sphere2.overlapSphere(sphere1)).toBe(false);
+        });
+
+        it('overlaps when z separation is less than radius', () => {
+            const sphere1 = new SphereBound(0, 0, 0, 0.5);
+            const sphere2 = new SphereBound(0, 0, 0.9, 0.5);
+            expect(sphere1.overlapSphere(sphere2)).toBe(true);
+            expect(sphere2.overlapSphere(sphere1)).toBe(true);
+        });
+
+        it('does not overlaps when z separation is greater than radius', () => {
+            const sphere1 = new SphereBound(0, 0, 0, 0.5);
+            const sphere2 = new SphereBound(0, 0, 1.1, 0.5);
+            expect(sphere1.overlapSphere(sphere2)).toBe(false);
+            expect(sphere2.overlapSphere(sphere1)).toBe(false);
+        });
+            
+        it('overlaps when x and y separation is less than radius', () => {
+            const sphere1 = new SphereBound(0, 0, 0, 0.5);
+            const sphere2 = new SphereBound(0.7, 0.7, 0, 0.5);
+            expect(sphere1.overlapSphere(sphere2)).toBe(true);
+            expect(sphere2.overlapSphere(sphere1)).toBe(true);
+        });
+
+        it('does not overlaps when x and y separation is greater than radius', () => {
+            const sphere1 = new SphereBound(0, 0, 0, 0.5);
+            const sphere2 = new SphereBound(0.8, 0.8, 0, 0.5);
+            expect(sphere1.overlapSphere(sphere2)).toBe(false);
+            expect(sphere2.overlapSphere(sphere1)).toBe(false);
+        });
+
+        it('overlaps when x and z separation is less than radius', () => {
+            const sphere1 = new SphereBound(0, 0, 0, 0.5);
+            const sphere2 = new SphereBound(0.7, 0, 0.7, 0.5);
+            expect(sphere1.overlapSphere(sphere2)).toBe(true);
+            expect(sphere2.overlapSphere(sphere1)).toBe(true);
+        });
+
+        it('does not overlaps when x and z separation is greater than radius', () => {
+            const sphere1 = new SphereBound(0, 0, 0, 0.5);
+            const sphere2 = new SphereBound(0.8, 0, 0.8, 0.5);
+            expect(sphere1.overlapSphere(sphere2)).toBe(false);
+            expect(sphere2.overlapSphere(sphere1)).toBe(false);
+        });
+
+        it('overlaps when y and z separation is less than radius', () => {
+            const sphere1 = new SphereBound(0, 0, 0, 0.5);
+            const sphere2 = new SphereBound(0, 0.7, 0.7, 0.5);
+            expect(sphere1.overlapSphere(sphere2)).toBe(true);
+            expect(sphere2.overlapSphere(sphere1)).toBe(true);
+        });
+
+        it('does not overlaps when y and z separation is greater than radius', () => {
+            const sphere1 = new SphereBound(0, 0, 0, 0.5);
+            const sphere2 = new SphereBound(0, 0.8, 0.8, 0.5);
+            expect(sphere1.overlapSphere(sphere2)).toBe(false);
+            expect(sphere2.overlapSphere(sphere1)).toBe(false);
+        });
+          
+
+    });
+
     describe('SphereBounds overlap AABB box', () => {
 
         it('overlapAABB when x positive overlapAABB', () => {
@@ -119,4 +208,5 @@ export function TestSphereBoxBounds() {
         });
 
     });
+
 }

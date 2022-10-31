@@ -42,6 +42,7 @@ const normals = new Array<number>();
  * Doesn't actually reference the array itself
  */
 class Chunk implements IhasBounds {
+
     box: Mesh | null = null;
 
 
@@ -133,7 +134,7 @@ class Chunk implements IhasBounds {
 
     private _chunkMesh: Nullable<Mesh> = null;
         
-    currentBounds: Bounds;
+    currentBounds: AxisAlignedBoxBound;
 
     constructor () {
         this._maxSamples = 0;
@@ -239,6 +240,12 @@ class Chunk implements IhasBounds {
         this._vertexData.positions = [];
         this._vertexData.indices = [];
 
+    }
+
+    deleteMesh(scene: Scene) {
+        if (this._chunkMesh) {
+            scene.removeMesh(this._chunkMesh)
+        }
     }
 
     toggleWireframe() {

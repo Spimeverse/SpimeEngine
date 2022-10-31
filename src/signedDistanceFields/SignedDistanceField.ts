@@ -1,14 +1,14 @@
 
 
 import { Vector3, Matrix,Quaternion } from "@babylonjs/core/Maths";
-import { IhasSphereBounds, SphereBound } from "../World";
+import { IhasBounds, SphereBound } from "../World";
 
 // see https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
 
 const transformedPoint: Vector3 = new Vector3();
 const NO_SCALING: Vector3 = Vector3.One();
 
-abstract class SignedDistanceField implements IhasSphereBounds {
+abstract class SignedDistanceField implements IhasBounds {
     currentBounds: SphereBound;
     newBounds: SphereBound;
     protected boundingRadius: number;
@@ -75,7 +75,7 @@ class EmptyField extends SignedDistanceField {
 
 class SdfUnion extends SignedDistanceField {
 
-    constructor(public fields: SignedDistanceField[]) {
+    constructor(public fields: Iterable<SignedDistanceField>) {
         super();
         this.fields = fields;
     }
@@ -87,6 +87,7 @@ class SdfUnion extends SignedDistanceField {
         }
         return minDistance;
     }
+
 }
 
 const EMPTY_FIELD = new EmptyField();

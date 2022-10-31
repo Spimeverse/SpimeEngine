@@ -22,6 +22,7 @@ import { ChunkManager } from "./World"
 
 const maxSparseSamples = 0;
 const xSample = 0;
+const fieldPosition = new Vector3();
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: it's an image    
 //import grassTextureUrl from "../assets/grass.jpg";
@@ -121,16 +122,18 @@ class App {
         box2.material = boxMaterial2;
         box2.isVisible = false;
 
-        const field = new SdfBox(10000,20,200)
-        //const field = new SdfTorus(3,2);
-        //const field = new SdfSphere(1);
+        const fieldBig = new SdfBox(10000,20,200)
+        fieldBig.setPosition(-5000,-20,0)
+        const fieldTorus = new SdfTorus(3, 2);
+        fieldTorus.setPosition(0,0,-10);
+        const field = new SdfSphere(5);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
         // const fieldSphere = new SdfSphere(10);
         // fieldSphere.setPosition(0,-5,0);
 
         //const field = new SdfSphere(2);
-        field.setPosition(5000,0,0);
+        field.setPosition(0,0,0);
 
         // const unionField = new SdfUnion([field,fieldSphere]);
 
@@ -139,6 +142,8 @@ class App {
 
         //chunkManager.addField(fieldSphere);
         chunkManager.addField(field);
+        chunkManager.addField(fieldTorus);
+        //chunkManager.addField(fieldBig);
 
         /*
         const chunk1 = new Chunk();
@@ -163,49 +168,28 @@ class App {
         const { customMesh : customMesh3, vertexData : vertexData3 } = this._createCustomMesh(scene);
         */
 
-        let count = 0;
-        for (const chunk of chunkManager.getChunks())
-        {
-            if (chunk.updateMesh(field, scene));
-                count++;
-        }
-        console.log("chunks count: " + count);
+        // let count = 0;
+        // const chunks = new Set<Chunk>();
+        // chunkManager.getChunks(chunks);
+        // for (const chunk of chunks)
+        // {
+        //     if (chunk.updateMesh(field,scene))
+        //         count++;
+        // }
+        // console.log("chunks count: " + count);
 
-        /*
         scene.onBeforeAnimationsObservable.add((theScene) => {
-            customMesh.position.y = tunePos;
-            //if (positionDirty)
-            //if (!field.position.equals(box.position))
+            field.copyPositionTo(fieldPosition)
+            if (!fieldPosition.equals(box.position))
             {
-                positionDirty = false;
-                const step = theScene.getStepId();
-                //if (step % 50 == 0) 
-                {
-            
-                    //Empty array to contain calculated values or normals added
-                    const normals = new Array<number>();
-
-                    field.setPosition(5 + Math.sin(step / 4000 * Math.PI * 2) * 6 ,4,4);
-                    // field.position = new Vector3(objectPos / 1000,0,0);
-                    field.copyPositionTo(box.position);
-                    //field.position = new Vector3(1.2,0,0);
-                    field.setPosition(box.position.x,box.position.y,box.position.z);
-
-                    chunk1.setBorderSeams(BORDERS.xMax,1);
-                    this._updateChunk(chunk1,unionField, vertexData, normals, customMesh);
-
-                    //gui.positionLabel.text = `Position ${box.position.x.toFixed(3)}`;
-                    chunk2.setBorderSeams(BORDERS.xMin,2);
-                    this._updateChunk(chunk2,unionField, vertexData2, normals, customMesh2);
-
-                }
+                field.setPosition(box.position.x, box.position.y, box.position.z);
+                chunkManager.updateField(field);
+                console.log("field position changed");
             }
+
+            chunkManager.updateDirtyChunks(scene);
         });
 
-        this._setupVoxMaterial(scene, customMesh, new Color3(0,1,0));
-        this._setupVoxMaterial(scene, customMesh2, new Color3(1,1,0));
-        this._setupVoxMaterial(scene, customMesh3, new Color3(1,1,1));
-        */
 
         // hide/show the Inspector
         window.addEventListener("keydown", (ev) => {
@@ -221,7 +205,8 @@ class App {
             // if keycode is "W"
             if (ev.key === "w") {
                 // set all meshes to wireframe
-                for (const chunk of chunkManager.getChunks()) {
+                chunkManager.getChunks(chunks);
+                for (const chunk of chunks) {
                     chunk.toggleWireframe();
                 }
             }

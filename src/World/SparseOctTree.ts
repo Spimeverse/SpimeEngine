@@ -1,4 +1,5 @@
 import { Vector3 } from "@babylonjs/core";
+import { SphereBound } from "..";
 import { AxisAlignedBoxBound, IhasBounds, Bounds } from "..";
 
 class SparseOctTree<TYPE extends IhasBounds> {
@@ -30,23 +31,21 @@ class SparseOctTree<TYPE extends IhasBounds> {
         return node.items.length >= this.maxItemsPerNode && node.bounds.extent > this.minNodeSize;
     }
 
-    public getItemsInBounds(bounds: AxisAlignedBoxBound, results: TYPE[]): number {
-        this.uniqueResults.clear();
-        this.rootNode.getItemsInBounds(bounds, this.uniqueResults);
-        // loop through the unique results and add them to the results array
-        results.length = this.uniqueResults.size;
-        let i = 0;
-        for (const item of this.uniqueResults) {
-            results[i++] = item;
-        }
-        return results.length;
+    public getItemsInBox(bounds: AxisAlignedBoxBound, results: Set<TYPE>): number {
+        this.rootNode.getItemsInBox(bounds, results);
+        return results.size;
     }
 
+    public getItemsInSphere(bounds: SphereBound, results: Set<TYPE>): number {
+        this.rootNode.getItemsInSphere(bounds, results);
+        return results.size;
+    }
 
 }
 
 // sparse quad tree to find nearby objects
 class SparseOctTreeNode<TYPE extends IhasBounds> {
+
     bounds: AxisAlignedBoxBound;
     totalItems = 0;
 
@@ -139,54 +138,34 @@ class SparseOctTreeNode<TYPE extends IhasBounds> {
     }
 
     public remove(item: TYPE,
-        bounds: Bounds) {
+        bounds: Bounds): boolean {
         if (this.bounds.overlapBounds(item.currentBounds)) {
-            this.totalItems--;
 
             if (this.children.length == 0 ||
                 this._itemLargerThanChildNode(item)) {
                 const index = this.items.indexOf(item);
-                this.items[index] = this.items[this.items.length - 1];
-                this.items.length--;
+                if (index >= 0) {
+                    this.items[index] = this.items[this.items.length - 1];
+                    this.items.length--;
+                    this.totalItems--;
+                    return true;
+                }
             }
             else {
-            // remove the object from this children if it exists
+                // remove the object from this children if it exists
+                let removed = false;
                 for (let i = 0; i < this.children.length; i++) {
-                    this.children[i].remove(item,bounds);
+                    if (this.children[i].remove(item,bounds)) {
+                        removed = true;
+                    }
+                }
+                if (removed) {
+                    this.totalItems--;
+                    return true;
                 }
             }
-
-            // see if we can combine all the children into this node
-            const uniqueResults = this._owner.uniqueResults;
-            uniqueResults.clear();
-            if (this.totalItems <= this._owner.maxItemsPerNode && this.children.length > 0) {
-                for (let i = 0; i < this.children.length; i++) {
-                    this.children[i]._addItemsToParent(uniqueResults);
-                }
-                this.children.length = 0;
-            }
-            
-            let i = this.items.length;
-            this.items.length += uniqueResults.size;
-            for (const item of uniqueResults) {
-                this.items[i++] = item;
-            }
-
         }
-    }
-
-    private _addItemsToParent(parentItems: Set<TYPE>) {
-        if (this.children.length > 0) {
-            for (let i = 0; i < this.children.length; i++) {
-                this.children[i]._addItemsToParent(parentItems);
-            }
-            this.children.length = 0;
-        } 
-
-        for (let i = 0; i < this.items.length; i++) {
-            parentItems.add(this.items[i]);
-        }
-        this.items.length = 0;
+        return false;
     }
 
     public update(object: TYPE,bounds: Bounds, newBounds: Bounds) {
@@ -206,7 +185,7 @@ class SparseOctTreeNode<TYPE extends IhasBounds> {
     }
 
 
-    public getItemsInBounds(bounds: AxisAlignedBoxBound, results: Set<TYPE>): number {
+    public getItemsInBox(bounds: AxisAlignedBoxBound, results: Set<TYPE>): number {
         if (bounds.overlapAABB(this.bounds)) {
             for (let i = 0; i < this.items.length; i++) {
                 const item = this.items[i];
@@ -215,7 +194,22 @@ class SparseOctTreeNode<TYPE extends IhasBounds> {
                 }
             }
             for (let i = 0; i < this.children.length; i++) {
-                this.children[i].getItemsInBounds(bounds,results);
+                this.children[i].getItemsInBox(bounds,results);
+            }
+        }
+        return results.size;
+    }
+
+    getItemsInSphere(bounds: SphereBound, results: Set<TYPE>) {
+        if (this.bounds.overlapSphere(bounds)) {
+            for (let i = 0; i < this.items.length; i++) {
+                const item = this.items[i];
+                if (bounds.overlaps(item.currentBounds)) {
+                    results.add(item);
+                }
+            }
+            for (let i = 0; i < this.children.length; i++) {
+                this.children[i].getItemsInSphere(bounds,results);
             }
         }
         return results.size;

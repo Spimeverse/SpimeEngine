@@ -27,6 +27,29 @@ abstract class Bounds {
         }
     }
 
+    overlaps(otherBounds: Bounds): boolean {
+        if (this.boundType == otherBounds.boundType) {
+            if (this.boundType == BoundTypes.sphereBound) {
+                return (this as unknown as SphereBound).overlapSphere(otherBounds as SphereBound);
+            }
+            else if (this.boundType == BoundTypes.axisAlignedBoxBound) {
+                return (this as unknown as AxisAlignedBoxBound).overlapAABB(otherBounds as AxisAlignedBoxBound);
+            }
+            else
+                throw new Error("Bounds.overlaps: unknown bound type");
+        }
+        else {
+            if (this.boundType == BoundTypes.axisAlignedBoxBound) {
+                return (this as unknown as AxisAlignedBoxBound).overlapSphere(otherBounds as SphereBound);
+            }
+            else if (otherBounds.boundType == BoundTypes.axisAlignedBoxBound) {
+                return (otherBounds as unknown as AxisAlignedBoxBound).overlapSphere(this as unknown as SphereBound);
+            }
+            else
+                throw new Error("Bounds.overlaps: unknown bound type");
+        }
+    }
+
     abstract get extent(): number;
 
     public constructor(public boundType: BoundTypes) {
@@ -71,6 +94,16 @@ class SphereBound extends Bounds {
         this.radius = radius;
         this.radiusSquared = radius * radius;
     }
+
+    overlapSphere(otherSphere: SphereBound): boolean {
+        const dx = otherSphere.xPos - this.xPos;
+        const dy = otherSphere.yPos - this.yPos;
+        const dz = otherSphere.zPos - this.zPos;
+        const distanceSquared = dx * dx + dy * dy + dz * dz;
+        const radiusSum = this.radius + otherSphere.radius;
+        return distanceSquared <= radiusSum * radiusSum;
+    }
+
 
     public toString(): string {
         return `[${this.xPos - this.radius} ${this.yPos - this.radius} ${this.zPos - this.radius} ${this.xPos + this.radius} ${this.yPos + this.radius} ${this.zPos + this.radius}]`;
