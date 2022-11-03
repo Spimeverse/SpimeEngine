@@ -44,23 +44,35 @@ class ChunkManager {
 
     updateField(field: SignedDistanceField) {
         this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
-        this._fieldTree.update(field, field.newBounds);
+        // ensure all chunks within the fields current bounds are created and updated
         this._createChunksForField(field, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
-        this._chunkTree.getItemsInSphere(field.newBounds, this._dirtyChunks);
+        this._fieldTree.update(field, field.newBounds);
+        // ensure all chunks within the fields new bounds are created and updated
+        this._createChunksForField(field, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
+        this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
+        console.log("dirty chunks after: ", this._dirtyChunks.size);
     }
 
-    updateDirtyChunks(scene: Scene) {
+    updateDirtyChunks(scene: Scene, position: Vector3) {
         const chunkFields = this._chunkFields;
         for (const chunk of this._dirtyChunks)
         {
             chunkFields.clear();
             this._fieldTree.getItemsInBox(chunk.currentBounds, chunkFields);
-            if (chunkFields.size == 0) {
+            let emptyChunk = true;
+            if (chunkFields.size != 0) {
+                emptyChunk = !chunk.updateMesh(this._unionFields, scene);
+            }
+
+            if (chunk.toString() == "Origin: -24,0,0 Size: 8,8,8 VoxelSize: 0.5") {
+                console.log("chunk bounds: ", chunk.currentBounds.toString());
+                console.log("Chunk fields: ", chunkFields.size, " Empty: ", emptyChunk);
+            }
+
+            if (emptyChunk) {
                 chunk.deleteMesh(scene);
                 this._chunkTree.remove(chunk);
             }
-            else
-                chunk.updateMesh(this._unionFields, scene);
         }
         this._dirtyChunks.clear();
     }
@@ -73,15 +85,6 @@ class ChunkManager {
         chunkBounds.set(minX, minY, minZ, maxX, maxY, maxZ);
         if (!chunkBounds.overlapSphere(sdf.currentBounds)) {
             // sdf does not overlap chunk bounds so skip it
-            return;
-        }
-        
-        // slower rejection, compare chunk center to sdf distance
-        chunkCenter.set((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2);
-        const distToCenter = sdf.sample(chunkCenter);
-        const chunkRadius = (Math.abs(maxX - minX) / 2) * sqrt3;
-        if (distToCenter > chunkRadius) {
-            // sdf is further away than the chunk radius so skip it
             return;
         }
 

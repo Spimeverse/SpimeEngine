@@ -104,9 +104,9 @@ class App {
 
         const box = MeshBuilder.CreateBox("box", {size:6}, scene);
         const boxMaterial = new StandardMaterial("boxMaterial", scene);
-        box.position.x = 8;
-        box.position.y = 5;
-        box.position.z = 4;
+        box.position.x = -37.902;
+        box.position.y = 3.181;
+        box.position.z = 4.000;
         boxMaterial.diffuseColor = new Color3(1,0,0);
         boxMaterial.wireframe = true;
         box.material = boxMaterial;
@@ -115,18 +115,17 @@ class App {
         camera.setTarget(marker.position.clone());
 
         const box2 = MeshBuilder.CreateBox("box2", {size:6}, scene);
-        box2.position.x = 2;
+        box2.position.x = -13.9;
         const boxMaterial2 = new StandardMaterial("boxMaterial", scene);
         boxMaterial2.diffuseColor = new Color3(1,0,0);
         boxMaterial2.wireframe = true;
         box2.material = boxMaterial2;
-        box2.isVisible = false;
 
         const fieldBig = new SdfBox(10000,20,200)
         fieldBig.setPosition(-5000,-20,0)
         const fieldTorus = new SdfTorus(3, 2);
         fieldTorus.setPosition(0,0,-10);
-        const field = new SdfSphere(5);
+        const field = new SdfSphere(10);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
         // const fieldSphere = new SdfSphere(10);
@@ -184,10 +183,16 @@ class App {
             {
                 field.setPosition(box.position.x, box.position.y, box.position.z);
                 chunkManager.updateField(field);
-                console.log("field position changed");
             }
 
-            chunkManager.updateDirtyChunks(scene);
+            fieldTorus.copyPositionTo(fieldPosition)
+            if (!fieldPosition.equals(box2.position))
+            {
+                fieldTorus.setPosition(box2.position.x, box2.position.y, box2.position.z);
+                chunkManager.updateField(fieldTorus);
+            }
+
+            chunkManager.updateDirtyChunks(scene,box.position);
         });
 
 
@@ -205,8 +210,9 @@ class App {
             // if keycode is "W"
             if (ev.key === "w") {
                 // set all meshes to wireframe
-                chunkManager.getChunks(chunks);
-                for (const chunk of chunks) {
+                const allChunks = new Set<Chunk>();
+                chunkManager.getChunks(allChunks);
+                for (const chunk of allChunks) {
                     chunk.toggleWireframe();
                 }
             }
