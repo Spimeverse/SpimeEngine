@@ -1,26 +1,27 @@
-import { Vector3,Camera, Matrix, Scene } from "@babylonjs/core";
+import { Vector3,Scene } from "@babylonjs/core";
 import { AxisAlignedBoxBound } from "./Bounds";
 import { SignedDistanceField, Chunk } from "..";
 import { SparseOctTree } from "."
-import { SdfSphere,SdfUnion } from "..";
+import { SdfUnion } from "..";
+import { LinkedList, LinkedListNode } from "../Collection/LinkedList";
 
 const chunkBounds = new AxisAlignedBoxBound(0, 0, 0, 0, 0, 0);
 const worldSize = 16384;
 const halfWorld = worldSize / 2;
 const nearbyChunks = new Set<Chunk>();
 const chunkOrigin = new Vector3();
-const chunkCenter = new Vector3();
-const sqrt3 = Math.sqrt(3);
 
 class ChunkManager {
     private _origin: Vector3 = new Vector3();
-    private _distToSdf: Vector3 = new Vector3();
     private _worldBounds: AxisAlignedBoxBound;
     private _chunkTree: SparseOctTree<Chunk>;
     private _fieldTree: SparseOctTree<SignedDistanceField>;
     private _chunkFields = new Set<SignedDistanceField>();
     private _unionFields = new SdfUnion(this._chunkFields);
     private _dirtyChunks = new Set<Chunk>();
+    private _updateQueue = new LinkedList<Chunk>();
+   private _queuedFields = new Set<SignedDistanceField>();
+    private _nextUpdateChunk: LinkedListNode<Chunk> | null = null;
 
     constructor() {
         this._worldBounds = new AxisAlignedBoxBound(-halfWorld,-halfWorld,-halfWorld,halfWorld,halfWorld,halfWorld)
@@ -40,41 +41,64 @@ class ChunkManager {
         // subdivide chunk bounds until it is smaller than the distance to the sdf
         this._createChunksForField(field, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
         this._fieldTree.insert(field);
+        this._queuedFields.add(field);
     }
 
     updateField(field: SignedDistanceField) {
-        this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
-        // ensure all chunks within the fields current bounds are created and updated
-        this._createChunksForField(field, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
-        this._fieldTree.update(field, field.newBounds);
-        // ensure all chunks within the fields new bounds are created and updated
-        this._createChunksForField(field, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
-        this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
-        console.log("dirty chunks after: ", this._dirtyChunks.size);
+        this._queuedFields.add(field);
     }
 
-    updateDirtyChunks(scene: Scene, position: Vector3) {
+    updateDirtyChunks(scene: Scene) {
+        if (this._updateQueue.count == 0) {
+            for (const field of this._queuedFields) {
+                this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
+                // ensure all chunks within the fields current bounds are created and updated
+                this._createChunksForField(field, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
+                this._fieldTree.update(field, field.newBounds);
+                // ensure all chunks within the fields new bounds are created and updated
+                this._createChunksForField(field, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
+                this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
+            }
+            this._queuedFields.clear();
+
+            for (const chunk of this._dirtyChunks) {
+                this._updateQueue.append(chunk);
+            }
+            this._dirtyChunks.clear();
+        } 
+
         const chunkFields = this._chunkFields;
-        for (const chunk of this._dirtyChunks)
-        {
-            chunkFields.clear();
-            this._fieldTree.getItemsInBox(chunk.currentBounds, chunkFields);
-            let emptyChunk = true;
-            if (chunkFields.size != 0) {
-                emptyChunk = !chunk.updateMesh(this._unionFields, scene);
-            }
+        if (this._nextUpdateChunk == null) {
+            this._nextUpdateChunk = this._updateQueue.first;
+            let updates = 50;
+            while (updates > 0 && this._nextUpdateChunk != null) {
+                const chunk = this._nextUpdateChunk.value;
 
-            if (chunk.toString() == "Origin: -24,0,0 Size: 8,8,8 VoxelSize: 0.5") {
-                console.log("chunk bounds: ", chunk.currentBounds.toString());
-                console.log("Chunk fields: ", chunkFields.size, " Empty: ", emptyChunk);
-            }
+                chunkFields.clear();
+                this._fieldTree.getItemsInBox(chunk.currentBounds, chunkFields);
+                let emptyChunk = true;
+                if (chunkFields.size != 0) {
+                    emptyChunk = !chunk.updateMesh(this._unionFields, scene);
+                    updates--;
+                }
 
-            if (emptyChunk) {
-                chunk.deleteMesh(scene);
-                this._chunkTree.remove(chunk);
+                if (emptyChunk) {
+                    chunk.deleteMesh(scene);
+                    this._chunkTree.remove(chunk);
+                }
+                this._nextUpdateChunk = this._nextUpdateChunk.next;
             }
         }
-        this._dirtyChunks.clear();
+
+        if (this._nextUpdateChunk == null) {
+            this._nextUpdateChunk = this._updateQueue.first;
+            while (this._nextUpdateChunk != null) {
+                const chunk = this._nextUpdateChunk.value;
+                chunk.swapMeshes(scene);
+                this._nextUpdateChunk = this._nextUpdateChunk.next;
+            }
+        }
+
     }
 
 

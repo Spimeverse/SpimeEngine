@@ -43,8 +43,6 @@ const normals = new Array<number>();
  */
 class Chunk implements IhasBounds {
 
-    box: Mesh | null = null;
-
 
     //  X   X   X   X
     //    c   c   c 
@@ -133,6 +131,7 @@ class Chunk implements IhasBounds {
     private _vertexData = new VertexData();
 
     private _chunkMesh: Nullable<Mesh> = null;
+    private _newChunkMesh: Nullable<Mesh> = null;
         
     currentBounds: AxisAlignedBoxBound;
 
@@ -266,9 +265,9 @@ class Chunk implements IhasBounds {
             this._vertexData.indices as number[])
 
         if (extracted) {
-            if (this._chunkMesh == null) {
-                this._chunkMesh = new Mesh("custom", scene);
-                this._chunkMesh.name = this.toString();
+            if (this._newChunkMesh == null) {
+                this._newChunkMesh = new Mesh("custom");
+                this._newChunkMesh.name = this.toString();
                 const material = new StandardMaterial("meshMaterial", scene);
                 material.diffuseColor = new Color3(1, 0, 0);
                 Color3.HSVtoRGBToRef(Math.random() * 360, 0.5 + Math.random() / 2, 1, material.diffuseColor);
@@ -276,7 +275,7 @@ class Chunk implements IhasBounds {
                 material.emissiveColor.scale(0.5);
                 material.wireframe = true;
                 material.backFaceCulling = false;
-                this._chunkMesh.material = material;
+                this._newChunkMesh.material = material;
             }
 
             //Calculations of normals added
@@ -285,15 +284,22 @@ class Chunk implements IhasBounds {
             this._vertexData.normals = normals
 
             //Apply vertexData to custom mesh
-            this._vertexData.applyToMesh(this._chunkMesh, false)
+            this._vertexData.applyToMesh(this._newChunkMesh, false)
 
-            this._chunkMesh.isVisible = true;
-            if (this.box != null) {
-                this.box.isVisible = true;
-                this.box.name = this._chunkMesh.name + " box";
-            }
+            this._newChunkMesh.isVisible = false;
         }
         return extracted;
+    }
+
+    swapMeshes(scene: Scene) {
+        if (this._chunkMesh) {
+            this._chunkMesh.isVisible = false;
+            scene.removeMesh(this._chunkMesh);
+        }
+        if (this._newChunkMesh) {
+            this._newChunkMesh.isVisible = true;
+            scene.addMesh(this._newChunkMesh);
+        }
     }
 
     updateCurrentBounds() {
