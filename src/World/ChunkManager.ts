@@ -19,7 +19,7 @@ class ChunkManager {
     private _chunkFields = new Set<SignedDistanceField>();
     private _unionFields = new SdfUnion(this._chunkFields);
     private _dirtyChunks = new Set<Chunk>();
-    private _updateQueue = new LinkedList<Chunk>();
+    private _updateChunkQueue = new LinkedList<Chunk>();
    private _queuedFields = new Set<SignedDistanceField>();
     private _nextUpdateChunk: LinkedListNode<Chunk> | null = null;
 
@@ -48,59 +48,85 @@ class ChunkManager {
         this._queuedFields.add(field);
     }
 
-    updateDirtyChunks(scene: Scene) {
-        if (this._updateQueue.count == 0) {
-            for (const field of this._queuedFields) {
-                this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
-                // ensure all chunks within the fields current bounds are created and updated
-                this._createChunksForField(field, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
-                this._fieldTree.update(field, field.newBounds);
-                // ensure all chunks within the fields new bounds are created and updated
-                this._createChunksForField(field, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
-                this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
-            }
-            this._queuedFields.clear();
+    updateChangedMeshes(scene: Scene) {
+        if (this._updateChunkQueue.count == 0) {
+            this._processFieldChanges();
 
-            for (const chunk of this._dirtyChunks) {
-                this._updateQueue.append(chunk);
-            }
-            this._dirtyChunks.clear();
+            this._queueDirtyChunks();
         } 
 
-        const chunkFields = this._chunkFields;
-        if (this._nextUpdateChunk == null) {
-            this._nextUpdateChunk = this._updateQueue.first;
-            let updates = 50;
-            while (updates > 0 && this._nextUpdateChunk != null) {
-                const chunk = this._nextUpdateChunk.value;
-
-                chunkFields.clear();
-                this._fieldTree.getItemsInBox(chunk.currentBounds, chunkFields);
-                let emptyChunk = true;
-                if (chunkFields.size != 0) {
-                    emptyChunk = !chunk.updateMesh(this._unionFields, scene);
-                    updates--;
-                }
-
-                if (emptyChunk) {
-                    chunk.deleteMesh(scene);
-                    this._chunkTree.remove(chunk);
-                }
-                this._nextUpdateChunk = this._nextUpdateChunk.next;
+        if (this._updateChunkQueue.count > 0) {
+            const updateComplete = this._updateDirtyChunkMeshes();
+            if (updateComplete) {
+                this._showUpdatedMeshes(scene);
             }
         }
 
-        if (this._nextUpdateChunk == null) {
-            this._nextUpdateChunk = this._updateQueue.first;
-            while (this._nextUpdateChunk != null) {
-                const chunk = this._nextUpdateChunk.value;
-                chunk.swapMeshes(scene);
-                this._nextUpdateChunk = this._nextUpdateChunk.next;
-            }
-        }
 
     }
 
+
+    private _showUpdatedMeshes(scene: Scene) {
+        let chunkNode = this._updateChunkQueue.first;
+        while (chunkNode != null) {
+            const chunk = chunkNode.value;
+            chunk.swapMeshes(scene);
+            chunkNode = chunkNode.next;
+        }
+        this._updateChunkQueue.clear();
+        this._nextUpdateChunk = null;
+    }
+
+    private _updateDirtyChunkMeshes() {
+        const chunkFields = this._chunkFields;
+
+        let updates = 10;
+        while (updates > 0 && this._nextUpdateChunk != null) {
+            const chunk = this._nextUpdateChunk.value;
+
+            chunkFields.clear();
+            this._fieldTree.getItemsInBox(chunk.currentBounds, chunkFields);
+            let emptyChunk = true;
+            if (chunkFields.size != 0) {
+                emptyChunk = !chunk.updateMesh(this._unionFields);
+                updates--;
+            }
+
+            if (emptyChunk) {
+                chunk.deleteMesh();
+                this._chunkTree.remove(chunk);
+            }
+            this._nextUpdateChunk = this._nextUpdateChunk.next;
+        }
+
+        if (this._nextUpdateChunk == null) {
+            return true;
+        }
+    }
+
+    private _processFieldChanges() {
+        for (const field of this._queuedFields) {
+            // TODO do we need to update dirty chunks here?
+            this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
+            // ensure all chunks within the fields current bounds are created and updated
+            this._createChunksForField(field, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
+            field.commitUpdate();
+            this._fieldTree.update(field, field.newBounds);
+            // ensure all chunks within the fields new bounds are created and updated
+            this._createChunksForField(field, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
+            // TODO do we need to update dirty chunks here?
+            this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
+        }
+        this._queuedFields.clear();
+    }
+
+    private _queueDirtyChunks() {
+        for (const chunk of this._dirtyChunks) {
+            this._updateChunkQueue.append(chunk);
+        }
+        this._nextUpdateChunk = this._updateChunkQueue.first;
+        this._dirtyChunks.clear();
+    }
 
     private _createChunksForField(sdf: SignedDistanceField, minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number) {
         const voxels = 16;  //Math.max(8,1 << 31 - Math.clz32(32 - (chunkDist / 2)));

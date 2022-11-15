@@ -226,7 +226,7 @@ class Chunk implements IhasBounds {
     }
 
     createMesh(scene: Scene) {
-        this._chunkMesh = new Mesh("custom", scene);
+        this._newChunkMesh = new Mesh("custom", scene);
         const material = new StandardMaterial("meshMaterial", scene);
         material.diffuseColor = new Color3(1, 0, 0);
         Color3.HSVtoRGBToRef(Math.random() * 360, 0.5 + Math.random() / 2, 1, material.diffuseColor);
@@ -234,16 +234,17 @@ class Chunk implements IhasBounds {
         material.emissiveColor.scale(0.5);
         material.wireframe = true;
         material.backFaceCulling = false;
-        this._chunkMesh.material = material;
+        this._newChunkMesh.material = material;
         //Create a vertexData object
         this._vertexData.positions = [];
         this._vertexData.indices = [];
 
     }
 
-    deleteMesh(scene: Scene) {
-        if (this._chunkMesh) {
-            scene.removeMesh(this._chunkMesh)
+    deleteMesh() {
+        if (this._newChunkMesh) {
+            this._newChunkMesh.dispose();
+            this._newChunkMesh = null;
         }
     }
 
@@ -253,7 +254,7 @@ class Chunk implements IhasBounds {
         this._chunkMesh.material.wireframe = !this._chunkMesh?.material?.wireframe;
     }
 
-    updateMesh(field: SignedDistanceField, scene: Scene): boolean {
+    updateMesh(field: SignedDistanceField): boolean {
         //Create a vertexData object
         this._vertexData.positions = [];
         this._vertexData.indices = [];
@@ -265,18 +266,16 @@ class Chunk implements IhasBounds {
             this._vertexData.indices as number[])
 
         if (extracted) {
-            if (this._newChunkMesh == null) {
-                this._newChunkMesh = new Mesh("custom");
-                this._newChunkMesh.name = this.toString();
-                const material = new StandardMaterial("meshMaterial", scene);
-                material.diffuseColor = new Color3(1, 0, 0);
-                Color3.HSVtoRGBToRef(Math.random() * 360, 0.5 + Math.random() / 2, 1, material.diffuseColor);
-                material.emissiveColor.copyFrom(material.diffuseColor);
-                material.emissiveColor.scale(0.5);
-                material.wireframe = true;
-                material.backFaceCulling = false;
-                this._newChunkMesh.material = material;
-            }
+            this._newChunkMesh = new Mesh("custom");
+            this._newChunkMesh.name = this.toString();
+            const material = new StandardMaterial("meshMaterial");
+            material.diffuseColor = new Color3(1, 0, 0);
+            Color3.HSVtoRGBToRef(Math.random() * 360, 0.5 + Math.random() / 2, 1, material.diffuseColor);
+            material.emissiveColor.copyFrom(material.diffuseColor);
+            material.emissiveColor.scale(0.5);
+            material.wireframe = true;
+            material.backFaceCulling = false;
+            this._newChunkMesh.material = material;
 
             //Calculations of normals added
             VertexData.ComputeNormals(this._vertexData.positions, this._vertexData.indices, normals)
@@ -295,10 +294,14 @@ class Chunk implements IhasBounds {
         if (this._chunkMesh) {
             this._chunkMesh.isVisible = false;
             scene.removeMesh(this._chunkMesh);
+            this._chunkMesh.dispose();
+            this._chunkMesh = null;
         }
         if (this._newChunkMesh) {
             this._newChunkMesh.isVisible = true;
             scene.addMesh(this._newChunkMesh);
+            this._chunkMesh = this._newChunkMesh;
+            this._newChunkMesh = null;
         }
     }
 

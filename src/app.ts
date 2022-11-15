@@ -178,21 +178,21 @@ class App {
         // console.log("chunks count: " + count);
 
         scene.onBeforeAnimationsObservable.add((theScene) => {
-            field.copyPositionTo(fieldPosition)
+            field.copyPositionFrom(fieldPosition)
             if (!fieldPosition.equals(box.position))
             {
                 field.setPosition(box.position.x, box.position.y, box.position.z);
                 chunkManager.updateField(field);
             }
 
-            fieldTorus.copyPositionTo(fieldPosition)
+            fieldTorus.copyPositionFrom(fieldPosition)
             if (!fieldPosition.equals(box2.position))
             {
                 fieldTorus.setPosition(box2.position.x, box2.position.y, box2.position.z);
                 chunkManager.updateField(fieldTorus);
             }
 
-            chunkManager.updateDirtyChunks(scene,box.position);
+            chunkManager.updateChangedMeshes(scene);
         });
 
 

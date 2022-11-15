@@ -9,6 +9,12 @@ const transformedPoint: Vector3 = new Vector3();
 const NO_SCALING: Vector3 = Vector3.One();
 
 abstract class SignedDistanceField implements IhasBounds {
+
+    private _position: Vector3 = new Vector3;
+    private _newPosition: Vector3 = new Vector3;
+    private _rotation: Vector3 = new Vector3;
+    private _matrix: Matrix = new Matrix();
+    private _calcMatrix = true;
     currentBounds: SphereBound;
     newBounds: SphereBound;
     protected boundingRadius: number;
@@ -20,13 +26,13 @@ abstract class SignedDistanceField implements IhasBounds {
     }
 
     public setPosition(x: number, y: number, z: number) {
-        this._position.set(x, y, z);
+        this._newPosition.set(x, y, z);
         this.updateBounds();
         this._calcMatrix = true;
     }
 
-    copyPositionTo(position: Vector3) {
-        position.copyFrom(this._position);
+    copyPositionFrom(position: Vector3) {
+        position.copyFrom(this._newPosition);
     }
 
     public get rotation(): Vector3 {
@@ -37,11 +43,6 @@ abstract class SignedDistanceField implements IhasBounds {
         this._rotation.copyFrom(newRotation);
         this._calcMatrix = true;
     }
-
-    private _position: Vector3 = new Vector3;
-    private _rotation: Vector3 = new Vector3;
-    private _matrix: Matrix = new Matrix();
-    private _calcMatrix = true;
 
     transformPoint(point: Vector3): Vector3 {
         if (this._calcMatrix)
@@ -59,10 +60,15 @@ abstract class SignedDistanceField implements IhasBounds {
     abstract sample(point: Vector3): number;
 
     updateBounds(): void {
-        this.newBounds.set(this._position.x, this._position.y, this._position.z, this.boundingRadius);
+        this.newBounds.set(this._newPosition.x, this._newPosition.y, this._newPosition.z, this.boundingRadius);
         if (this.currentBounds.radius === 0) {
             this.currentBounds.copyFrom(this.newBounds);
+            this.commitUpdate();
         }   
+    }
+
+    commitUpdate() {
+        this._position.copyFrom(this._newPosition);
     }
 }
 
