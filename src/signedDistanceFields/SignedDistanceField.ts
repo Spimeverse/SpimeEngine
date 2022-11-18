@@ -28,7 +28,6 @@ abstract class SignedDistanceField implements IhasBounds {
     public setPosition(x: number, y: number, z: number) {
         this._newPosition.set(x, y, z);
         this.updateBounds();
-        this._calcMatrix = true;
     }
 
     copyPositionFrom(position: Vector3) {
@@ -69,6 +68,8 @@ abstract class SignedDistanceField implements IhasBounds {
 
     commitUpdate() {
         this._position.copyFrom(this._newPosition);
+        this.updateBounds();
+        this._calcMatrix = true;
     }
 }
 

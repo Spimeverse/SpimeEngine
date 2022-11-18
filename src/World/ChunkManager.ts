@@ -12,7 +12,7 @@ const nearbyChunks = new Set<Chunk>();
 const chunkOrigin = new Vector3();
 
 class ChunkManager {
-    private _origin: Vector3 = new Vector3();
+    private _viewOrigin: Vector3 = new Vector3();
     private _worldBounds: AxisAlignedBoxBound;
     private _chunkTree: SparseOctTree<Chunk>;
     private _fieldTree: SparseOctTree<SignedDistanceField>;
@@ -30,7 +30,7 @@ class ChunkManager {
      }
     
     setViewOrigin(origin: Vector3) {
-        this._origin.copyFrom(origin);
+        this._viewOrigin.copyFrom(origin);
     }
 
     getChunks(chunks: Set<Chunk>) {
@@ -106,11 +106,13 @@ class ChunkManager {
 
     private _processFieldChanges() {
         for (const field of this._queuedFields) {
+            field.commitUpdate();
+        }
+        for (const field of this._queuedFields) {
             // TODO do we need to update dirty chunks here?
             this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
             // ensure all chunks within the fields current bounds are created and updated
             this._createChunksForField(field, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
-            field.commitUpdate();
             this._fieldTree.update(field, field.newBounds);
             // ensure all chunks within the fields new bounds are created and updated
             this._createChunksForField(field, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
@@ -140,10 +142,10 @@ class ChunkManager {
 
         const chunkExtent = chunkBounds.extent;
         // note chunkDist will be negative if origin is inside the chunk
-        const chunkDist = chunkBounds.distanceTo(this._origin);
+        const chunkDist = chunkBounds.distanceTo(this._viewOrigin);
 
         const scalingFactor = 0.50741;
-        const targetSize = Math.max(chunkDist * scalingFactor,2);
+        const targetSize = Math.max(chunkDist * scalingFactor,3);
         
         const viewPointInChunk = chunkDist < 0;
         // use larger chunks further away
@@ -170,6 +172,9 @@ class ChunkManager {
             const extent = chunkBounds.extent;
             // use fewer voxels per chunk further away
             newChunk.setSize({ x: extent, y: extent, z: extent }, extent / voxels);
+
+            newChunk.setTargetSize(targetSize);
+            newChunk.setViewOrigin(this._viewOrigin);
 
 
             newChunk.updateCurrentBounds();

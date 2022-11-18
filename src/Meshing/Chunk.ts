@@ -42,8 +42,6 @@ const normals = new Array<number>();
  * Doesn't actually reference the array itself
  */
 class Chunk implements IhasBounds {
-
-
     //  X   X   X   X
     //    c   c   c 
     //  X   X   X   X
@@ -132,6 +130,10 @@ class Chunk implements IhasBounds {
 
     private _chunkMesh: Nullable<Mesh> = null;
     private _newChunkMesh: Nullable<Mesh> = null;
+
+    private _viewOrigin: Vector3 = new Vector3();
+    private _targetSize = 0;
+
         
     currentBounds: AxisAlignedBoxBound;
 
@@ -165,6 +167,15 @@ class Chunk implements IhasBounds {
         
         this._updateOverlap(1);
     }
+
+    setViewOrigin(viewOrigin: Vector3) {
+        this._viewOrigin.copyFrom(viewOrigin);
+    }
+    
+    setTargetSize(targetSize: number) {
+        this._targetSize = targetSize;
+    }
+
 
     private _updateOverlap(overlap: number) {
         this._overlap = overlap;

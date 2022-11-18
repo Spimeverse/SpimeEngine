@@ -104,7 +104,7 @@ class App {
 
         const box = MeshBuilder.CreateBox("box", {size:6}, scene);
         const boxMaterial = new StandardMaterial("boxMaterial", scene);
-        box.position.x = -37.902;
+        box.position.x = -8.792;
         box.position.y = 3.181;
         box.position.z = 4.000;
         boxMaterial.diffuseColor = new Color3(1,0,0);
@@ -142,7 +142,7 @@ class App {
         //chunkManager.addField(fieldSphere);
         chunkManager.addField(field);
         chunkManager.addField(fieldTorus);
-        //chunkManager.addField(fieldBig);
+        chunkManager.addField(fieldBig);
 
         /*
         const chunk1 = new Chunk();
