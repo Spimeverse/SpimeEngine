@@ -137,7 +137,8 @@ class App {
         // const unionField = new SdfUnion([field,fieldSphere]);
 
         const chunkManager = new ChunkManager();
-        chunkManager.setViewOrigin(new Vector3(0,0,0));
+        const viewOrigin = new Vector3(0,0,0)
+        chunkManager.setViewOrigin(viewOrigin);
 
         //chunkManager.addField(fieldSphere);
         chunkManager.addField(field);
@@ -178,18 +179,22 @@ class App {
         // console.log("chunks count: " + count);
 
         scene.onBeforeAnimationsObservable.add((theScene) => {
-            field.copyPositionFrom(fieldPosition)
-            if (!fieldPosition.equals(box.position))
+            if (!field.positionEquals(box.position))
             {
                 field.setPosition(box.position.x, box.position.y, box.position.z);
                 chunkManager.updateField(field);
             }
 
-            fieldTorus.copyPositionFrom(fieldPosition)
-            if (!fieldPosition.equals(box2.position))
+            if (!fieldTorus.positionEquals(box2.position))
             {
                 fieldTorus.setPosition(box2.position.x, box2.position.y, box2.position.z);
                 chunkManager.updateField(fieldTorus);
+            }
+
+            if (!marker.position.equals(viewOrigin))
+            {
+                viewOrigin.copyFrom(marker.position);
+                chunkManager.setViewOrigin(viewOrigin);
             }
 
             chunkManager.updateChangedMeshes(scene);

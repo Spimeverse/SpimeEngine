@@ -13,6 +13,7 @@ const q = new Vector2();
 const pxz = new Vector2();
 
 class SdfTorus extends SignedDistanceField {
+
     ringRadius: number;
     thickness: number;
 

@@ -42,50 +42,7 @@ const normals = new Array<number>();
  * Doesn't actually reference the array itself
  */
 class Chunk implements IhasBounds {
-    //  X   X   X   X
-    //    c   c   c 
-    //  X   X   X   X
-    //    c   c   c
-    //  X   X   X   X
-    //    c   c   c
-    //  X   X   X   X
-    //
-    // one more voxel needed to cover overlap with next chunk
-    // so points = subdivisions + 2;
-    
-    copyOriginTo(destination: Vector3) {
-        destination.copyFrom(this._origin);
-    }
-
-    copyWorldSizeTo(destination: Vector3) {
-        destination.copyFrom(this._worldSize);
-    }
-
-    copyVoxelRangeTo(destination: Vector3) {
-        destination.copyFrom(this._voxelRange);
-    }
-
-    getNumSamples(): number {
-        return this._numSamples;
-    }
-
-    getVoxelSize(): number {
-        return this._voxelSize;
-    }
-
-    getBorderScale(): number {
-        return this._borderScale;
-    }
-
-    getBorderSeams(): number {
-        return this._borderSeams;
-    }
-
-    isAtSamePositionAs(newChunk: Chunk): boolean {
-        return this._origin.equals(newChunk._origin);
-    }
-
-    /**
+        /**
      * the extent of the chunk in world coordinate space
      */
     private _worldSize = new Vector3();
@@ -130,11 +87,59 @@ class Chunk implements IhasBounds {
 
     private _chunkMesh: Nullable<Mesh> = null;
     private _newChunkMesh: Nullable<Mesh> = null;
+    private _markedForRemoval = false;
 
-    private _viewOrigin: Vector3 = new Vector3();
-    private _targetSize = 0;
+    //  X   X   X   X
+    //    c   c   c 
+    //  X   X   X   X
+    //    c   c   c
+    //  X   X   X   X
+    //    c   c   c
+    //  X   X   X   X
+    //
+    // one more voxel needed to cover overlap with next chunk
+    // so points = subdivisions + 2;
+    
+    copyOriginTo(destination: Vector3) {
+        destination.copyFrom(this._origin);
+    }
 
-        
+    copyWorldSizeTo(destination: Vector3) {
+        destination.copyFrom(this._worldSize);
+    }
+
+    copyVoxelRangeTo(destination: Vector3) {
+        destination.copyFrom(this._voxelRange);
+    }
+
+    getNumSamples(): number {
+        return this._numSamples;
+    }
+
+    getVoxelSize(): number {
+        return this._voxelSize;
+    }
+
+    getBorderScale(): number {
+        return this._borderScale;
+    }
+
+    getBorderSeams(): number {
+        return this._borderSeams;
+    }
+
+    isAtSamePositionAs(newChunk: Chunk): boolean {
+        return this._origin.equals(newChunk._origin);
+    }
+
+    markForRemoval() {
+        this._markedForRemoval = true;
+    }
+
+    isMarkedForRemoval() {
+        return this._markedForRemoval;
+    }
+
     currentBounds: AxisAlignedBoxBound;
 
     constructor () {
@@ -167,15 +172,6 @@ class Chunk implements IhasBounds {
         
         this._updateOverlap(1);
     }
-
-    setViewOrigin(viewOrigin: Vector3) {
-        this._viewOrigin.copyFrom(viewOrigin);
-    }
-    
-    setTargetSize(targetSize: number) {
-        this._targetSize = targetSize;
-    }
-
 
     private _updateOverlap(overlap: number) {
         this._overlap = overlap;

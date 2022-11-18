@@ -1,5 +1,5 @@
 import { Vector3,Scene } from "@babylonjs/core";
-import { AxisAlignedBoxBound } from "./Bounds";
+import { AxisAlignedBoxBound, SphereBound, Bounds } from "./Bounds";
 import { SignedDistanceField, Chunk } from "..";
 import { SparseOctTree } from "."
 import { SdfUnion } from "..";
@@ -19,18 +19,62 @@ class ChunkManager {
     private _chunkFields = new Set<SignedDistanceField>();
     private _unionFields = new SdfUnion(this._chunkFields);
     private _dirtyChunks = new Set<Chunk>();
+    private _rescaleChunks = new Set<Chunk>();
     private _updateChunkQueue = new LinkedList<Chunk>();
-   private _queuedFields = new Set<SignedDistanceField>();
+    private _queuedFields = new Set<SignedDistanceField>();
     private _nextUpdateChunk: LinkedListNode<Chunk> | null = null;
+    private _viewOriginUpdates: Vector3[] = [];
 
     constructor() {
         this._worldBounds = new AxisAlignedBoxBound(-halfWorld,-halfWorld,-halfWorld,halfWorld,halfWorld,halfWorld)
         this._chunkTree = new SparseOctTree<Chunk>(this._worldBounds, 32, 4);
         this._fieldTree = new SparseOctTree<SignedDistanceField>(this._worldBounds, 32, 4);
+        for (let scale = 1; scale <= worldSize; scale *= 2) {
+            this._viewOriginUpdates.push(new Vector3());
+        }
      }
     
+
     setViewOrigin(origin: Vector3) {
         this._viewOrigin.copyFrom(origin);
+    }
+
+    private static _viewDelta = new Vector3();
+    private static _viewDeltaBounds = new SphereBound(0, 0, 0, 0);
+
+    private _checkIfViewOriginChangesChunkScales() {
+        const viewDelta = ChunkManager._viewDelta;
+        let scale = worldSize;
+        let i = 0;
+        for (let i = this._viewOriginUpdates.length - 1; i >= 0; i--) {
+            viewDelta.copyFrom(this._viewOrigin);
+            viewDelta.subtractInPlace(this._viewOriginUpdates[i]);
+            if (viewDelta.length() > scale / 2) {
+                this._viewOriginUpdates[i].copyFrom(this._viewOrigin);
+                ChunkManager._viewDeltaBounds.set(this._viewOrigin.x, this._viewOrigin.y, this._viewOrigin.z, scale);
+                this._chunkTree.getItemsInSphere(ChunkManager._viewDeltaBounds, this._rescaleChunks);
+                break;
+            }
+            scale /= 2;
+        }
+        // reset all smaller view deltas
+        if (this._rescaleChunks.size > 0) {
+            for (; i >= 0; i--) {
+                this._viewOriginUpdates[i].copyFrom(this._viewOrigin);
+            }
+        }
+        // examine chunks that have changed scale
+        for (const chunk of this._rescaleChunks) {
+            const chunkDist = chunk.currentBounds.distanceTo(this._viewOrigin);
+            const targetSize = this._targetChunkSizeForDistance(chunkDist);
+            // round target size to nearest power of 2
+            const targetScale = Math.pow(2, Math.round(Math.log2(targetSize)));
+            if (chunk.currentBounds.extent != targetScale) {
+                chunk.markForRemoval();
+                this._dirtyChunks.add(chunk);
+                this._createChunksForBounds(chunk.currentBounds, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
+            }
+        }
     }
 
     getChunks(chunks: Set<Chunk>) {
@@ -38,8 +82,9 @@ class ChunkManager {
     }
 
     addField(field: SignedDistanceField) {
-        // subdivide chunk bounds until it is smaller than the distance to the sdf
-        this._createChunksForField(field, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
+        // TODO add and update field could be one function?
+        // do we need to do anything with the field tree at this point?
+        this._createChunksForBounds(field.currentBounds, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
         this._fieldTree.insert(field);
         this._queuedFields.add(field);
     }
@@ -50,6 +95,8 @@ class ChunkManager {
 
     updateChangedMeshes(scene: Scene) {
         if (this._updateChunkQueue.count == 0) {
+            this._checkIfViewOriginChangesChunkScales();
+
             this._processFieldChanges();
 
             this._queueDirtyChunks();
@@ -61,8 +108,6 @@ class ChunkManager {
                 this._showUpdatedMeshes(scene);
             }
         }
-
-
     }
 
 
@@ -84,12 +129,15 @@ class ChunkManager {
         while (updates > 0 && this._nextUpdateChunk != null) {
             const chunk = this._nextUpdateChunk.value;
 
-            chunkFields.clear();
-            this._fieldTree.getItemsInBox(chunk.currentBounds, chunkFields);
             let emptyChunk = true;
-            if (chunkFields.size != 0) {
-                emptyChunk = !chunk.updateMesh(this._unionFields);
-                updates--;
+
+            if (!chunk.isMarkedForRemoval()) {
+                chunkFields.clear();
+                this._fieldTree.getItemsInBox(chunk.currentBounds, chunkFields);
+                if (chunkFields.size != 0) {
+                    emptyChunk = !chunk.updateMesh(this._unionFields);
+                    updates--;
+                }
             }
 
             if (emptyChunk) {
@@ -112,10 +160,10 @@ class ChunkManager {
             // TODO do we need to update dirty chunks here?
             this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
             // ensure all chunks within the fields current bounds are created and updated
-            this._createChunksForField(field, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
+            this._createChunksForBounds(field.currentBounds, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
             this._fieldTree.update(field, field.newBounds);
             // ensure all chunks within the fields new bounds are created and updated
-            this._createChunksForField(field, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
+            this._createChunksForBounds(field.currentBounds, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
             // TODO do we need to update dirty chunks here?
             this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
         }
@@ -130,12 +178,12 @@ class ChunkManager {
         this._dirtyChunks.clear();
     }
 
-    private _createChunksForField(sdf: SignedDistanceField, minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number) {
+    private _createChunksForBounds(bounds: Bounds, minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number) {
         const voxels = 16;  //Math.max(8,1 << 31 - Math.clz32(32 - (chunkDist / 2)));
 
         // fast rejection, compare chunk bounds to sdf bounds
         chunkBounds.set(minX, minY, minZ, maxX, maxY, maxZ);
-        if (!chunkBounds.overlapSphere(sdf.currentBounds)) {
+        if (!chunkBounds.overlaps(bounds)) {
             // sdf does not overlap chunk bounds so skip it
             return;
         }
@@ -144,8 +192,7 @@ class ChunkManager {
         // note chunkDist will be negative if origin is inside the chunk
         const chunkDist = chunkBounds.distanceTo(this._viewOrigin);
 
-        const scalingFactor = 0.50741;
-        const targetSize = Math.max(chunkDist * scalingFactor,3);
+        const targetSize = this._targetChunkSizeForDistance(chunkDist);
         
         const viewPointInChunk = chunkDist < 0;
         // use larger chunks further away
@@ -155,14 +202,14 @@ class ChunkManager {
             const middleX = minX + halfExtent;
             const middleY = minY + halfExtent;
             const middleZ = minZ + halfExtent;
-            this._createChunksForField(sdf, minX, minY, minZ, middleX, middleY, middleZ);
-            this._createChunksForField(sdf, middleX, minY, minZ, maxX, middleY, middleZ);
-            this._createChunksForField(sdf, minX, middleY, minZ, middleX, maxY, middleZ);
-            this._createChunksForField(sdf, middleX, middleY, minZ, maxX, maxY, middleZ);
-            this._createChunksForField(sdf, minX, minY, middleZ, middleX, middleY, maxZ);
-            this._createChunksForField(sdf, middleX, minY, middleZ, maxX, middleY, maxZ);
-            this._createChunksForField(sdf, minX, middleY, middleZ, middleX, maxY, maxZ);
-            this._createChunksForField(sdf, middleX, middleY, middleZ, maxX, maxY, maxZ);
+            this._createChunksForBounds(bounds, minX, minY, minZ, middleX, middleY, middleZ);
+            this._createChunksForBounds(bounds, middleX, minY, minZ, maxX, middleY, middleZ);
+            this._createChunksForBounds(bounds, minX, middleY, minZ, middleX, maxY, middleZ);
+            this._createChunksForBounds(bounds, middleX, middleY, minZ, maxX, maxY, middleZ);
+            this._createChunksForBounds(bounds, minX, minY, middleZ, middleX, middleY, maxZ);
+            this._createChunksForBounds(bounds, middleX, minY, middleZ, maxX, middleY, maxZ);
+            this._createChunksForBounds(bounds, minX, middleY, middleZ, middleX, maxY, maxZ);
+            this._createChunksForBounds(bounds, middleX, middleY, middleZ, maxX, maxY, maxZ);
         }
         else {
             // chunk bounds is smaller than the target scale, so add the sdf to this chunk
@@ -172,10 +219,6 @@ class ChunkManager {
             const extent = chunkBounds.extent;
             // use fewer voxels per chunk further away
             newChunk.setSize({ x: extent, y: extent, z: extent }, extent / voxels);
-
-            newChunk.setTargetSize(targetSize);
-            newChunk.setViewOrigin(this._viewOrigin);
-
 
             newChunk.updateCurrentBounds();
 
@@ -211,6 +254,12 @@ class ChunkManager {
         }
     }
 
+
+    private _targetChunkSizeForDistance(chunkDist: number) {
+        const scalingFactor = 0.50741;
+        const targetSize = Math.max(chunkDist * scalingFactor, 3);
+        return targetSize;
+    }
 }
 
 export { ChunkManager };

@@ -34,6 +34,10 @@ abstract class SignedDistanceField implements IhasBounds {
         position.copyFrom(this._newPosition);
     }
 
+    positionEquals(position: Vector3): boolean {
+        return this._newPosition.equals(position);
+    }
+
     public get rotation(): Vector3 {
         return this._rotation;
     }
