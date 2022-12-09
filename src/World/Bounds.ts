@@ -11,16 +11,16 @@ enum BoundTypes {
 }
 
 abstract class Bounds {
-    copyFrom(newBounds: Bounds) {
+    copy(newBounds: Bounds) {
         if (newBounds.boundType !== this.boundType) {
             throw new Error("Bounds.copyFrom: newBounds.boundType !== this.boundType");
         }
         else {
             if (this.boundType == BoundTypes.sphereBound) {
-                (this as unknown as SphereBound).copyFrom(newBounds as SphereBound);
+                (this as unknown as SphereBound).copy(newBounds as SphereBound);
             }
             else if (this.boundType == BoundTypes.axisAlignedBoxBound) {
-                (this as unknown as AxisAlignedBoxBound).copyFrom(newBounds as AxisAlignedBoxBound);
+                (this as unknown as AxisAlignedBoxBound).copy(newBounds as AxisAlignedBoxBound);
             }
             else
                 throw new Error("Bounds.copyFrom: unknown bound type");
@@ -78,7 +78,7 @@ class SphereBound extends Bounds {
         this.radiusSquared = radius * radius;
     }
 
-    copyFrom(newBounds: SphereBound) {
+    copy(newBounds: SphereBound) {
         this.xPos = newBounds.xPos;
         this.yPos = newBounds.yPos;
         this.zPos = newBounds.zPos;

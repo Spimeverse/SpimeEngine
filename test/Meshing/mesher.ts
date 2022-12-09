@@ -35,7 +35,7 @@ export function TestMesher()
         const field = new SdfBox(4.5,4.5,4.5)
         const chunk = new Chunk();
         chunk.setSize({x:24,y:24,z:24},3);
-        chunk.setOrigin({x:-12,y:-12,z:-12});
+        chunk.setPosition({x:-12,y:-12,z:-12});
         const meshVerticies: number[] = [];
         const meshFaces: number[] = [];
         ExtractSurface(chunk,field,meshVerticies,meshFaces);

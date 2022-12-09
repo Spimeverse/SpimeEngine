@@ -9,10 +9,12 @@ const chunkBounds = new AxisAlignedBoxBound(0, 0, 0, 0, 0, 0);
 const worldSize = 16384;
 const halfWorld = worldSize / 2;
 const nearbyChunks = new Set<Chunk>();
-const chunkOrigin = new Vector3();
+const chunkPosition = new Vector3();
+let maxUpdatesPerFrame = 10000;
 
 class ChunkManager {
     private _viewOrigin: Vector3 = new Vector3();
+    private _newOrigin: Vector3 = new Vector3();
     private _worldBounds: AxisAlignedBoxBound;
     private _chunkTree: SparseOctTree<Chunk>;
     private _fieldTree: SparseOctTree<SignedDistanceField>;
@@ -21,58 +23,95 @@ class ChunkManager {
     private _dirtyChunks = new Set<Chunk>();
     private _rescaleChunks = new Set<Chunk>();
     private _updateChunkQueue = new LinkedList<Chunk>();
-    private _queuedFields = new Set<SignedDistanceField>();
+    private _changedFields = new Set<SignedDistanceField>();
     private _nextUpdateChunk: LinkedListNode<Chunk> | null = null;
     private _viewOriginUpdates: Vector3[] = [];
+    private _updatesPending = false;
 
     constructor() {
         this._worldBounds = new AxisAlignedBoxBound(-halfWorld,-halfWorld,-halfWorld,halfWorld,halfWorld,halfWorld)
         this._chunkTree = new SparseOctTree<Chunk>(this._worldBounds, 32, 4);
         this._fieldTree = new SparseOctTree<SignedDistanceField>(this._worldBounds, 32, 4);
-        for (let scale = 1; scale <= worldSize; scale *= 2) {
+        let scale = worldSize;
+        while (scale >= 1) {
             this._viewOriginUpdates.push(new Vector3());
+            scale /= 2;
         }
      }
     
 
     setViewOrigin(origin: Vector3) {
-        this._viewOrigin.copyFrom(origin);
+        this._newOrigin.copyFrom(origin);
+        if (this._chunkTree.rootNode.totalItems === 0) {
+            this._viewOrigin.copyFrom(origin);
+            for (let i = 0; i < this._viewOriginUpdates.length; i++) {
+                this._viewOriginUpdates[i].copyFrom(origin);
+            }
+        }
     }
 
     private static _viewDelta = new Vector3();
-    private static _viewDeltaBounds = new SphereBound(0, 0, 0, 0);
+    private static _viewDeltaBounds = new AxisAlignedBoxBound(0, 0, 0, 0, 0, 0);
 
     private _checkIfViewOriginChangesChunkScales() {
+
+        if (this._newOrigin.equals(this._viewOrigin))
+            return;
+ 
         const viewDelta = ChunkManager._viewDelta;
         let scale = worldSize;
-        let i = 0;
-        for (let i = this._viewOriginUpdates.length - 1; i >= 0; i--) {
-            viewDelta.copyFrom(this._viewOrigin);
+        let i = this._viewOriginUpdates.length - 1;
+        while (scale >= 1) {
+            viewDelta.copyFrom(this._newOrigin);
             viewDelta.subtractInPlace(this._viewOriginUpdates[i]);
             if (viewDelta.length() > scale / 2) {
-                this._viewOriginUpdates[i].copyFrom(this._viewOrigin);
-                ChunkManager._viewDeltaBounds.set(this._viewOrigin.x, this._viewOrigin.y, this._viewOrigin.z, scale);
-                this._chunkTree.getItemsInSphere(ChunkManager._viewDeltaBounds, this._rescaleChunks);
+                this._viewOriginUpdates[i].copyFrom(this._newOrigin);
                 break;
             }
             scale /= 2;
+            i--;
         }
         // reset all smaller view deltas
-        if (this._rescaleChunks.size > 0) {
-            for (; i >= 0; i--) {
-                this._viewOriginUpdates[i].copyFrom(this._viewOrigin);
-            }
+        while (i >= 0) {
+            this._viewOriginUpdates[i].copyFrom(this._newOrigin);
+            i--;
         }
-        // examine chunks that have changed scale
-        for (const chunk of this._rescaleChunks) {
-            const chunkDist = chunk.currentBounds.distanceTo(this._viewOrigin);
-            const targetSize = this._targetChunkSizeForDistance(chunkDist);
-            // round target size to nearest power of 2
-            const targetScale = Math.pow(2, Math.round(Math.log2(targetSize)));
-            if (chunk.currentBounds.extent != targetScale) {
-                chunk.markForRemoval();
-                this._dirtyChunks.add(chunk);
-                this._createChunksForBounds(chunk.currentBounds, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
+
+        if (scale > 1) {
+            this._rescaleChunks.clear();
+            ChunkManager._viewDeltaBounds.set(
+                this._viewOrigin.x - scale, this._viewOrigin.y - scale, this._viewOrigin.z - scale,
+                this._viewOrigin.x + scale, this._viewOrigin.y + scale, this._viewOrigin.z + scale);
+            this._chunkTree.getItemsInBox(ChunkManager._viewDeltaBounds, this._rescaleChunks);
+            // console.log("old bounds", ChunkManager._viewDeltaBounds.toString(),
+            //     "view origin", this._viewOrigin.toString(),
+            //     "rescale chunks", this._rescaleChunks.size);
+
+            ChunkManager._viewDeltaBounds.set(
+                this._newOrigin.x - scale, this._newOrigin.y - scale, this._newOrigin.z - scale,
+                this._newOrigin.x + scale, this._newOrigin.y + scale, this._newOrigin.z + scale);
+            this._chunkTree.getItemsInBox(ChunkManager._viewDeltaBounds, this._rescaleChunks);
+            // console.log("new bounds", ChunkManager._viewDeltaBounds.toString(),
+            //     "new origin", this._newOrigin.toString(),
+            //     "rescale chunks", this._rescaleChunks.size);
+
+            this._viewOrigin.copyFrom(this._newOrigin);
+
+            // examine chunks that have changed scale
+            for (const chunk of this._rescaleChunks) {
+                const chunkDist = chunk.currentBounds.distanceTo(this._viewOrigin);
+                const targetSize = Math.max(this._targetChunkSizeForDistance(chunkDist),3);
+                // round target size down to nearest power of 2
+                const targetScale = Math.pow(2, Math.floor(Math.log2(targetSize)));
+
+                //console.log("rescale, ",chunk.currentBounds.extent != targetScale,"chunk, ", chunk.toString(), " extent, ", chunk.currentBounds.extent, " target scale, ", targetScale);
+                if (chunk.currentBounds.extent != targetScale) {
+                    // console.log("rescale chunk", chunk.toString(), chunk.currentBounds.extent, targetScale);
+                    chunk.markForRemoval();
+                    console.log("MFR chunk, rescale", chunk.toString());
+                    this._dirtyChunks.add(chunk);
+                    this._createChunksForBounds(chunk.currentBounds, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld, scale / 2);
+                }
             }
         }
     }
@@ -86,26 +125,36 @@ class ChunkManager {
         // do we need to do anything with the field tree at this point?
         this._createChunksForBounds(field.currentBounds, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
         this._fieldTree.insert(field);
-        this._queuedFields.add(field);
+        this._changedFields.add(field);
     }
 
     updateField(field: SignedDistanceField) {
-        this._queuedFields.add(field);
+        this._changedFields.add(field);
     }
 
+    static debugUpdates = 2;
+
     updateChangedMeshes(scene: Scene) {
-        if (this._updateChunkQueue.count == 0) {
+        if (!this._updatesPending) {
             this._checkIfViewOriginChangesChunkScales();
 
             this._processFieldChanges();
 
             this._queueDirtyChunks();
+
+            if (this._updateChunkQueue.count != 0) {
+                this._updatesPending = true;
+                console.log("updateChangedMeshes", this._updateChunkQueue.count);
+            }
         } 
 
         if (this._updateChunkQueue.count > 0) {
-            const updateComplete = this._updateDirtyChunkMeshes();
+            const updateComplete = this._updateDirtyChunkMeshes(scene);
             if (updateComplete) {
                 this._showUpdatedMeshes(scene);
+
+                maxUpdatesPerFrame = 10;
+                this._updatesPending = false;
             }
         }
     }
@@ -116,22 +165,27 @@ class ChunkManager {
         while (chunkNode != null) {
             const chunk = chunkNode.value;
             chunk.swapMeshes(scene);
+            if (chunk.isMarkedForRemoval()) {
+                this._chunkTree.remove(chunk);
+                console.log("remove chunk", chunk.toString());
+            }
             chunkNode = chunkNode.next;
         }
         this._updateChunkQueue.clear();
         this._nextUpdateChunk = null;
     }
 
-    private _updateDirtyChunkMeshes() {
+    private _updateDirtyChunkMeshes(scene: Scene): boolean {
         const chunkFields = this._chunkFields;
 
-        let updates = 10;
+        let updates = maxUpdatesPerFrame;
         while (updates > 0 && this._nextUpdateChunk != null) {
             const chunk = this._nextUpdateChunk.value;
 
             let emptyChunk = true;
 
             if (!chunk.isMarkedForRemoval()) {
+                this._checkBordersWithNeighbours(chunk);
                 chunkFields.clear();
                 this._fieldTree.getItemsInBox(chunk.currentBounds, chunkFields);
                 if (chunkFields.size != 0) {
@@ -141,8 +195,8 @@ class ChunkManager {
             }
 
             if (emptyChunk) {
-                chunk.deleteMesh();
-                this._chunkTree.remove(chunk);
+                chunk.markForRemoval();
+                console.log("MFR chunk, empty", chunk.toString());
             }
             this._nextUpdateChunk = this._nextUpdateChunk.next;
         }
@@ -150,13 +204,26 @@ class ChunkManager {
         if (this._nextUpdateChunk == null) {
             return true;
         }
+        return false;
+    }
+
+    private _checkBordersWithNeighbours(chunk: Chunk) {
+        chunkBounds.copy(chunk.currentBounds);
+        chunkBounds.expandByScalar(0.1);
+        nearbyChunks.clear();
+        this._chunkTree.getItemsInBox(chunkBounds, nearbyChunks);
+        for (const nearChunk of nearbyChunks) {
+            if (!nearChunk.isMarkedForRemoval()) {
+                chunk.updateSharedBorders(nearChunk);
+            }
+        }
     }
 
     private _processFieldChanges() {
-        for (const field of this._queuedFields) {
+        for (const field of this._changedFields) {
             field.commitUpdate();
         }
-        for (const field of this._queuedFields) {
+        for (const field of this._changedFields) {
             // TODO do we need to update dirty chunks here?
             this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
             // ensure all chunks within the fields current bounds are created and updated
@@ -167,11 +234,12 @@ class ChunkManager {
             // TODO do we need to update dirty chunks here?
             this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
         }
-        this._queuedFields.clear();
+        this._changedFields.clear();
     }
 
     private _queueDirtyChunks() {
         for (const chunk of this._dirtyChunks) {
+            chunk.resetBorders();
             this._updateChunkQueue.append(chunk);
         }
         this._nextUpdateChunk = this._updateChunkQueue.first;
@@ -214,7 +282,7 @@ class ChunkManager {
         else {
             // chunk bounds is smaller than the target scale, so add the sdf to this chunk
             const newChunk = new Chunk();
-            newChunk.setOrigin({ x: chunkBounds.minX, y: chunkBounds.minY, z: chunkBounds.minZ });
+            newChunk.setPosition({ x: chunkBounds.minX, y: chunkBounds.minY, z: chunkBounds.minZ });
             
             const extent = chunkBounds.extent;
             // use fewer voxels per chunk further away
@@ -230,25 +298,39 @@ class ChunkManager {
             // ];
             // if (!chunks.find(x => newChunk.toString() === x))
             //     return;
+            // const testBounds = new AxisAlignedBoxBound(-16, -16, 16, -8, -8, 24);
+            // if (!newChunk.currentBounds.overlaps(testBounds))
+            //     return;
 
             const expandBy = newChunk.getVoxelSize() * 2;
             chunkBounds.expandByScalar(expandBy);
             nearbyChunks.clear();
             this._chunkTree.getItemsInBox(chunkBounds, nearbyChunks);
-            for (const chunk of nearbyChunks) {
-                               
-                chunk.copyOriginTo(chunkOrigin);
-                if (chunk.isAtSamePositionAs(newChunk)) {
-                    // chunk already exists, so skip it
-                    return;
-                }
-                else
-                {                  
-                    chunk.updateSharedBorders(newChunk);
+            for (const nearChunk of nearbyChunks) {
+                if (!nearChunk.isMarkedForRemoval()) {
+                    if (nearChunk.currentBounds.overlaps(newChunk.currentBounds)) {
+                        if (nearChunk.currentBounds.extent == newChunk.currentBounds.extent &&
+                            nearChunk.isAtSamePositionAs(newChunk)) {
+                            // new chunk is same as existing chunk, so skip it
+                            return;
+                        }
+                        else {
+                            // mark existing chunk for removal
+                            nearChunk.markForRemoval();
+                            console.log('  MFR overlap chunk,',nearChunk.toString());
+                            this._dirtyChunks.add(nearChunk);
+                        }
+                    }
+                    else {
+                        // mark any close by chunks as dirty in case their borders need to be updated
+                        this._dirtyChunks.add(nearChunk);
+                    }
+                    
                 }
             }
             chunkBounds.expandByScalar(-expandBy);
 
+            console.log('  Creating chunk,',newChunk.toString());
             this._chunkTree.insert(newChunk);
             this._dirtyChunks.add(newChunk);
         }

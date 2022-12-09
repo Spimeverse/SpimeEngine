@@ -50,9 +50,9 @@ class App {
         // This creates and positions a free camera (non-mesh)
         const camera = new ArcRotateCamera(
             "camera",
-            -Math.PI / 4,
-            Math.PI / 4,
-            15,
+            0.6, //-Math.PI / 4,
+            1, //Math.PI / 4,
+            93,
             new Vector3(0, 0, 0),
             scene
         );
@@ -94,9 +94,9 @@ class App {
         });
 
         const marker = MeshBuilder.CreateSphere("marker", {diameter:1}, scene);
-        marker.position.x = 0 ;
+        marker.position.x = 0;
         marker.position.y = 0;
-        marker.position.z = 0;
+        marker.position.z = 40;
         const markerMaterial = new StandardMaterial("markerMaterial", scene);
         markerMaterial.wireframe = true;
         markerMaterial.diffuseColor = new Color3(1,1,0);
@@ -112,7 +112,7 @@ class App {
         box.material = boxMaterial;
         box.isVisible = true;
 
-        camera.setTarget(marker.position.clone());
+        camera.setTarget(new Vector3(0,0,-40));
 
         const box2 = MeshBuilder.CreateBox("box2", {size:6}, scene);
         box2.position.x = -13.9;
@@ -121,8 +121,8 @@ class App {
         boxMaterial2.wireframe = true;
         box2.material = boxMaterial2;
 
-        const fieldBig = new SdfBox(10000,20,200)
-        fieldBig.setPosition(-5000,-20,0)
+        const fieldBig = new SdfBox(500,20,200)
+        fieldBig.setPosition(-250,-20,0)
         const fieldTorus = new SdfTorus(3, 2);
         fieldTorus.setPosition(0,0,-10);
         const field = new SdfSphere(10);
@@ -137,7 +137,8 @@ class App {
         // const unionField = new SdfUnion([field,fieldSphere]);
 
         const chunkManager = new ChunkManager();
-        const viewOrigin = new Vector3(0,0,0)
+        const viewOrigin = new Vector3();
+        viewOrigin.copyFrom(marker.position);
         chunkManager.setViewOrigin(viewOrigin);
 
         //chunkManager.addField(fieldSphere);

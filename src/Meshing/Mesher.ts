@@ -149,7 +149,7 @@ function ExtractSurface (_chunk: Chunk,
     borderSeams = chunk.getBorderSeams();
     borderScale = chunk.getBorderScale();
     chunk.copyVoxelRangeTo(voxelRange);
-    chunk.copyOriginTo(origin);
+    chunk.copyPositionTo(origin);
 
     chunk.copyWorldSizeTo(worldSize);
     voxelSize = chunk.getVoxelSize();
@@ -167,7 +167,7 @@ function ExtractSurface (_chunk: Chunk,
         CheckAllVoxels(voxelRange);
         ExtractAllFaces();
     }
-    return verticies.length > 0;
+    return faces.length > 0;
 }
 
 function SampleChunkField (): boolean {

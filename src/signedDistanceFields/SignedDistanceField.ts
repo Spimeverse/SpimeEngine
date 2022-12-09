@@ -65,7 +65,7 @@ abstract class SignedDistanceField implements IhasBounds {
     updateBounds(): void {
         this.newBounds.set(this._newPosition.x, this._newPosition.y, this._newPosition.z, this.boundingRadius);
         if (this.currentBounds.radius === 0) {
-            this.currentBounds.copyFrom(this.newBounds);
+            this.currentBounds.copy(this.newBounds);
             this.commitUpdate();
         }   
     }

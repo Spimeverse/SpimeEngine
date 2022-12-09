@@ -20,7 +20,7 @@ export function TestChunkDimensions()
     it('converts sample index to world space', () => {
         const chunk = new Chunk();
         chunk.setSize({x:8,y:8,z:8},1);
-        chunk.setOrigin({x:10,y:20,z:30});
+        chunk.setPosition({x:10,y:20,z:30});
         const samplePoint = new Vector3();
         chunk.indexToWorldSpace(0,samplePoint);
         expect(samplePoint.toString()).toBe("{X: 9 Y: 19 Z: 29}");
@@ -37,7 +37,7 @@ export function TestChunkDimensions()
     it('converts cell space world space', () => {
         const chunk = new Chunk();
         chunk.setSize({x:8,y:8,z:8},1);
-        chunk.setOrigin({x:10,y:20,z:30});
+        chunk.setPosition({x:10,y:20,z:30});
         const samplePoint = new Vector3();
         chunk.voxelSpaceToWorldSpace({x:0,y:0,z:0},samplePoint);
         expect(samplePoint.toString()).toBe("{X: 9 Y: 19 Z: 29}");

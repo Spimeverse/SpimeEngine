@@ -65,7 +65,7 @@ class Chunk implements IhasBounds {
     /**
      * origin of the chunk in world coordinate space
      */
-    private _origin = new Vector3();
+    private _position = new Vector3();
     /**
      * the size of one voxel in the chunk in world coordinate space
      */
@@ -100,8 +100,8 @@ class Chunk implements IhasBounds {
     // one more voxel needed to cover overlap with next chunk
     // so points = subdivisions + 2;
     
-    copyOriginTo(destination: Vector3) {
-        destination.copyFrom(this._origin);
+    copyPositionTo(destination: Vector3) {
+        destination.copyFrom(this._position);
     }
 
     copyWorldSizeTo(destination: Vector3) {
@@ -129,7 +129,7 @@ class Chunk implements IhasBounds {
     }
 
     isAtSamePositionAs(newChunk: Chunk): boolean {
-        return this._origin.equals(newChunk._origin);
+        return this._position.equals(newChunk._position);
     }
 
     markForRemoval() {
@@ -198,12 +198,18 @@ class Chunk implements IhasBounds {
         this._borderScale = borderScale;
     }
 
+    resetBorders() {
+        this.setBorderSeams(0, 1);
+        this._updateOverlap(1);
+    }
+
+
     /**
      * 
      * @param origin of the chunk in world coordinates
      */
-    setOrigin(origin: XYZ) {
-        CopyXyz(origin,this._origin);
+    setPosition(origin: XYZ) {
+        CopyXyz(origin,this._position);
     }
 
     voxelIndexToVoxelPosition(voxelIndex: number, voxelPosition: XYZ) {
@@ -227,9 +233,9 @@ class Chunk implements IhasBounds {
     
     voxelSpaceToWorldSpace(voxel: XYZ, samplePoint: XYZ) {
         const offset = this._voxelSize * this._overlap;
-        samplePoint.x = this._origin.x + (voxel.x * this._voxelSize) - offset;
-        samplePoint.y = this._origin.y + (voxel.y * this._voxelSize) - offset;
-        samplePoint.z = this._origin.z + (voxel.z * this._voxelSize) - offset;
+        samplePoint.x = this._position.x + (voxel.x * this._voxelSize) - offset;
+        samplePoint.y = this._position.y + (voxel.y * this._voxelSize) - offset;
+        samplePoint.z = this._position.z + (voxel.z * this._voxelSize) - offset;
     }
 
     createMesh(scene: Scene) {
@@ -245,14 +251,6 @@ class Chunk implements IhasBounds {
         //Create a vertexData object
         this._vertexData.positions = [];
         this._vertexData.indices = [];
-
-    }
-
-    deleteMesh() {
-        if (this._newChunkMesh) {
-            this._newChunkMesh.dispose();
-            this._newChunkMesh = null;
-        }
     }
 
     toggleWireframe() {
@@ -293,6 +291,18 @@ class Chunk implements IhasBounds {
             this._vertexData.applyToMesh(this._newChunkMesh, false)
 
             this._newChunkMesh.isVisible = false;
+
+
+            // const box = MeshBuilder.CreateBox("box", { size: this.currentBounds.extent });
+            // box.isVisible = false;
+            // box.isPickable = false;
+            // box.name = this.toString() + " box";
+            // box.position.set(
+            //     this.currentBounds.minX + this.currentBounds.extent / 2,
+            //     this.currentBounds.minY + this.currentBounds.extent / 2,
+            //     this.currentBounds.minZ + this.currentBounds.extent / 2);
+ 
+            // box.material = material;
         }
         return extracted;
     }
@@ -305,22 +315,30 @@ class Chunk implements IhasBounds {
             this._chunkMesh = null;
         }
         if (this._newChunkMesh) {
-            this._newChunkMesh.isVisible = true;
-            scene.addMesh(this._newChunkMesh);
-            this._chunkMesh = this._newChunkMesh;
-            this._newChunkMesh = null;
+            if (this._markedForRemoval) {
+                debugger;
+                scene.removeMesh(this._newChunkMesh);
+                this._newChunkMesh.dispose();
+                this._newChunkMesh = null;
+            }
+            else {
+                this._newChunkMesh.isVisible = true;
+                scene.addMesh(this._newChunkMesh);
+                this._chunkMesh = this._newChunkMesh;
+                this._newChunkMesh = null;
+            }
         }
     }
 
     updateCurrentBounds() {
         const aabb = this.currentBounds as AxisAlignedBoxBound;
         aabb.set(
-            this._origin.x,
-            this._origin.y,
-            this._origin.z, 
-            this._origin.x + this._worldSize.x,
-            this._origin.y + this._worldSize.y,
-            this._origin.z + this._worldSize.z);
+            this._position.x,
+            this._position.y,
+            this._position.z, 
+            this._position.x + this._worldSize.x,
+            this._position.y + this._worldSize.y,
+            this._position.z + this._worldSize.z);
     }
 
     updateSharedBorders(newChunk: Chunk) {
@@ -412,7 +430,7 @@ class Chunk implements IhasBounds {
 
     // toString
     toString() {
-        return `Origin: ${this._origin.x},${this._origin.y},${this._origin.z} Size: ${this._worldSize.x},${this._worldSize.y},${this._worldSize.z} VoxelSize: ${this._voxelSize}`;
+        return `Origin: ${this._position.x},${this._position.y},${this._position.z} Size: ${this._worldSize.x},${this._worldSize.y},${this._worldSize.z} VoxelSize: ${this._voxelSize}`;
     }
 }
 

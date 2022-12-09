@@ -56,8 +56,8 @@ function ChunkState(chunkManager: ChunkManager) {
     chunkArray.sort((a, b) => {
         const aOrigin = new Vector3();
         const bOrigin = new Vector3();
-        a.copyOriginTo(aOrigin);
-        b.copyOriginTo(bOrigin);
+        a.copyPositionTo(aOrigin);
+        b.copyPositionTo(bOrigin);
         if (aOrigin.x < bOrigin.x) return -1;
         if (aOrigin.x > bOrigin.x) return 1;
         if (aOrigin.y < bOrigin.y) return -1;
