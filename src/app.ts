@@ -115,6 +115,7 @@ class App {
 
         const box2 = MeshBuilder.CreateBox("box2", {size:1}, scene);
         box2.position.x = -13.9;
+        box2.position.y = 7;
         const boxMaterial2 = new StandardMaterial("boxMaterial2", scene);
         boxMaterial2.diffuseColor = new Color3(0,0,1);
         boxMaterial2.wireframe = false;
@@ -147,38 +148,6 @@ class App {
 
         let addedSamples = false;
 
-        /*
-        const chunk1 = new Chunk();
-        chunk1.setSize({x:8, y:8, z:8},1);
-         chunk1.setOrigin({x:0,y:0,z:0});
- 
-        const chunk2 = new Chunk();
-        chunk2.setSize({x:8, y:8, z:8},0.5);
-        chunk2.setOrigin({x:8,y:0,z:0});
-        //chunk2.subSample = 2;
-
-        */
-
-
-        /*
-        //Create a custom mesh  
-        const { customMesh, vertexData } = this._createCustomMesh(scene);
-        // customMesh.position.x = 0.1;
-        // customMesh.position.y = 0.1;
-        // customMesh.position.z = 0.1;
-        const { customMesh : customMesh2, vertexData : vertexData2 } = this._createCustomMesh(scene);
-        const { customMesh : customMesh3, vertexData : vertexData3 } = this._createCustomMesh(scene);
-        */
-
-        // let count = 0;
-        // const chunks = new Set<Chunk>();
-        // chunkManager.getChunks(chunks);
-        // for (const chunk of chunks)
-        // {
-        //     if (chunk.updateMesh(field,scene))
-        //         count++;
-        // }
-        // console.log("chunks count: " + count);
 
         scene.onBeforeAnimationsObservable.add((theScene) => {
             if (!field.positionEquals(box.position))
@@ -192,16 +161,6 @@ class App {
                 fieldTorus.setPosition(box2.position.x, box2.position.y, box2.position.z);
                 chunkManager.updateField(fieldTorus);
             }
-
-            //     field.position = new Vector3(2 + Math.sin(step / 4000 * Math.PI * 2) * 6 ,0,0);
-            //     //field.position = new Vector3(2 + objectPos / 2000,0,0);
-            //     //field.position = new Vector3(1.2,0,0);
-
-            //     this._updateChunk(chunk1, field, vertexData, normals, customMesh);
-            //     gui.label.text = `Samples ${sparseSamples}`;
-            //     this._updateChunk(chunk2, field, vertexData2, normals, customMesh2);
-
-            // }
 
             if (!marker.position.equals(viewOrigin)) {
                 viewOrigin.copyFrom(marker.position);
@@ -285,29 +244,6 @@ class App {
         else
             customMesh.isVisible = false;
     }
-
-    // private _updateSeam(chunk: Chunk, field: SdfSphere, vertexData: VertexData, normals: number[], customMesh: Mesh) {
-    //     chunk.sample(field)
-    //     const extracted = ExtractSeam(
-    //         chunk,
-    //         vertexData.positions as number[],
-    //         vertexData.indices as number[])
-
-    //     if (extracted) {
-
-    //         //Calculations of normals added
-    //         VertexData.ComputeNormals(vertexData.positions, vertexData.indices, normals)
-
-    //         vertexData.normals = normals
-
-    //         //Apply vertexData to custom mesh
-    //         vertexData.applyToMesh(customMesh, false)
-
-    //         customMesh.isVisible = true
-    //     }
-    //     else
-    //         customMesh.isVisible = true;
-    // }
 
     private _setupVoxMaterial(scene: Scene, customMesh: Mesh, color: Color3): void {
         const voxelMaterial = new StandardMaterial("voxelMaterial", scene)

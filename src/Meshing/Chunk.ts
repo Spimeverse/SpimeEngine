@@ -244,12 +244,6 @@ class Chunk implements IhasBounds {
         this._chunkMesh.material.wireframe = !this._chunkMesh?.material?.wireframe;
     }
 
-    // toggleWireframe() {
-    //     if (this._chunkMesh == null) return;
-    //     if (this._chunkMesh.material == null) return;
-    //     this._chunkMesh.material.wireframe = !this._chunkMesh?.material?.wireframe;
-    // }
-
     updateMesh(field: SignedDistanceField): boolean {
         //Create a vertexData object
         this._vertexData.positions = [];
@@ -283,17 +277,6 @@ class Chunk implements IhasBounds {
 
             this._newChunkMesh.isVisible = false;
 
-
-            // const box = MeshBuilder.CreateBox("box", { size: this.currentBounds.extent });
-            // box.isVisible = false;
-            // box.isPickable = false;
-            // box.name = this.toString() + " box";
-            // box.position.set(
-            //     this.currentBounds.minX + this.currentBounds.extent / 2,
-            //     this.currentBounds.minY + this.currentBounds.extent / 2,
-            //     this.currentBounds.minZ + this.currentBounds.extent / 2);
- 
-            // box.material = material;
         }
         return extracted;
     }

@@ -286,18 +286,6 @@ class ChunkManager {
 
             newChunk.updateCurrentBounds();
 
-            // const chunks = [
-            //     "Origin: 2048,-1024,0 Size: 1024,1024,1024 VoxelSize: 64",
-            //     "Origin: 2048,0,0 Size: 1024,1024,1024 VoxelSize: 64",
-            //     "Origin: 3072,-512,0 Size: 512,512,512 VoxelSize: 32",
-            //     "Origin: 3072,0,0 Size: 512,512,512 VoxelSize: 32"
-            // ];
-            // if (!chunks.find(x => newChunk.toString() === x))
-            //     return;
-            // const testBounds = new AxisAlignedBoxBound(-16, -16, 16, -8, -8, 24);
-            // if (!newChunk.currentBounds.overlaps(testBounds))
-            //     return;
-
             const expandBy = newChunk.getVoxelSize() * 2;
             chunkBounds.expandByScalar(expandBy);
             nearbyChunks.clear();
