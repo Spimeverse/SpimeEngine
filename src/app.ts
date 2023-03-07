@@ -15,8 +15,8 @@ import { Texture } from "@babylonjs/core/Materials/Textures"
 import { Mesh, VertexData, MeshBuilder } from "@babylonjs/core/Meshes"
 // import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh"
 
-import { ExtractSurface, CORNERS, Chunk,BORDERS } from "./Meshing";
-import { SdfBox, SdfSphere, SdfUnion, SdfTorus, SignedDistanceField } from "./signedDistanceFields";
+import { ExtractSurface, CORNERS, Chunk,BORDERS,sampledPoints,sampledLabels } from "./Meshing";
+import { SdfTerrain, SdfBox, SdfSphere, SdfUnion, SdfTorus, SignedDistanceField } from "./signedDistanceFields";
 import { ChunkManager } from "./World"
 
 
@@ -50,17 +50,17 @@ class App {
         // This creates and positions a free camera (non-mesh)
         const camera = new ArcRotateCamera(
             "camera",
-            0.6, //-Math.PI / 4,
-            1, //Math.PI / 4,
-            93,
-            new Vector3(0, 0, 0),
+            0.4664, //-Math.PI / 4,
+            0.9120, //Math.PI / 4,
+            4.3255,
+            new Vector3(-2.109,7.393,8.055),
             scene
         );
         
         camera.wheelDeltaPercentage = 0.01;
     
         // This targets the camera to scene origin
-        camera.setTarget(Vector3.Zero());
+        //camera.setTarget(new Vector3(12.947,-4.533,7.477));
     
         // This attaches the camera to the canvas
         camera.attachControl(this.canvas, true);    
@@ -95,34 +95,33 @@ class App {
 
         const marker = MeshBuilder.CreateSphere("marker", {diameter:1}, scene);
         marker.position.x = 0;
-        marker.position.y = 0;
-        marker.position.z = 40;
+        marker.position.y = 12;
+        marker.position.z = 0;
         const markerMaterial = new StandardMaterial("markerMaterial", scene);
-        markerMaterial.wireframe = true;
+        markerMaterial.wireframe = false;
         markerMaterial.diffuseColor = new Color3(1,1,0);
         marker.material = markerMaterial;
 
-        const box = MeshBuilder.CreateBox("box", {size:6}, scene);
+        const box = MeshBuilder.CreateBox("box", {size:1}, scene);
         const boxMaterial = new StandardMaterial("boxMaterial", scene);
         box.position.x = -8.792;
-        box.position.y = 3.181;
+        box.position.y = 7;
         box.position.z = 4.000;
         boxMaterial.diffuseColor = new Color3(1,0,0);
-        boxMaterial.wireframe = true;
+        boxMaterial.wireframe = false;
         box.material = boxMaterial;
         box.isVisible = true;
 
-        camera.setTarget(new Vector3(0,0,-40));
 
-        const box2 = MeshBuilder.CreateBox("box2", {size:6}, scene);
+        const box2 = MeshBuilder.CreateBox("box2", {size:1}, scene);
         box2.position.x = -13.9;
-        const boxMaterial2 = new StandardMaterial("boxMaterial", scene);
-        boxMaterial2.diffuseColor = new Color3(1,0,0);
-        boxMaterial2.wireframe = true;
+        const boxMaterial2 = new StandardMaterial("boxMaterial2", scene);
+        boxMaterial2.diffuseColor = new Color3(0,0,1);
+        boxMaterial2.wireframe = false;
         box2.material = boxMaterial2;
 
-        const fieldBig = new SdfBox(500,20,200)
-        fieldBig.setPosition(-250,-20,0)
+        const fieldBig = new SdfTerrain(5,50);
+        fieldBig.setPosition(5,0,5)
         const fieldTorus = new SdfTorus(3, 2);
         fieldTorus.setPosition(0,0,-10);
         const field = new SdfSphere(10);
@@ -142,9 +141,11 @@ class App {
         chunkManager.setViewOrigin(viewOrigin);
 
         //chunkManager.addField(fieldSphere);
-        chunkManager.addField(field);
-        chunkManager.addField(fieldTorus);
+        //chunkManager.addField(field);
+        //chunkManager.addField(fieldTorus);
         chunkManager.addField(fieldBig);
+
+        let addedSamples = false;
 
         /*
         const chunk1 = new Chunk();
@@ -192,10 +193,42 @@ class App {
                 chunkManager.updateField(fieldTorus);
             }
 
-            if (!marker.position.equals(viewOrigin))
-            {
+            //     field.position = new Vector3(2 + Math.sin(step / 4000 * Math.PI * 2) * 6 ,0,0);
+            //     //field.position = new Vector3(2 + objectPos / 2000,0,0);
+            //     //field.position = new Vector3(1.2,0,0);
+
+            //     this._updateChunk(chunk1, field, vertexData, normals, customMesh);
+            //     gui.label.text = `Samples ${sparseSamples}`;
+            //     this._updateChunk(chunk2, field, vertexData2, normals, customMesh2);
+
+            // }
+
+            if (!marker.position.equals(viewOrigin)) {
                 viewOrigin.copyFrom(marker.position);
                 chunkManager.setViewOrigin(viewOrigin);
+            }
+
+            chunkManager.updateChangedMeshes(scene);
+
+            if (!addedSamples && sampledPoints.length > 0)
+            {
+                addedSamples = true;
+                let index = 0;
+                for (const point of sampledPoints)
+                {
+                    const sampleMarker = MeshBuilder.CreateBox("NormalSample", {size:0.015}, scene);
+                    sampleMarker.position.x = point.x;
+                    sampleMarker.position.y = point.y;
+                    sampleMarker.position.z = point.z;
+                    sampleMarker.name = sampledLabels[index++]
+                    if (sampleMarker.name.startsWith("samp norm"))
+                        sampleMarker.material = markerMaterial;
+                    if (sampleMarker.name.startsWith("samp center"))
+                        sampleMarker.material = boxMaterial;
+                    if (sampleMarker.name.startsWith("samp seam"))
+                        sampleMarker.material = boxMaterial2;
+                }
+
             }
 
             chunkManager.updateChangedMeshes(scene);

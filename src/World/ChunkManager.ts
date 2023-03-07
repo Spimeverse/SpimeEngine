@@ -108,7 +108,6 @@ class ChunkManager {
                 if (chunk.currentBounds.extent != targetScale) {
                     // console.log("rescale chunk", chunk.toString(), chunk.currentBounds.extent, targetScale);
                     chunk.markForRemoval();
-                    console.log("MFR chunk, rescale", chunk.toString());
                     this._dirtyChunks.add(chunk);
                     this._createChunksForBounds(chunk.currentBounds, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld, scale / 2);
                 }
@@ -144,7 +143,6 @@ class ChunkManager {
 
             if (this._updateChunkQueue.count != 0) {
                 this._updatesPending = true;
-                console.log("updateChangedMeshes", this._updateChunkQueue.count);
             }
         } 
 
@@ -167,7 +165,6 @@ class ChunkManager {
             chunk.swapMeshes(scene);
             if (chunk.isMarkedForRemoval()) {
                 this._chunkTree.remove(chunk);
-                console.log("remove chunk", chunk.toString());
             }
             chunkNode = chunkNode.next;
         }
@@ -196,7 +193,6 @@ class ChunkManager {
 
             if (emptyChunk) {
                 chunk.markForRemoval();
-                console.log("MFR chunk, empty", chunk.toString());
             }
             this._nextUpdateChunk = this._nextUpdateChunk.next;
         }
@@ -317,7 +313,6 @@ class ChunkManager {
                         else {
                             // mark existing chunk for removal
                             nearChunk.markForRemoval();
-                            console.log('  MFR overlap chunk,',nearChunk.toString());
                             this._dirtyChunks.add(nearChunk);
                         }
                     }
@@ -330,7 +325,6 @@ class ChunkManager {
             }
             chunkBounds.expandByScalar(-expandBy);
 
-            console.log('  Creating chunk,',newChunk.toString());
             this._chunkTree.insert(newChunk);
             this._dirtyChunks.add(newChunk);
         }

@@ -231,26 +231,11 @@ class Chunk implements IhasBounds {
         return x + (y * this._stride.x) + (z * this._stride.y);
     }
     
-    voxelSpaceToWorldSpace(voxel: XYZ, samplePoint: XYZ) {
-        const offset = this._voxelSize * this._overlap;
+    voxelSpaceToWorldSpace(voxel: XYZ, samplePoint: XYZ, borderSize = 1) {
+        const offset = (this._voxelSize * borderSize) * 0.5; //* this._overlap;
         samplePoint.x = this._position.x + (voxel.x * this._voxelSize) - offset;
         samplePoint.y = this._position.y + (voxel.y * this._voxelSize) - offset;
         samplePoint.z = this._position.z + (voxel.z * this._voxelSize) - offset;
-    }
-
-    createMesh(scene: Scene) {
-        this._newChunkMesh = new Mesh("custom", scene);
-        const material = new StandardMaterial("meshMaterial", scene);
-        material.diffuseColor = new Color3(1, 0, 0);
-        Color3.HSVtoRGBToRef(Math.random() * 360, 0.5 + Math.random() / 2, 1, material.diffuseColor);
-        material.emissiveColor.copyFrom(material.diffuseColor);
-        material.emissiveColor.scale(0.5);
-        material.wireframe = true;
-        material.backFaceCulling = false;
-        this._newChunkMesh.material = material;
-        //Create a vertexData object
-        this._vertexData.positions = [];
-        this._vertexData.indices = [];
     }
 
     toggleWireframe() {
@@ -258,6 +243,12 @@ class Chunk implements IhasBounds {
         if (this._chunkMesh.material == null) return;
         this._chunkMesh.material.wireframe = !this._chunkMesh?.material?.wireframe;
     }
+
+    // toggleWireframe() {
+    //     if (this._chunkMesh == null) return;
+    //     if (this._chunkMesh.material == null) return;
+    //     this._chunkMesh.material.wireframe = !this._chunkMesh?.material?.wireframe;
+    // }
 
     updateMesh(field: SignedDistanceField): boolean {
         //Create a vertexData object
@@ -277,9 +268,9 @@ class Chunk implements IhasBounds {
             material.diffuseColor = new Color3(1, 0, 0);
             Color3.HSVtoRGBToRef(Math.random() * 360, 0.5 + Math.random() / 2, 1, material.diffuseColor);
             material.emissiveColor.copyFrom(material.diffuseColor);
-            material.emissiveColor.scale(0.5);
+            material.emissiveColor.scale(0.25);
             material.wireframe = true;
-            material.backFaceCulling = false;
+            material.backFaceCulling = true;
             this._newChunkMesh.material = material;
 
             //Calculations of normals added
@@ -316,7 +307,6 @@ class Chunk implements IhasBounds {
         }
         if (this._newChunkMesh) {
             if (this._markedForRemoval) {
-                debugger;
                 scene.removeMesh(this._newChunkMesh);
                 this._newChunkMesh.dispose();
                 this._newChunkMesh = null;
@@ -342,8 +332,10 @@ class Chunk implements IhasBounds {
     }
 
     updateSharedBorders(newChunk: Chunk) {
+        
         if (this._voxelSize == newChunk._voxelSize)
             return;
+
         let largerChunk: Chunk;
         let smallerChunk: Chunk;
 
@@ -424,7 +416,7 @@ class Chunk implements IhasBounds {
         if (sharedFace) {
             const borderScale = largerChunk._voxelSize / smallerChunk._voxelSize;
             smallerChunk._borderScale = borderScale;
-            smallerChunk._updateOverlap(2);
+            //smallerChunk._updateOverlap(2);
         }
     }
 
