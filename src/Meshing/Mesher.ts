@@ -9,18 +9,12 @@ import { Vector3 } from "@babylonjs/core/Maths";
 const voxelCenter = new Vector3();
 const samplePoint = new Vector3();
 const voxelPosition = new Vector3();
-const seamVoxelPosition = new Vector3();
 const voxelOffset = new Vector3();
 const vertexPoint = new Vector3();
-const seamVertexPoint = new Vector3();
 const normal = new Vector3();
 const pointOffset = new Vector3();
 const cornerDist: Float32Array = new Float32Array(8);
-const seamCornerDist: Float32Array = new Float32Array(8);
-const seamInfluence: Float32Array = new Float32Array(3 * 3 * 3);
 const sqrt3 = Math.sqrt(3);
-
-const downsample = false;
 
 // Corner numbers
 //
