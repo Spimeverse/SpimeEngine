@@ -50,13 +50,13 @@ class App {
         // This creates and positions a free camera (non-mesh)
         const camera = new ArcRotateCamera(
             "camera",
-            0.4664, //-Math.PI / 4,
-            0.9120, //Math.PI / 4,
-            4.3255,
-            new Vector3(-2.109,7.393,8.055),
+            -2.3053, //-Math.PI / 4,
+            1.0634, //Math.PI / 4,
+            16.7337,
+            new Vector3(18.014,15.647,29.390),
             scene
         );
-        
+        camera.fov = 0.4264;
         camera.wheelDeltaPercentage = 0.01;
     
         // This targets the camera to scene origin
@@ -102,13 +102,11 @@ class App {
         markerMaterial.diffuseColor = new Color3(1,1,0);
         marker.material = markerMaterial;
 
-        const box = MeshBuilder.CreateBox("box", {size:1}, scene);
+        const box = MeshBuilder.CreateBox("box", {size:0.05}, scene);
         const boxMaterial = new StandardMaterial("boxMaterial", scene);
-        box.position.x = -8.792;
-        box.position.y = 7;
-        box.position.z = 4.000;
+        box.position.set(-1.867,6.994,7.497);
         boxMaterial.diffuseColor = new Color3(1,0,0);
-        boxMaterial.wireframe = false;
+        boxMaterial.wireframe = true;
         box.material = boxMaterial;
         box.isVisible = true;
 
@@ -150,11 +148,11 @@ class App {
 
 
         scene.onBeforeAnimationsObservable.add((theScene) => {
-            if (!field.positionEquals(box.position))
-            {
-                field.setPosition(box.position.x, box.position.y, box.position.z);
-                chunkManager.updateField(field);
-            }
+            // if (!field.positionEquals(box.position))
+            // {
+            //     field.setPosition(box.position.x, box.position.y, box.position.z);
+            //     chunkManager.updateField(field);
+            // }
 
             if (!fieldTorus.positionEquals(box2.position))
             {
@@ -222,28 +220,28 @@ class App {
         });
     }
 
-    private _updateChunk(chunk: Chunk,field: SignedDistanceField, vertexData: VertexData, normals: number[], customMesh: Mesh) {
-        const extracted = ExtractSurface(
-            chunk,
-            field,
-            vertexData.positions as number[],
-            vertexData.indices as number[])
+    // private _updateChunk(chunk: Chunk,field: SignedDistanceField, vertexData: VertexData, normals: number[], customMesh: Mesh) {
+    //     const extracted = ExtractSurface(
+    //         chunk,
+    //         field,
+    //         vertexData.positions as number[],
+    //         vertexData.indices as number[])
 
-        if (extracted) {
+    //     if (extracted) {
 
-            //Calculations of normals added
-            VertexData.ComputeNormals(vertexData.positions, vertexData.indices, normals)
+    //         //Calculations of normals added
+    //         VertexData.ComputeNormals(vertexData.positions, vertexData.indices, normals)
 
-            vertexData.normals = normals
+    //         vertexData.normals = normals
 
-            //Apply vertexData to custom mesh
-            vertexData.applyToMesh(customMesh, false)
+    //         //Apply vertexData to custom mesh
+    //         vertexData.applyToMesh(customMesh, false)
 
-            customMesh.isVisible = true
-        }
-        else
-            customMesh.isVisible = false;
-    }
+    //         customMesh.isVisible = true
+    //     }
+    //     else
+    //         customMesh.isVisible = false;
+    // }
 
     private _setupVoxMaterial(scene: Scene, customMesh: Mesh, color: Color3): void {
         const voxelMaterial = new StandardMaterial("voxelMaterial", scene)

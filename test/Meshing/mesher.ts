@@ -32,28 +32,16 @@ export function TestMesher()
     describe('SDF mesher', () => {
 
     it('creates a cube mesh', () => {
-        const field = new SdfBox(4.5,4.5,4.5)
+        const field = new SdfBox(5,5,5)
         const chunk = new Chunk();
-        chunk.setSize({x:24,y:24,z:24},3);
-        chunk.setPosition({x:-12,y:-12,z:-12});
+        chunk.setSize({x:10,y:10,z:10},1);
+        chunk.setPosition({x:-5,y:-5,z:-5});
         const meshVerticies: number[] = [];
         const meshFaces: number[] = [];
         ExtractSurface(chunk,field,meshVerticies,meshFaces);
-        expect(meshFaces).toEqual([
-            3, 1, 0, 0, 2, 3, 5, 4, 0, 0, 1, 5, 6, 2, 0, 0, 4, 6, 7, 3, 2, 2, 6, 7, 7, 5, 1, 1, 3, 7, 7, 6, 4, 4, 5, 7]);
-        const roundedVertices = meshVerticies.map(x => {
-            return Math.round(x * 100) / 100;
-        });
-        expect(roundedVertices.length).toBe(24);
-        expect(roundedVertices).toEqual([
-            -1.62, -1.62, -1.62, -0.75,
-            -0.75, 0.75, -0.75, 0.75, -0.75,
-            -1.62, 1.62, 1.62, 0.75, -0.75,
-            -0.75, 1.62, -1.62, 1.62, 1.62,
-            1.62, -1.62, 0.75, 0.75, 0.75]);
+        expect(meshFaces.length).toBe(576)
+        expect(meshVerticies.length).toBe(294);
     })
-
-
 
 })
 

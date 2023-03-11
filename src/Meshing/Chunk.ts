@@ -35,6 +35,8 @@ interface XYZ { x: number; y: number; z: number}
 interface XY { x: number; y: number;}
 
 const normals = new Array<number>();
+const seamExtra = 2;
+const seamExtraDouble = seamExtra * 2;
 
 /**
  * Make working with a 1 dimensional array work like a 3d array
@@ -81,7 +83,7 @@ class Chunk implements IhasBounds {
      */
     private _borderScale = 1;
 
-    private _overlap = 1;
+    //private _overlap = 1;
 
     private _vertexData = new VertexData();
 
@@ -166,21 +168,20 @@ class Chunk implements IhasBounds {
         //
         // one more voxel needed to cover overlap with next chunk
         // so points = subdivisions + 2;
-        CopyXyz(size,this._worldSize)
+        CopyXyz(size, this._worldSize)
         this._voxelSize = voxelSize;
         this._halfVoxel = voxelSize / 2;
         
-        this._updateOverlap(1);
+        this._updateOverlap();
     }
 
-    private _updateOverlap(overlap: number) {
-        this._overlap = overlap;
-        this._voxelRange.x = (this._worldSize.x / this._voxelSize) + overlap;
-        this._voxelRange.y = (this._worldSize.y / this._voxelSize) + overlap;
-        this._voxelRange.z = (this._worldSize.z / this._voxelSize) + overlap;
-        this._stride.x = this._voxelRange.x + 1;
-        this._stride.y = this._stride.x * (this._voxelRange.y + 1);
-        this._numSamples = this._stride.y * (this._voxelRange.z + 1);
+    private _updateOverlap() {
+        this._voxelRange.x = (this._worldSize.x / this._voxelSize) + 1;
+        this._voxelRange.y = (this._worldSize.y / this._voxelSize) + 1;
+        this._voxelRange.z = (this._worldSize.z / this._voxelSize) + 1;
+        this._stride.x = this._voxelRange.x + seamExtraDouble;
+        this._stride.y = this._stride.x * (this._voxelRange.y + seamExtraDouble);
+        this._numSamples = this._stride.y * (this._voxelRange.z + seamExtraDouble);
         if (this._numSamples > 65536)
             throw "chunk resolution exceeds 65536. aborting";
     }
@@ -200,7 +201,7 @@ class Chunk implements IhasBounds {
 
     resetBorders() {
         this.setBorderSeams(0, 1);
-        this._updateOverlap(1);
+        this._updateOverlap();
     }
 
 
@@ -214,11 +215,14 @@ class Chunk implements IhasBounds {
 
     voxelIndexToVoxelPosition(voxelIndex: number, voxelPosition: XYZ) {
         let index = voxelIndex;
-        voxelPosition.x = voxelIndex % this._stride.x;
+        voxelPosition.x = (voxelIndex % this._stride.x);
         index -= voxelPosition.x;
-        voxelPosition.y = (index % this._stride.y) / this._stride.x;
+        voxelPosition.y = ((index % this._stride.y) / this._stride.x);
         index -= voxelPosition.y * this._stride.x;
-        voxelPosition.z = index / this._stride.y;
+        voxelPosition.z = (index / this._stride.y);
+        voxelPosition.x -= seamExtra;
+        voxelPosition.y -= seamExtra;
+        voxelPosition.z -= seamExtra;
     }
     
     indexToWorldSpace(index: number, samplePoint: XYZ) {
@@ -228,11 +232,14 @@ class Chunk implements IhasBounds {
 
     // get the index of array at this coordinate
     voxelIndex(x: number, y: number, z: number): number {
+        x += seamExtra;
+        y += seamExtra;
+        z += seamExtra;
         return x + (y * this._stride.x) + (z * this._stride.y);
     }
     
     voxelSpaceToWorldSpace(voxel: XYZ, samplePoint: XYZ, borderSize = 1) {
-        const offset = (this._voxelSize * borderSize) * 0.5; //* this._overlap;
+        const offset = (this._voxelSize * borderSize) * 0.5; 
         samplePoint.x = this._position.x + (voxel.x * this._voxelSize) - offset;
         samplePoint.y = this._position.y + (voxel.y * this._voxelSize) - offset;
         samplePoint.z = this._position.z + (voxel.z * this._voxelSize) - offset;
@@ -399,11 +406,9 @@ class Chunk implements IhasBounds {
         if (sharedFace) {
             const borderScale = largerChunk._voxelSize / smallerChunk._voxelSize;
             smallerChunk._borderScale = borderScale;
-            //smallerChunk._updateOverlap(2);
-        }
+         }
     }
 
-    // toString
     toString() {
         return `Origin: ${this._position.x},${this._position.y},${this._position.z} Size: ${this._worldSize.x},${this._worldSize.y},${this._worldSize.z} VoxelSize: ${this._voxelSize}`;
     }
