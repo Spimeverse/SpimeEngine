@@ -296,7 +296,7 @@ class Chunk implements IhasBounds {
 
             // ege rendering has to be turned on after the mesh is created
             this._newChunkMesh.enableEdgesRendering(Math.PI - 0.1);
-            this._newChunkMesh.edgesWidth = this._voxelSize * 10;
+            this._newChunkMesh.edgesWidth = this._voxelSize * 15;
             const edgeColor = new Color3(0, 0, 0);
             Color3.HSVtoRGBToRef(Math.random() * 360, 0.5 + Math.random() / 2, 1, edgeColor);
             this._newChunkMesh.edgesColor = new Color4(edgeColor.r, edgeColor.g , edgeColor.b, 1);
