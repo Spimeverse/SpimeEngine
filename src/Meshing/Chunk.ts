@@ -1,6 +1,6 @@
 import { Scene, StandardMaterial } from "@babylonjs/core"
 import { Nullable } from "@babylonjs/core";
-import { Color3, Vector3 } from "@babylonjs/core/Maths";
+import { Color3, Color4, Vector3 } from "@babylonjs/core/Maths";
 import { Mesh, VertexData, MeshBuilder } from "@babylonjs/core/Meshes"
 import { AxisAlignedBoxBound } from "..";
 import { SignedDistanceField } from "..";
@@ -277,13 +277,12 @@ class Chunk implements IhasBounds {
 
         if (extracted) {
             this._newChunkMesh = new Mesh("custom");
+
             this._newChunkMesh.name = this.toString();
             const material = new StandardMaterial("meshMaterial");
-            material.diffuseColor = new Color3(1, 0, 0);
-            Color3.HSVtoRGBToRef(Math.random() * 360, 0.5 + Math.random() / 2, 1, material.diffuseColor);
-            material.emissiveColor.copyFrom(material.diffuseColor);
-            material.emissiveColor.scale(0.25);
-            material.wireframe = true;
+            material.diffuseColor.set(0, 0, 0);
+
+            material.wireframe = false;
             material.backFaceCulling = true;
             this._newChunkMesh.material = material;
 
@@ -294,6 +293,13 @@ class Chunk implements IhasBounds {
 
             //Apply vertexData to custom mesh
             this._vertexData.applyToMesh(this._newChunkMesh, false)
+
+            // ege rendering has to be turned on after the mesh is created
+            this._newChunkMesh.enableEdgesRendering(Math.PI - 0.1);
+            this._newChunkMesh.edgesWidth = this._voxelSize * 10;
+            const edgeColor = new Color3(0, 0, 0);
+            Color3.HSVtoRGBToRef(Math.random() * 360, 0.5 + Math.random() / 2, 1, edgeColor);
+            this._newChunkMesh.edgesColor = new Color4(edgeColor.r, edgeColor.g , edgeColor.b, 1);
 
             this._newChunkMesh.isVisible = false;
 
