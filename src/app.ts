@@ -53,7 +53,7 @@ class App {
             -2.3053, //-Math.PI / 4,
             1.0634, //Math.PI / 4,
             16.7337,
-            new Vector3(18.014,15.647,29.390),
+            new Vector3(17.194,13.131,27.050),
             scene
         );
         camera.fov = 0.4264;
@@ -173,7 +173,7 @@ class App {
                 let index = 0;
                 for (const point of sampledPoints)
                 {
-                    const sampleMarker = MeshBuilder.CreateBox("NormalSample", {size:0.015}, scene);
+                    const sampleMarker = MeshBuilder.CreateBox("NormalSample", {size:0.07}, scene);
                     sampleMarker.position.x = point.x;
                     sampleMarker.position.y = point.y;
                     sampleMarker.position.z = point.z;
@@ -188,7 +188,6 @@ class App {
 
             }
 
-            chunkManager.updateChangedMeshes(scene);
         });
 
 

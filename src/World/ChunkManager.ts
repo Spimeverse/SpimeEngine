@@ -4,6 +4,7 @@ import { SignedDistanceField, Chunk } from "..";
 import { SparseOctTree } from "."
 import { SdfUnion } from "..";
 import { LinkedList, LinkedListNode } from "../Collection/LinkedList";
+import { totalTime } from "..";
 
 const chunkBounds = new AxisAlignedBoxBound(0, 0, 0, 0, 0, 0);
 const worldSize = 16384;
@@ -149,6 +150,7 @@ class ChunkManager {
         if (this._updateChunkQueue.count > 0) {
             const updateComplete = this._updateDirtyChunkMeshes(scene);
             if (updateComplete) {
+                console.log("update complete",totalTime / 1000, "seconds");
                 this._showUpdatedMeshes(scene);
 
                 maxUpdatesPerFrame = 10;

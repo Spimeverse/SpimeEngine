@@ -35,7 +35,7 @@ interface XYZ { x: number; y: number; z: number}
 interface XY { x: number; y: number;}
 
 const normals = new Array<number>();
-const seamExtra = 2;
+const seamExtra = 3;
 const seamExtraDouble = seamExtra * 2;
 
 /**
@@ -223,6 +223,12 @@ class Chunk implements IhasBounds {
         voxelPosition.x -= seamExtra;
         voxelPosition.y -= seamExtra;
         voxelPosition.z -= seamExtra;
+        // if (voxelPosition.x < -seamExtra || voxelPosition.y < -seamExtra || voxelPosition.z < -seamExtra)
+        //     debugger;
+        // if (voxelPosition.x > this._voxelRange.x + seamExtra ||
+        //     voxelPosition.y > this._voxelRange.y + seamExtra ||
+        //     voxelPosition.z > this._voxelRange.z + seamExtra)
+        //     debugger;
     }
     
     indexToWorldSpace(index: number, samplePoint: XYZ) {
@@ -239,6 +245,13 @@ class Chunk implements IhasBounds {
     }
     
     voxelSpaceToWorldSpace(voxel: XYZ, samplePoint: XYZ, borderSize = 1) {
+        // if (voxel.x < -seamExtra || voxel.y < -seamExtra || voxel.z < -seamExtra)
+        //     debugger;
+        // if (voxel.x > this._voxelRange.x + seamExtra ||
+        //     voxel.y > this._voxelRange.y + seamExtra ||
+        //     voxel.z > this._voxelRange.z + seamExtra)
+        //     debugger;
+        
         const offset = (this._voxelSize * borderSize) * 0.5; 
         samplePoint.x = this._position.x + (voxel.x * this._voxelSize) - offset;
         samplePoint.y = this._position.y + (voxel.y * this._voxelSize) - offset;

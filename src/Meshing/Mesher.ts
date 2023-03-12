@@ -119,18 +119,31 @@ let faces: number[];
 let chunk: Chunk;
 let field: SignedDistanceField;
 let numSamples = 0;
+let maxSamples = 0;
 let borderSeams = 0;
 let borderScale = 1;
-const maxVoxels = 0;
+let maxVoxels = 0;
+let fieldSamples: Float32Array;
 const voxelRange = new Vector3();
 const origin = new Vector3();
 const worldSize = new Vector3();
+
+let xSampleStart = 0;
+let xSampleEnd = 0; 
+let ySampleStart = 0; 
+let ySampleEnd = 0; 
+let zSampleStart = 0; 
+let zSampleEnd = 0; 
 
 let voxels: Voxels;
 let voxelSize = 0;
 const sampledPoints: Vector3[] = [];
 const sampledLabels: string[] = [];
 
+let totalTime = 0;
+
+let positiveSamples = false;
+let negativeSamples = false;
 
 function ExtractSurface (_chunk: Chunk,
     _field: SignedDistanceField,
@@ -140,6 +153,12 @@ function ExtractSurface (_chunk: Chunk,
     chunk = _chunk;
     field = _field;
     numSamples = chunk.getNumSamples();
+
+    if (numSamples > maxSamples) {
+        fieldSamples = new Float32Array(numSamples);
+        maxSamples = numSamples;
+    }
+
     SetupVoxels(numSamples);
     verticies = _verticies;
     faces = _faces;
@@ -158,10 +177,18 @@ function ExtractSurface (_chunk: Chunk,
     if (SkipChunk())
         return false;
 
-    if (FieldIntersectsChunk()) {
+    SetupSampleRange();
+
+    // time this section of code
+    const start = performance.now();
+    if (SampleChunkField()) {
         CheckAllVoxels(voxelRange);
         ExtractAllFaces();
     }
+    const end = performance.now();
+    const time = end - start;
+    totalTime += time;
+
     return faces.length > 0;
 }
 
@@ -183,20 +210,52 @@ function FieldIntersectsChunk(): boolean{
 }
 
 const worldPosition = new Vector3();
+const worldPosition2 = new Vector3();
 
+function SampleChunkField (): boolean {
+    if (!FieldIntersectsChunk())
+        return false;
+    positiveSamples = false;
+    negativeSamples = false;
+
+    SampleAllPoints(chunk);
+    return positiveSamples && negativeSamples;
+}
+
+function SetupSampleRange() {
+    const seamOverlap = 2;
+    xSampleStart = (borderSeams & BORDERS.xMin) ? -seamOverlap : 0;
+    xSampleEnd = (borderSeams & BORDERS.xMax) ? voxelRange.x + seamOverlap : voxelRange.x;
+    ySampleStart = (borderSeams & BORDERS.yMin) ? -seamOverlap : 0;
+    ySampleEnd = (borderSeams & BORDERS.yMax) ? voxelRange.y + seamOverlap : voxelRange.y;
+    zSampleStart = (borderSeams & BORDERS.zMin) ? -seamOverlap : 0;
+    zSampleEnd = (borderSeams & BORDERS.zMax) ? voxelRange.z + seamOverlap : voxelRange.z;
+}
+
+function SampleAllPoints(chunk: Chunk) {
+    // note examine voxels <= voxelRange because we need a sample beyond the edge
+    for (let voxX = xSampleStart; voxX <= xSampleEnd; voxX++) {
+        for (let voxY = ySampleStart; voxY <= ySampleEnd; voxY++) {
+            for (let voxZ = zSampleStart; voxZ <= zSampleEnd; voxZ++) {
+                voxelPosition.set(voxX, voxY, voxZ);
+                chunk.voxelSpaceToWorldSpace(voxelPosition, worldPosition);
+                const surfaceDist = field.sample(worldPosition);
+                if (surfaceDist >= 0)
+                    positiveSamples = true;
+                else
+                    negativeSamples = true;
+                const voxelIndex = chunk.voxelIndex(voxX, voxY, voxZ);
+                fieldSamples[voxelIndex] = surfaceDist;       
+            }
+        }
+    }
+}
 
 function CheckAllVoxels(voxelRange: XYZ) {
-    const seamOverlap = 2;
-    const xStart = (borderSeams & BORDERS.xMin) ? -seamOverlap : 0;
-    const xEnd = (borderSeams & BORDERS.xMax) ? voxelRange.x + seamOverlap : voxelRange.x;
-    const yStart = (borderSeams & BORDERS.yMin) ? -seamOverlap : 0;
-    const yEnd = (borderSeams & BORDERS.yMax) ? voxelRange.y + seamOverlap : voxelRange.y;
-    const zStart = (borderSeams & BORDERS.zMin) ? -seamOverlap : 0;
-    const zEnd = (borderSeams & BORDERS.zMax) ? voxelRange.z + seamOverlap : voxelRange.z;
-
-    for (let voxX = xStart; voxX < xEnd; voxX++) {
-        for (let voxY = yStart; voxY < yEnd; voxY++) {
-            for (let voxZ = zStart; voxZ < zEnd; voxZ++) {
+    // note examine voxels < voxelRange
+    for (let voxX = xSampleStart; voxX < xSampleEnd; voxX++) {
+        for (let voxY = ySampleStart; voxY < ySampleEnd; voxY++) {
+            for (let voxZ = zSampleStart; voxZ < zSampleEnd; voxZ++) {
                 CheckVoxelIntersection(voxX, voxY, voxZ);
             }
         }
@@ -210,8 +269,6 @@ function CheckVoxelIntersection(voxX: number, voxY: number, voxZ: number): boole
 
     let edgeMask = 0;
 
-    const requiresSeam = RequiresSeam(voxX, voxY, voxZ);
-
     voxelPosition.set(voxX, voxY, voxZ);
     chunk.voxelSpaceToWorldSpace(voxelPosition, worldPosition, 1);
 
@@ -221,13 +278,7 @@ function CheckVoxelIntersection(voxX: number, voxY: number, voxZ: number): boole
             voxY + CUBE_CORNER_OFFSETS[cornerNum].y,
             voxZ + CUBE_CORNER_OFFSETS[cornerNum].z);
         const cornerIndex = chunk.voxelIndex(voxelPosition.x, voxelPosition.y, voxelPosition.z);
-
-        samplePoint.set(
-            worldPosition.x + CUBE_CORNER_OFFSETS[cornerNum].x * voxelSize,
-            worldPosition.y + CUBE_CORNER_OFFSETS[cornerNum].y * voxelSize,
-            worldPosition.z + CUBE_CORNER_OFFSETS[cornerNum].z * voxelSize);
-    
-        cornerDist[cornerNum] = field.sample(samplePoint);
+        cornerDist[cornerNum] = fieldSamples[cornerIndex];
 
         if (cornerDist[cornerNum] < 0)
             interiorPoints++;
@@ -240,6 +291,16 @@ function CheckVoxelIntersection(voxX: number, voxY: number, voxZ: number): boole
         
     edgeMask = CalcWorldVertex(edgeMask, voxX, voxY, voxZ, voxIndex, 1);
     
+    AddDebugMarker(voxX, voxY, voxZ, edgeMask);
+    
+    AppendVertex(voxIndex, vertexPoint);
+
+    voxels.connections[voxIndex] = edgeMask;
+
+    return true;
+}
+
+function AddDebugMarker(voxX: number, voxY: number, voxZ: number, edgeMask: number) {
     if (DebugVox(voxX, voxY, voxZ)) {
         let edges = "";
         if (edgeMask & XZ_FACE_CLOCKWISE) {
@@ -263,41 +324,11 @@ function CheckVoxelIntersection(voxX: number, voxY: number, voxZ: number): boole
             edges += "YZ_ANTICLOCK ";
         }
         if (edges == "")
-            edges = "???"
-                
+            edges = "???";
+
         sampledPoints.push(vertexPoint.clone().addInPlaceFromFloats(0, 0.06, 0));
         sampledLabels.push(`seam center ${voxX} ${voxY} ${voxZ} seam ${edges}`);
-
-        // edgeMask |= DEBUG_EDGE;
     }
-    
-    AppendVertex(voxIndex, vertexPoint);
-
-    voxels.connections[voxIndex] = edgeMask;
-
-    return true;
-}
-
-
-function RequiresSeam(voxX: number, voxY: number, voxZ: number) {
-    if (borderScale == 1)
-        return false;
-    const offset = 1;
-    if (borderSeams & BORDERS.xMin && voxX < offset)
-        return true;
-    if (borderSeams & BORDERS.yMin && voxY < offset)
-        return true;
-    if (borderSeams & BORDERS.zMin && voxZ < offset)
-        return true;
-
-    if (borderSeams & BORDERS.xMax && voxX >= voxelRange.x - offset)
-        return true;
-    if (borderSeams & BORDERS.yMax && voxY >= voxelRange.y - offset)
-        return true;
-    if (borderSeams & BORDERS.zMax && voxZ >= voxelRange.z - offset)
-        return true;
-
-    return false;
 }
 
 function CalcWorldVertex(edgeMask: number, voxX: number, voxY: number, voxZ: number, voxelIndex: number,scale: number) {
@@ -512,7 +543,6 @@ function ExtractFaces(isSeamFace: boolean,voxelPosition: Vector3,offsets: number
     }
 }
 
-
 function SetupVoxels(numSamples: number) {
     if (numSamples > maxVoxels) {
         voxels = {
@@ -523,9 +553,12 @@ function SetupVoxels(numSamples: number) {
             surfaceVoxels: new Uint16Array(numSamples),
             connections: new Int8Array(numSamples)
         }
+        maxVoxels = numSamples;
     }
-    else
+    else {
         voxels.vertexCount = 0;
+        voxels.numSurfaceVoxels = 0;
+    }
 }
 
 // selectively skip chunks for debugging
@@ -533,7 +566,7 @@ function SkipChunk(): boolean {
     return false;
 
     const chunkID = chunk.toString();
-     const targetChunks = ["Origin: 16,0,32 Size: 16,16,16 VoxelSize: 1"];
+     const targetChunks = ["Origin: 16,8,24 Size: 8,8,8 VoxelSize: 0.5"];
     // const targetChunks = [
     //     "Origin: -4,6,6 Size: 2,2,2 VoxelSize: 0.125",
     //     "Origin: -2,6,6 Size: 2,2,2 VoxelSize: 0.125",
@@ -577,5 +610,5 @@ export {ExtractSurface,
     XZ_FACE_ANTICLOCK, 
     XY_FACE_ANTICLOCK,
     YZ_FACE_ANTICLOCK,
-    sampledPoints,sampledLabels}
+    sampledPoints,sampledLabels,totalTime}
 
