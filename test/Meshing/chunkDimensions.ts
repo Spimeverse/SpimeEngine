@@ -9,29 +9,29 @@ export function TestChunkDimensions()
         it('calculates how many samples are needed', () => {
         let chunk = new Chunk();
         chunk.setSize({ x: 5, y: 5, z: 5 }, 1);
-        expect(chunk.getNumSamples()).toBe(10 * 10 * 10);
+        expect(chunk.getNumSamples()).toBe(12 * 12 * 12);
 
         chunk = new Chunk();
         chunk.setSize({x:10,y:20,z:30},2);
-        expect(chunk.getNumSamples()).toBe(10 * 15 * 20);
+        expect(chunk.getNumSamples()).toBe(12 * 17 * 22);
     })
 
 
     it('converts sample index to world space', () => {
         const chunk = new Chunk();
         chunk.setSize({ x: 5, y: 5, z: 5 }, 1);
-        chunk.setPosition({ x: 2.5, y: 4.5, z: 6.5 });
+        chunk.setPosition({ x: 3.5, y: 4.5, z: 5.5 });
         const samplePoint = new Vector3();
         chunk.indexToWorldSpace(0, samplePoint);
-        expect(samplePoint.toString()).toBe("{X: 0 Y: 2 Z: 4}");
+        expect(samplePoint.toString()).toBe("{X: 0 Y: 1 Z: 2}");
         chunk.indexToWorldSpace(1, samplePoint);
-        expect(samplePoint.toString()).toBe("{X: 1 Y: 2 Z: 4}");
-        chunk.indexToWorldSpace(10, samplePoint);
-        expect(samplePoint.toString()).toBe("{X: 0 Y: 3 Z: 4}");
-        chunk.indexToWorldSpace(100, samplePoint);
-        expect(samplePoint.toString()).toBe("{X: 0 Y: 2 Z: 5}");
-        chunk.indexToWorldSpace(111, samplePoint);
-        expect(samplePoint.toString()).toBe("{X: 1 Y: 3 Z: 5}");
+        expect(samplePoint.toString()).toBe("{X: 1 Y: 1 Z: 2}");
+        chunk.indexToWorldSpace(12, samplePoint);
+        expect(samplePoint.toString()).toBe("{X: 0 Y: 2 Z: 2}");
+        chunk.indexToWorldSpace(144, samplePoint);
+        expect(samplePoint.toString()).toBe("{X: 0 Y: 1 Z: 3}");
+        chunk.indexToWorldSpace(145, samplePoint);
+        expect(samplePoint.toString()).toBe("{X: 1 Y: 1 Z: 3}");
     })
     
         it('converts cell space world space', () => {
