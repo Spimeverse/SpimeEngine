@@ -7,12 +7,14 @@ import { Engine } from "@babylonjs/core/Engines/engine"
 import { Scene } from "@babylonjs/core"
 // import { TransformNode } from "@babylonjs/core/Meshes/transformNode"
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera"
+import { UniversalCamera } from "@babylonjs/core";
 import { Vector3,Color4,Color3, Matrix } from "@babylonjs/core/Maths"
 import { HemisphericLight } from "@babylonjs/core/Lights"
 import { GroundBuilder } from "@babylonjs/core/Meshes/Builders"
 import { ScaleBlock, StandardMaterial } from "@babylonjs/core/Materials"
 import { Texture } from "@babylonjs/core/Materials/Textures"
 import { Mesh, VertexData, MeshBuilder } from "@babylonjs/core/Meshes"
+import { FreeCameraKeyboardMoveInput } from "@babylonjs/core/Cameras/Inputs/freeCameraKeyboardMoveInput"
 // import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh"
 
 import { ExtractSurface, CORNERS, Chunk,BORDERS,sampledPoints,sampledLabels } from "./Meshing";
@@ -48,22 +50,32 @@ class App {
 
 
         // This creates and positions a free camera (non-mesh)
-        const camera = new ArcRotateCamera(
-            "camera",
-            -2.3053, //-Math.PI / 4,
-            1.0634, //Math.PI / 4,
-            16.7337,
-            new Vector3(17.194,13.131,27.050),
-            scene
-        );
-        camera.fov = 0.4264;
-        camera.wheelDeltaPercentage = 0.01;
+        // const camera = new ArcRotateCamera(
+        //     "camera",
+        //     -2.3053, //-Math.PI / 4,
+        //     1.0634, //Math.PI / 4,
+        //     16.7337,
+        //     new Vector3(17.194,13.131,27.050),
+        //     scene
+        // );
+        // camera.fov = 0.4264;
+        // camera.wheelDeltaPercentage = 0.01;
+
+        const camera = new UniversalCamera("UniversalCamera", new Vector3(1, 8, -4), scene);
+        camera.speed = 0.04;
+        // Targets the camera to a particular position. In this case the scene origin
+        camera.setTarget(new Vector3(-1.387, 7.705, 5.545));
     
         // This targets the camera to scene origin
         //camera.setTarget(new Vector3(12.947,-4.533,7.477));
     
         // This attaches the camera to the canvas
-        camera.attachControl(this.canvas, true);    
+        camera.attachControl(this.canvas, true);
+        const keyboardInput = camera.inputs.attached.keyboard as FreeCameraKeyboardMoveInput;
+        keyboardInput.keysUp.push(87); // w
+        keyboardInput.keysDown.push(83); // s
+        keyboardInput.keysLeft.push(65); // a
+        keyboardInput.keysRight.push(68); // d
 
         // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
         const light = new HemisphericLight("light", new Vector3(0, 0, 0), scene);
@@ -160,8 +172,8 @@ class App {
                 chunkManager.updateField(fieldTorus);
             }
 
-            if (!marker.position.equals(viewOrigin)) {
-                viewOrigin.copyFrom(marker.position);
+            if (!camera.position.equals(viewOrigin)) {
+                viewOrigin.copyFrom(camera.position);
                 chunkManager.setViewOrigin(viewOrigin);
             }
 
@@ -203,14 +215,14 @@ class App {
             }
 
             // if keycode is "W"
-            if (ev.key === "w") {
-                // set all meshes to wireframe
-                const allChunks = new Set<Chunk>();
-                chunkManager.getChunks(allChunks);
-                for (const chunk of allChunks) {
-                    chunk.toggleWireframe();
-                }
-            }
+            // if (ev.key === "w") {
+            //     // set all meshes to wireframe
+            //     const allChunks = new Set<Chunk>();
+            //     chunkManager.getChunks(allChunks);
+            //     for (const chunk of allChunks) {
+            //         chunk.toggleWireframe();
+            //     }
+            // }
         });
 
         // run the main render loop
