@@ -10,12 +10,27 @@ const gridPeriod = new Vector3(1, 1, 1);
 const gridSphereDist = new Vector3(0, 0, 0);
 
 
-function ConvertPositionToRandomValue(vec: Vector3): number {
-    let x = vec.x * 123.4567 + vec.y * 234.5678 + vec.z * 345.6789;
-    x = Math.sin(x) * 43758.5453123;
-    return (x - Math.floor(x));
-}
+// function ConvertPositionToRandomValue(vec: Vector3): number {
+//     let x = vec.x * 123.4567 + vec.y * 234.5678 + vec.z * 345.6789;
+//     x = Math.sin(x) * 43758.5453123;
+//     return (x - Math.floor(x));
+// }
 
+function ConvertPositionToRandomValue(vec: Vector3): number {
+  // Define prime numbers for hashing
+  const p1 = 0.73856093;
+  const p2 = 0.19349663;
+  const p3 = 0.83492791;
+
+  // Hash each component of the vector using primes
+  let hash = 0;
+  hash += (vec.x * vec.x * p1);
+  hash += (vec.y * vec.y * p2);
+  hash += (vec.z * vec.z * p3);
+
+  // Return the hashed value
+  return hash - Math.floor(hash);
+}
 
 
 function SphereDomainRepeat(indexOfGrid: Vector3, fractionOfGridCell: Vector3, gridSize: number,gridOffsetX: number,gridOffsetY: number,gridOffsetZ: number) {
@@ -32,14 +47,16 @@ function SphereDomainRepeat(indexOfGrid: Vector3, fractionOfGridCell: Vector3, g
 }
 
 function SmoothMax(a: number, b: number, k: number): number {
-  const h = Math.max(k - Math.abs(a - b), 0.0) / k;
-  return Math.max(a, b) + h * h * h * k * (1 / 6);
+    const h = Math.max(k - Math.abs(a - b), 0.0) / k;
+    const max = (a < b) ? b : a;
+  return max + h * h * h * k * (1 / 6);
 }
 
 // https://iquilezles.org/articles/smin/
 function SmoothMin(a: number, b: number, k: number): number {
-  const h = Math.max(k - Math.abs(a - b), 0.0) / k;
-  return Math.min(a, b) - h * h * h * k * (1 / 6);
+    const h = Math.max(k - Math.abs(a - b), 0.0) / k;
+    const min = (a < b) ? a : b;
+  return min - h * h * h * k * (1 / 6);
 }
 
 

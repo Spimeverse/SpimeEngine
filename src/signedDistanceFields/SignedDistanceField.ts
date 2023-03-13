@@ -94,7 +94,9 @@ class SdfUnion extends SignedDistanceField {
     sample(point: Vector3): number {
         let minDistance = Infinity;
         for (const field of this.fields) {
-            minDistance = Math.min(minDistance, field.sample(point));
+            const distance = field.sample(point);
+            if (distance < minDistance)
+                minDistance = distance;
         }
         return minDistance;
     }

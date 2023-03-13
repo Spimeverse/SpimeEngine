@@ -210,7 +210,6 @@ function FieldIntersectsChunk(): boolean{
 }
 
 const worldPosition = new Vector3();
-const worldPosition2 = new Vector3();
 
 function SampleChunkField (): boolean {
     if (!FieldIntersectsChunk())
@@ -273,11 +272,10 @@ function CheckVoxelIntersection(voxX: number, voxY: number, voxZ: number): boole
     chunk.voxelSpaceToWorldSpace(voxelPosition, worldPosition, 1);
 
     for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
-        voxelPosition.set(
+        const cornerIndex = chunk.voxelIndex(
             voxX + CUBE_CORNER_OFFSETS[cornerNum].x,
             voxY + CUBE_CORNER_OFFSETS[cornerNum].y,
             voxZ + CUBE_CORNER_OFFSETS[cornerNum].z);
-        const cornerIndex = chunk.voxelIndex(voxelPosition.x, voxelPosition.y, voxelPosition.z);
         cornerDist[cornerNum] = fieldSamples[cornerIndex];
 
         if (cornerDist[cornerNum] < 0)
