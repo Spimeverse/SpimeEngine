@@ -56,7 +56,7 @@ class ChunkManager {
 
     private _checkIfViewOriginChangesChunkScales() {
 
-        if (this._newOrigin.equals(this._viewOrigin))
+        if (this._newOrigin.equalsWithEpsilon(this._viewOrigin, 0.0001))
             return;
  
         const viewDelta = ChunkManager._viewDelta;
@@ -134,7 +134,7 @@ class ChunkManager {
 
     static debugUpdates = 2;
 
-    updateChangedMeshes(scene: Scene) {
+    updateChangedMeshes(scene: Scene, showChunkBounds: boolean) {
         if (!this._updatesPending) {
             this._checkIfViewOriginChangesChunkScales();
 
@@ -151,20 +151,20 @@ class ChunkManager {
             const updateComplete = this._updateDirtyChunkMeshes(scene);
             if (updateComplete) {
                 console.log("update complete",totalTime / 1000, "seconds");
-                this._showUpdatedMeshes(scene);
+                this._showUpdatedMeshes(scene, showChunkBounds);
 
-                maxUpdatesPerFrame = 10;
+                maxUpdatesPerFrame = 1;
                 this._updatesPending = false;
             }
         }
     }
 
 
-    private _showUpdatedMeshes(scene: Scene) {
+    private _showUpdatedMeshes(scene: Scene, showChunkBounds: boolean) {
         let chunkNode = this._updateChunkQueue.first;
         while (chunkNode != null) {
             const chunk = chunkNode.value;
-            chunk.swapMeshes(scene);
+            chunk.swapMeshes(scene,showChunkBounds);
             if (chunk.isMarkedForRemoval()) {
                 this._chunkTree.remove(chunk);
             }
@@ -222,14 +222,17 @@ class ChunkManager {
             field.commitUpdate();
         }
         for (const field of this._changedFields) {
-            // TODO do we need to update dirty chunks here?
+            // mark any existing chunks within the fields current bounds as dirty
             this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
             // ensure all chunks within the fields current bounds are created and updated
             this._createChunksForBounds(field.currentBounds, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
+
+            // move the field to it's new positon and new bounds
             this._fieldTree.update(field, field.newBounds);
+
             // ensure all chunks within the fields new bounds are created and updated
             this._createChunksForBounds(field.currentBounds, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
-            // TODO do we need to update dirty chunks here?
+            // ensure any existing chunks within the fields new bounds are marked as dirty
             this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
         }
         this._changedFields.clear();
@@ -306,10 +309,10 @@ class ChunkManager {
                             this._dirtyChunks.add(nearChunk);
                         }
                     }
-                    else {
-                        // mark any close by chunks as dirty in case their borders need to be updated
-                        this._dirtyChunks.add(nearChunk);
-                    }
+                    // else {
+                    //     // mark any close by chunks as dirty in case their borders need to be updated
+                    //     this._dirtyChunks.add(nearChunk);
+                    // }
                     
                 }
             }
@@ -323,7 +326,7 @@ class ChunkManager {
 
     private _targetChunkSizeForDistance(chunkDist: number) {
         const scalingFactor = 0.50741;
-        const targetSize = Math.max(chunkDist * scalingFactor, 3);
+        const targetSize = Math.max(chunkDist * scalingFactor, 5);
         return targetSize;
     }
 }
