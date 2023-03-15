@@ -99,7 +99,7 @@ class SdfTerrain extends SignedDistanceField {
         let scale = hillScale;
         
         octiveSample.copyFrom(point);
-        for (let i = 0; i <= 11; i++) {
+        for (let i = 0; i <= 5; i++) {
             // evaluate new octave
             // distance to next layer
             const n = SdBase(octiveSample,scale);
