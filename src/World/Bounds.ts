@@ -106,7 +106,7 @@ class SphereBound extends Bounds {
 
 
     public toString(): string {
-        return `[${this.xPos - this.radius} ${this.yPos - this.radius} ${this.zPos - this.radius} ${this.xPos + this.radius} ${this.yPos + this.radius} ${this.zPos + this.radius}]`;
+        return `[ minx ${this.xPos - this.radius} maxx ${this.xPos + this.radius} miny ${this.yPos - this.radius} maxy ${this.yPos + this.radius} minz ${this.zPos - this.radius} maxz ${this.zPos + this.radius}]`; 
     }  
 }
 

@@ -294,10 +294,10 @@ class Chunk implements IhasBounds {
             //Apply vertexData to custom mesh
             this._vertexData.applyToMesh(this._newChunkMesh, false)
 
-            // ege rendering has to be turned on after the mesh is created
-            this._newChunkMesh.enableEdgesRendering(Math.PI - 0.1);
+            // edge rendering has to be turned on after the mesh is created
+            this._newChunkMesh.enableEdgesRendering(Math.PI * 1.1);
             this._newChunkMesh.edgesWidth = this._voxelSize * 15;
-            const edgeColor = new Color3(0, 0, 0);
+            const edgeColor = new Color3(0, 1, 1);
             Color3.HSVtoRGBToRef(Math.random() * 360, 0.5 + Math.random() / 2, 1, edgeColor);
             this._newChunkMesh.edgesColor = new Color4(edgeColor.r, edgeColor.g , edgeColor.b, 1);
 
@@ -307,7 +307,7 @@ class Chunk implements IhasBounds {
         return extracted;
     }
 
-    swapMeshes(scene: Scene) {
+    swapMeshes(scene: Scene, showChunkBounds: boolean) {
         if (this._chunkMesh) {
             this._chunkMesh.isVisible = false;
             scene.removeMesh(this._chunkMesh);
@@ -325,6 +325,18 @@ class Chunk implements IhasBounds {
                 scene.addMesh(this._newChunkMesh);
                 this._chunkMesh = this._newChunkMesh;
                 this._newChunkMesh = null;
+
+                // if (showChunkBounds) {
+                //     const chunkBounds = MeshBuilder.CreateBox("Chunk Bounds" + this.toString(), { size: this._worldSize.x }, scene);
+                //     const boundsMaterial = new StandardMaterial("boundsMaterial", scene);
+                //     chunkBounds.position.copyFrom(this._position);
+                //     chunkBounds.position.addInPlace(this._worldSize.scale(0.5));
+                //     boundsMaterial.diffuseColor = new Color3(1, 1, 1);
+                //     boundsMaterial.emissiveColor = new Color3(1, 1, 1);
+                //     boundsMaterial.wireframe = true;
+                //     chunkBounds.material = boundsMaterial;
+                //     chunkBounds.isVisible = true;
+                // }
             }
         }
     }

@@ -26,8 +26,10 @@ const maxSparseSamples = 0;
 const xSample = 0;
 const fieldPosition = new Vector3();
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: it's an image    
+// @ts-ignore: it's an image
 //import grassTextureUrl from "../assets/grass.jpg";
+
+let showChunkBounds = false;
 
 class App {
     engine: Engine;
@@ -61,10 +63,10 @@ class App {
         // camera.fov = 0.4264;
         // camera.wheelDeltaPercentage = 0.01;
 
-        const camera = new UniversalCamera("UniversalCamera", new Vector3(1, 8, -4), scene);
-        camera.speed = 0.04;
-        // Targets the camera to a particular position. In this case the scene origin
-        camera.setTarget(new Vector3(-1.387, 7.705, 5.545));
+        const camera = new UniversalCamera("UniversalCamera", new Vector3(1.758889783162618, 12.66466572326106, 10.458229236820639), scene);
+        camera.setTarget(new Vector3(-1.616065077189712, 11.149576961797608, 14.846219134963595));
+
+        camera.speed = 0.08;
     
         // This targets the camera to scene origin
         //camera.setTarget(new Vector3(12.947,-4.533,7.477));
@@ -116,30 +118,29 @@ class App {
 
         const box = MeshBuilder.CreateBox("box", {size:0.05}, scene);
         const boxMaterial = new StandardMaterial("boxMaterial", scene);
-        box.position.set(-1.867,6.994,7.497);
-        boxMaterial.diffuseColor = new Color3(1,0,0);
+        box.position.set(-2.478,6.442,21.392);
+        boxMaterial.diffuseColor = new Color3(1,0.8,0);
         boxMaterial.wireframe = true;
         box.material = boxMaterial;
         box.isVisible = true;
 
 
-        const box2 = MeshBuilder.CreateBox("box2", {size:1}, scene);
-        box2.position.x = -13.9;
-        box2.position.y = 7;
+        const box2 = MeshBuilder.CreateBox("box2", {size:0.025}, scene);
+        box2.position.set(-1.867,10.100,22.120)
         const boxMaterial2 = new StandardMaterial("boxMaterial2", scene);
-        boxMaterial2.diffuseColor = new Color3(0,0,1);
-        boxMaterial2.wireframe = false;
+        boxMaterial2.diffuseColor = new Color3(1,1,0);
+        boxMaterial2.wireframe = true;
         box2.material = boxMaterial2;
 
         const fieldBig = new SdfTerrain(5,50);
         fieldBig.setPosition(5,0,5)
-        const fieldTorus = new SdfTorus(3, 2);
+        const fieldTorus = new SdfSphere(0.7);
         fieldTorus.setPosition(0,0,-10);
         const field = new SdfSphere(10);
         const step = 1000;
         //field.rotation = new Vector3(Math.PI / 4,0,0);
-        // const fieldSphere = new SdfSphere(10);
-        // fieldSphere.setPosition(0,-5,0);
+        const fieldSphere = new SdfSphere(1);
+        fieldSphere.setPosition(0,-5,0);
 
         //const field = new SdfSphere(2);
         field.setPosition(0,0,0);
@@ -151,33 +152,41 @@ class App {
         viewOrigin.copyFrom(marker.position);
         chunkManager.setViewOrigin(viewOrigin);
 
-        //chunkManager.addField(fieldSphere);
+        chunkManager.addField(fieldSphere);
         //chunkManager.addField(field);
-        //chunkManager.addField(fieldTorus);
+        chunkManager.addField(fieldTorus);
         chunkManager.addField(fieldBig);
 
         let addedSamples = false;
 
 
         scene.onBeforeAnimationsObservable.add((theScene) => {
-            // if (!field.positionEquals(box.position))
-            // {
-            //     field.setPosition(box.position.x, box.position.y, box.position.z);
-            //     chunkManager.updateField(field);
-            // }
-
-            if (!fieldTorus.positionEquals(box2.position))
+            const offsetPosition = box.position.clone();
+            offsetPosition.y -= 1;
+            if (!fieldSphere.positionEquals(offsetPosition))
             {
-                fieldTorus.setPosition(box2.position.x, box2.position.y, box2.position.z);
+                fieldSphere.setPosition(offsetPosition.x, offsetPosition.y, offsetPosition.z);
+                chunkManager.updateField(fieldSphere);
+            }
+
+            offsetPosition.copyFrom(box2.position);
+            offsetPosition.y -= 1;
+            if (!fieldTorus.positionEquals(offsetPosition))
+            {
+                fieldTorus.setPosition(offsetPosition.x, offsetPosition.y, offsetPosition.z);
                 chunkManager.updateField(fieldTorus);
             }
 
             if (!camera.position.equals(viewOrigin)) {
                 viewOrigin.copyFrom(camera.position);
                 chunkManager.setViewOrigin(viewOrigin);
+                console.log(`
+        const camera = new UniversalCamera("UniversalCamera", new Vector3(${camera.position.x}, ${camera.position.y}, ${camera.position.z}), scene);
+        camera.setTarget(new Vector3(${camera.target.x}, ${camera.target.y}, ${camera.target.z}));`
+                )
             }
 
-            chunkManager.updateChangedMeshes(scene);
+            chunkManager.updateChangedMeshes(scene,showChunkBounds);
 
             if (!addedSamples && sampledPoints.length > 0)
             {
@@ -207,6 +216,7 @@ class App {
         window.addEventListener("keydown", (ev) => {
             // Shift+Ctrl+Alt+I
             if (ev.key === "i") {
+                showChunkBounds = !showChunkBounds;
                 if (scene.debugLayer.isVisible()) {
                     scene.debugLayer.hide();
                 } else {
