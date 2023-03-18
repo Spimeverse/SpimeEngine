@@ -21,6 +21,9 @@ import { ExtractSurface, CORNERS, Chunk,BORDERS,sampledPoints,sampledLabels } fr
 import { SdfTerrain, SdfBox, SdfSphere, SdfUnion, SdfTorus, SignedDistanceField } from "./signedDistanceFields";
 import { ChunkManager } from "./World"
 
+import { Animation } from "@babylonjs/core/Animations/animation";
+
+import { totalTime, totalSamples,totalSampleTime } from "./Meshing";
 
 const maxSparseSamples = 0;
 const xSample = 0;
@@ -63,10 +66,21 @@ class App {
         // camera.fov = 0.4264;
         // camera.wheelDeltaPercentage = 0.01;
 
-        const camera = new UniversalCamera("UniversalCamera", new Vector3(1.758889783162618, 12.66466572326106, 10.458229236820639), scene);
-        camera.setTarget(new Vector3(-1.616065077189712, 11.149576961797608, 14.846219134963595));
+        const camera = new UniversalCamera("UniversalCamera", new Vector3(-2.8217949121787824, 9.501053222397646, -28.271095914917254), scene);
+        camera.setTarget(new Vector3(-20.685020794343842, 5.944684257925115, -4.485705925161142));
 
         camera.speed = 0.08;
+
+        const serializedAnimations = JSON.parse(`{"animations":[{"name":"Cam pos","property":"position","framePerSecond":20,"dataType":1,"loopBehavior":2,"blendingSpeed":0.01,"keys":[{"frame":0,"values":[-2.8217949121787824,9.501053222397646,-28.27,[0,0,0],[0,0,0]]},{"frame":129.21995743172116,"values":[0.8527955366178549,11.692062928401029,-13.843473583201243,[-0.06155180388584942,-0.0036429561538406097,0.21937598776534395],[-0.06155180388584942,-0.0036429561538406097,0.21937598776534395]]},{"frame":297.2223927120956,"values":[-16.301708346773143,8.760765204861066,16.403518169650695,[-0.022056328838331633,-0.0013979831494550484,0.009165545290436245],[-0.022056328838331633,-0.0013979831494550484,0.009165545290436245]]},{"frame":299.7436442682032,"values":[-16.349656983197097,8.758994395014197,16.415109837412473,[-0.01595209092782805,0,-0.0031404693645491998],[0.013631925844310422,-0.0006740162009732571,-0.0031404742411068926]]},{"frame":432.94589620149475,"values":[12.148107358349497,9.091097974605935,21.12755694160433,[0.05013419294102299,0.003025587790556905,-0.21598667454605458],[0.05013419294102299,0.003025587790556905,-0.21598667454605458]]},{"frame":603.0017032707535,"values":[-2.82,9.506869799372636,-28.15,[0.0446143361455839,0.002466135300141024,-0.0021022206112283064]]}],"ranges":[]},{"name":"cam target","property":"target","framePerSecond":20,"dataType":1,"loopBehavior":2,"blendingSpeed":0.01,"keys":[{"frame":0,"values":[-20.685020928684036,5.944684231179481,-4.485705746283372,[0,0,0],[0,0,0]]},{"frame":129.21995743172116,"values":[-5.180320651830292,7.948138521880864,-2.98818130254878,[0.03632983261995387,-0.008284038602870619,0.009190434826888975],[0.03632983261995387,-0.008284038602870619,0.009190434826888975]]},{"frame":297.2223927120956,"values":[-1.923797962732456,6.218489003567818,35.02,[0.016416429787903173,-0.019796543802244673,0.011180446446101963],[0.016416429787903173,-0.019796543802244673,0.011180446446101963]]},{"frame":432.94589620149475,"values":[28.245593115939684,9.054696334592894,35.26339765727455,[-0.0939243596565713,0.002301700014770213,-0.19343467862478309],[-0.0939243596565713,0.002301700014770213,-0.19343467862478309]]},{"frame":603.0017032707535,"values":[-20.69,5.94,-4.49,[0,0,0],[0,0,0]]}],"ranges":[]}]}`)
+            .animations;
+                   
+        // declare an array to store our animations
+        const cameraAnimations: Animation[] = [];
+        for (const serializedAnimation of serializedAnimations) {
+                cameraAnimations.push(Animation.Parse(serializedAnimation));
+        }
+        
+        camera.animations = cameraAnimations;
     
         // This targets the camera to scene origin
         //camera.setTarget(new Vector3(12.947,-4.533,7.477));
@@ -233,6 +247,19 @@ class App {
             //         chunk.toggleWireframe();
             //     }
             // }
+
+            if (ev.key === "o") {
+                scene.beginAnimation(camera, 0, 0, false);
+            }
+
+            // if keycode  is "P"
+            if (ev.key === "p") {
+                scene.beginAnimation(camera, 0, 600, false);
+            }
+
+            if (ev.key === "m") {
+                console.log(`samples ${totalSamples} sample time ${totalSampleTime}ms`);
+            }
         });
 
         // run the main render loop

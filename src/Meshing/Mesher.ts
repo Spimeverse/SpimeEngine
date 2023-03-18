@@ -1,10 +1,11 @@
-// adapted from a Rust implementation here 
+// originally adapted from a Rust implementation here 
 // https://github.com/bonsairobo/fast-surface-nets-rs/blob/main/src/lib.rs
 
 
 import { SignedDistanceField, EMPTY_FIELD } from "../signedDistanceFields";
-import { Chunk,XYZ,BORDERS } from ".";
+import { Chunk,XYZ,BORDERS, DistanceCache, EMPTY_DISTANCE_CACHE } from ".";
 import { Vector3 } from "@babylonjs/core/Maths";
+import { AxisAlignedBoxBound } from "..";
 
 const voxelCenter = new Vector3();
 const samplePoint = new Vector3();
@@ -123,7 +124,7 @@ let maxSamples = 0;
 let borderSeams = 0;
 let borderScale = 1;
 let maxVoxels = 0;
-let fieldSamples: Float32Array;
+let distances: Float32Array;
 const voxelRange = new Vector3();
 const origin = new Vector3();
 const worldSize = new Vector3();
@@ -145,6 +146,11 @@ let totalTime = 0;
 let positiveSamples = false;
 let negativeSamples = false;
 
+let totalSamples = 0;
+let totalSampleTime = 0;
+
+let distanceCache = EMPTY_DISTANCE_CACHE;
+
 function ExtractSurface (_chunk: Chunk,
     _field: SignedDistanceField,
     _verticies: number[],
@@ -155,7 +161,7 @@ function ExtractSurface (_chunk: Chunk,
     numSamples = chunk.getNumSamples();
 
     if (numSamples > maxSamples) {
-        fieldSamples = new Float32Array(numSamples);
+        distances = new Float32Array(numSamples);
         maxSamples = numSamples;
     }
 
@@ -174,6 +180,8 @@ function ExtractSurface (_chunk: Chunk,
     verticies.length = 0;
     faces.length = 0;
 
+    distanceCache = chunk.getDistanceCache();
+
     if (SkipChunk())
         return false;
 
@@ -182,8 +190,7 @@ function ExtractSurface (_chunk: Chunk,
     // time this section of code
     const start = performance.now();
     if (SampleChunkField()) {
-        CheckAllVoxels(voxelRange);
-        ExtractAllFaces();
+        ExtractSurfaceVoxels();
     }
     const end = performance.now();
     const time = end - start;
@@ -192,13 +199,26 @@ function ExtractSurface (_chunk: Chunk,
     return faces.length > 0;
 }
 
+// no optimization
+// samples 13,624,794 sample time 25,873ms
+// samples 13,679,243 sample time 22,573ms
+// samples 12,856,289 sample time 21,409ms
+
+function SampleField(position: Vector3): number {
+    totalSamples++;
+    const start = window.performance.now();
+    const distance = field.sample(position);
+    totalSampleTime += window.performance.now() - start;
+    return distance;
+}
+
 function FieldIntersectsChunk(): boolean{
     const halfSize = Math.max(worldSize.x / 2,worldSize.y / 2,worldSize.z / 2);
     voxelPosition.set(
         origin.x + worldSize.x / 2, 
         origin.y + worldSize.y / 2,
         origin.z + worldSize.z / 2);
-    const centerDist = field.sample(voxelPosition);
+    const centerDist = SampleField(voxelPosition);
     // the maximum distance a field can be for the voxel center
     // and still intersect is half the voxel size * sqrt3
     // because the hypotenuse is sqrt(x*x+y*y+z*z)
@@ -217,8 +237,32 @@ function SampleChunkField (): boolean {
     positiveSamples = false;
     negativeSamples = false;
 
-    SampleAllPoints(chunk);
+    if (!distanceCache.isEmpty()) {
+        SampleCachedVoxels();
+        CheckCachedVoxels();
+    }
+    else {
+        SampleAllPoints(chunk);
+        CheckAllVoxels();
+    }
     return positiveSamples && negativeSamples;
+}
+
+function SampleCachedVoxels() {
+    // TODO need to fill in the gaps in the cache
+    // or downsample the cache
+    // TODO need to align voxel offsets to the chunk
+    const voxelIndicies = distanceCache.getVoxelIndices();
+    const distances = distanceCache.getDistances();
+    for (let i = 0; i < voxelIndicies.length; i++) {
+        const voxIndex = voxelIndicies[i];
+        const dist = distances[i];
+        distances[voxIndex] = dist;
+        if (dist > 0)
+            positiveSamples = true;
+        else
+            negativeSamples = true;
+    }
 }
 
 function SetupSampleRange() {
@@ -238,19 +282,21 @@ function SampleAllPoints(chunk: Chunk) {
             for (let voxZ = zSampleStart; voxZ <= zSampleEnd; voxZ++) {
                 voxelPosition.set(voxX, voxY, voxZ);
                 chunk.voxelSpaceToWorldSpace(voxelPosition, worldPosition);
-                const surfaceDist = field.sample(worldPosition);
+                const surfaceDist = SampleField(worldPosition);
                 if (surfaceDist >= 0)
                     positiveSamples = true;
                 else
                     negativeSamples = true;
                 const voxelIndex = chunk.voxelIndex(voxX, voxY, voxZ);
-                fieldSamples[voxelIndex] = surfaceDist;       
+                distances[voxelIndex] = surfaceDist; 
+
+                distanceCache.cacheDistance(voxelIndex, surfaceDist);
             }
         }
     }
 }
 
-function CheckAllVoxels(voxelRange: XYZ) {
+function CheckAllVoxels() {
     // note examine voxels < voxelRange
     for (let voxX = xSampleStart; voxX < xSampleEnd; voxX++) {
         for (let voxY = ySampleStart; voxY < ySampleEnd; voxY++) {
@@ -260,6 +306,21 @@ function CheckAllVoxels(voxelRange: XYZ) {
         }
     }
 }
+
+function CheckCachedVoxels() {
+    // note examine voxels < voxelRange
+    const voxelIndicies = distanceCache.getVoxelIndices();
+    for (let i = 0; i < voxelIndicies.length; i++) {
+        const voxIndex = voxelIndicies[i];
+        chunk.voxelIndexToVoxelPosition(voxIndex, voxelPosition);
+        if (voxelPosition.x < xSampleStart || voxelPosition.x >= xSampleEnd ||
+            voxelPosition.y < ySampleStart || voxelPosition.y >= ySampleEnd ||
+            voxelPosition.z < zSampleStart || voxelPosition.z >= zSampleEnd)
+            continue;
+        CheckVoxelIntersection(voxelPosition.x, voxelPosition.y, voxelPosition.z);
+    }
+}
+
 
 function CheckVoxelIntersection(voxX: number, voxY: number, voxZ: number): boolean {
    
@@ -276,7 +337,7 @@ function CheckVoxelIntersection(voxX: number, voxY: number, voxZ: number): boole
             voxX + CUBE_CORNER_OFFSETS[cornerNum].x,
             voxY + CUBE_CORNER_OFFSETS[cornerNum].y,
             voxZ + CUBE_CORNER_OFFSETS[cornerNum].z);
-        cornerDist[cornerNum] = fieldSamples[cornerIndex];
+        cornerDist[cornerNum] = distances[cornerIndex];
 
         if (cornerDist[cornerNum] < 0)
             interiorPoints++;
@@ -345,7 +406,7 @@ function CalcWorldVertex(edgeMask: number, voxX: number, voxY: number, voxZ: num
 }
 
 function AppendVertex(voxelIndex: number,point: Vector3) {
-    const dist = field.sample(point);
+    const dist = SampleField(point);
     const offset = borderScale / 10000; // h from formula
     if (Math.abs(dist) > offset) {
         let offsetDist = 0;
@@ -363,22 +424,22 @@ function AppendVertex(voxelIndex: number,point: Vector3) {
 
         // k.xyy*f( p + k.xyy*h ) +
         pointOffset.set(point.x + offset,point.y - offset,point.z - offset);
-        offsetDist = field.sample(pointOffset);
+        offsetDist = SampleField(pointOffset);
         normal.addInPlaceFromFloats(offsetDist,-offsetDist,-offsetDist);
 
         // k.yyx*f( p + k.yyx*h ) + 
         pointOffset.set(point.x - offset,point.y - offset,point.z + offset);
-        offsetDist = field.sample(pointOffset);
+        offsetDist = SampleField(pointOffset);
         normal.addInPlaceFromFloats(-offsetDist,-offsetDist,offsetDist);
 
         // k.yxy*f( p + k.yxy*h ) + 
         pointOffset.set(point.x - offset,point.y + offset,point.z - offset);
-        offsetDist = field.sample(pointOffset);
+        offsetDist = SampleField(pointOffset);
         normal.addInPlaceFromFloats(-offsetDist,offsetDist,-offsetDist);
         
         // k.xxx*f( p + k.xxx*h )
         pointOffset.set(point.x + offset,point.y + offset,point.z + offset);
-        offsetDist = field.sample(pointOffset);
+        offsetDist = SampleField(pointOffset);
         normal.addInPlaceFromFloats(offsetDist,offsetDist,offsetDist);
 
         normal.normalize();
@@ -400,7 +461,7 @@ function AppendVertex(voxelIndex: number,point: Vector3) {
     return true;
 }
 
-function ExtractAllFaces() {
+function ExtractSurfaceVoxels() {
 
     for (let i = 0; i < voxels.numSurfaceVoxels; i++)
     {
@@ -426,39 +487,39 @@ function ExtractVoxel(connectEdges: number) {
     const isSeamFace = (connectEdges & OVERLAPPING_SEAM) != 0;
 
     if (connectEdges & XZ_FACE_CLOCKWISE) {
-        ExtractFaces(isSeamFace,voxelPosition, [
+        ExtractFace(isSeamFace,voxelPosition, [
             [0, 0, 0], [0, 0, -1], [-1, 0, -1],
             [-1, 0, -1], [-1, 0, 0], [0, 0, 0]
         ]);
     }
     if (connectEdges & XZ_FACE_ANTICLOCK) {
-        ExtractFaces(isSeamFace,voxelPosition, [
+        ExtractFace(isSeamFace,voxelPosition, [
             [0, 0, 0], [-1, 0, 0], [-1, 0, -1],
             [-1, 0, -1], [0, 0, -1], [0, 0, 0]
         ]);
     }
 
     if (connectEdges & XY_FACE_CLOCKWISE) {
-        ExtractFaces(isSeamFace,voxelPosition, [
+        ExtractFace(isSeamFace,voxelPosition, [
             [0, 0, 0], [-1, 0, 0], [-1, -1, 0],
             [-1, -1, 0], [0, -1, 0], [0, 0, 0]
         ]);
     }
     if (connectEdges & XY_FACE_ANTICLOCK) {
-        ExtractFaces(isSeamFace,voxelPosition, [
+        ExtractFace(isSeamFace,voxelPosition, [
             [0, 0, 0], [0, -1, 0], [-1, -1, 0],
             [-1, -1, 0], [-1, 0, 0], [0, 0, 0]
         ]);
     }
 
     if (connectEdges & YZ_FACE_CLOCKWISE) {
-        ExtractFaces(isSeamFace,voxelPosition, [
+        ExtractFace(isSeamFace,voxelPosition, [
             [0, 0, 0], [0, -1, 0], [0, -1, -1],
             [0, -1, -1], [0, 0, -1], [0, 0, 0]
         ]);
     }
     if (connectEdges & YZ_FACE_ANTICLOCK) {
-        ExtractFaces(isSeamFace,voxelPosition, [
+        ExtractFace(isSeamFace,voxelPosition, [
             [0, 0, 0], [0, 0, -1], [0, -1, -1],
             [0, -1, -1], [0, -1, 0], [0, 0, 0]
         ]);
@@ -507,7 +568,7 @@ const triVert = new Uint16Array(3);
 const faceVertices: Vector3[] = [new Vector3(),new Vector3(),new Vector3()]; 
 const minEdgeLength = 0.000001;
 
-function ExtractFaces(isSeamFace: boolean,voxelPosition: Vector3,offsets: number[][]) {
+function ExtractFace(isSeamFace: boolean,voxelPosition: Vector3,offsets: number[][]) {
 
     for (let offsetNum = 0; offsetNum < offsets.length; offsetNum += 3) {
         let skipFace = false;
@@ -599,14 +660,17 @@ function DebugVox(voxX: number, voxY: number, voxZ: number) {
     return true;
 }
 
-export {ExtractSurface, 
+export {
+    ExtractSurface,
     CalcVoxelVertex,
     CONNECTED_CELL,
     XZ_FACE_CLOCKWISE,
     XY_FACE_CLOCKWISE,
     YZ_FACE_CLOCKWISE,
-    XZ_FACE_ANTICLOCK, 
+    XZ_FACE_ANTICLOCK,
     XY_FACE_ANTICLOCK,
     YZ_FACE_ANTICLOCK,
-    sampledPoints,sampledLabels,totalTime}
+    sampledPoints, sampledLabels,
+    totalTime, totalSamples, totalSampleTime
+}
 

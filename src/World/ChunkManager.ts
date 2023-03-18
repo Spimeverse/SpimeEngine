@@ -1,6 +1,6 @@
 import { Vector3,Scene } from "@babylonjs/core";
 import { AxisAlignedBoxBound, SphereBound, Bounds } from "./Bounds";
-import { SignedDistanceField, Chunk } from "..";
+import { SignedDistanceField, Chunk, DistanceCache } from "..";
 import { SparseOctTree } from "."
 import { SdfUnion } from "..";
 import { LinkedList, LinkedListNode } from "../Collection/LinkedList";
@@ -289,6 +289,9 @@ class ChunkManager {
             // use fewer voxels per chunk further away
             newChunk.setSize({ x: extent, y: extent, z: extent }, extent / voxels);
 
+            const sampleCache = new DistanceCache(newChunk.currentBounds);
+            newChunk.setDistanceCache(sampleCache);
+
             newChunk.updateCurrentBounds();
 
             const expandBy = newChunk.getVoxelSize() * 2;
@@ -307,6 +310,16 @@ class ChunkManager {
                             // mark existing chunk for removal
                             nearChunk.markForRemoval();
                             this._dirtyChunks.add(nearChunk);
+
+                            const nearChunkSampleCache = nearChunk.getDistanceCache();
+                            if (nearChunkSampleCache) {
+                                if (nearChunk.currentBounds.extent > newChunk.currentBounds.extent) {
+                                    sampleCache.addParent(nearChunkSampleCache);
+                                }
+                                else {
+                                    sampleCache.addChild(nearChunkSampleCache);
+                                }
+                            }
                         }
                     }
                     // else {

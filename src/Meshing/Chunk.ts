@@ -2,7 +2,7 @@ import { Scene, StandardMaterial } from "@babylonjs/core"
 import { Nullable } from "@babylonjs/core";
 import { Color3, Color4, Vector3 } from "@babylonjs/core/Maths";
 import { Mesh, VertexData, MeshBuilder } from "@babylonjs/core/Meshes"
-import { AxisAlignedBoxBound } from "..";
+import { AxisAlignedBoxBound, DistanceCache, EMPTY_DISTANCE_CACHE } from "..";
 import { SignedDistanceField } from "..";
 import { Bounds } from "..";
 import { IhasBounds } from "..";
@@ -44,6 +44,7 @@ const seamExtraDouble = seamExtra * 2;
  * Doesn't actually reference the array itself
  */
 class Chunk implements IhasBounds {
+
         /**
      * the extent of the chunk in world coordinate space
      */
@@ -90,6 +91,7 @@ class Chunk implements IhasBounds {
     private _chunkMesh: Nullable<Mesh> = null;
     private _newChunkMesh: Nullable<Mesh> = null;
     private _markedForRemoval = false;
+    private _distanceCache = EMPTY_DISTANCE_CACHE;
 
     //  X   X   X   X
     //    c   c   c 
@@ -440,6 +442,14 @@ class Chunk implements IhasBounds {
          }
     }
 
+    setDistanceCache(distanceCache: DistanceCache) {
+        this._distanceCache = distanceCache;
+    }
+
+    getDistanceCache() {
+        return this._distanceCache;
+    }
+    
     toString() {
         return `Origin: ${this._position.x},${this._position.y},${this._position.z} Size: ${this._worldSize.x},${this._worldSize.y},${this._worldSize.z} VoxelSize: ${this._voxelSize}`;
     }
