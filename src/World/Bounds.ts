@@ -87,7 +87,7 @@ class SphereBound extends Bounds {
     }
 
 
-    set(xPos: number, yPos: number, zPos: number,radius: number) {
+    set(xPos: number, yPos: number, zPos: number, radius: number) {
         this.xPos = xPos;
         this.yPos = yPos;
         this.zPos = zPos;
@@ -104,10 +104,9 @@ class SphereBound extends Bounds {
         return distanceSquared <= radiusSum * radiusSum;
     }
 
-
     public toString(): string {
-        return `[ minx ${this.xPos - this.radius} maxx ${this.xPos + this.radius} miny ${this.yPos - this.radius} maxy ${this.yPos + this.radius} minz ${this.zPos - this.radius} maxz ${this.zPos + this.radius}]`; 
-    }  
+        return `[${this.xPos - this.radius} ${this.yPos - this.radius} ${this.zPos - this.radius} ${this.xPos + this.radius} ${this.yPos + this.radius} ${this.zPos + this.radius}]`;
+    }
 }
 
 

@@ -11,7 +11,7 @@ export function TestChunkManager() {
             sphere.setPosition(0.5, 0.5, 0.5);
             chunkManager.addField(sphere);
             expect(ChunkState(chunkManager)).toBe(
-                "\nOrigin: 0,0,0 Size: 2,2,2 VoxelSize: 0.125");
+                "\nOrigin: 0,0,0 Size: 4,4,4 VoxelSize: 0.25");
         });
 
         it('adding an object can create multiple chunks', () => {
@@ -20,8 +20,8 @@ export function TestChunkManager() {
             sphere.setPosition(1, 1, 0);
             chunkManager.addField(sphere);
             expect(ChunkState(chunkManager)).toBe(
-                "\nOrigin: 0,0,-2 Size: 2,2,2 VoxelSize: 0.125" +
-                "\nOrigin: 0,0,0 Size: 2,2,2 VoxelSize: 0.125");
+                "\nOrigin: 0,0,-4 Size: 4,4,4 VoxelSize: 0.25" +
+                "\nOrigin: 0,0,0 Size: 4,4,4 VoxelSize: 0.25");
         });
 
         it('adding an object creates a chunk at the right position', () => {

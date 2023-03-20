@@ -1,4 +1,4 @@
-import { Chunk, ExtractSurface, CalcVoxelVertex} from "..";
+import { Chunk, ExtractSurface, CalcVoxelVertex,setSeamExtra} from "..";
 import { CONNECTED_CELL, XZ_FACE_ANTICLOCK, XY_FACE_ANTICLOCK, YZ_FACE_ANTICLOCK} from "..";
 import { SdfBox,SdfSphere } from "..";
 import { Vector3 } from "@babylonjs/core";
@@ -31,19 +31,20 @@ export function TestMesher()
 
     describe('SDF mesher', () => {
 
-    it('creates a cube mesh', () => {
-        const field = new SdfBox(5,5,5)
-        const chunk = new Chunk();
-        chunk.setSize({x:10,y:10,z:10},1);
-        chunk.setPosition({x:-5,y:-5,z:-5});
-        const meshVerticies: number[] = [];
-        const meshFaces: number[] = [];
-        ExtractSurface(chunk,field,meshVerticies,meshFaces);
-        expect(meshFaces.length).toBe(576)
-        expect(meshVerticies.length).toBe(294);
-    })
+        it('creates a cube mesh', () => {
+            setSeamExtra(3);
+            const field = new SdfBox(5, 5, 5)
+            const chunk = new Chunk();
+            chunk.setSize({ x: 10, y: 10, z: 10 }, 1);
+            chunk.setPosition({ x: -5, y: -5, z: -5 });
+            const meshVerticies: number[] = [];
+            const meshFaces: number[] = [];
+            ExtractSurface(chunk, field, meshVerticies, meshFaces);
+            expect(meshFaces.length).toBe(900)
+            expect(meshVerticies.length).toBe(456);
+        })
 
-})
+    })
 
 }
 

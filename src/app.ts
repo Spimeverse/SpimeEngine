@@ -66,8 +66,8 @@ class App {
         // camera.fov = 0.4264;
         // camera.wheelDeltaPercentage = 0.01;
 
-        const camera = new UniversalCamera("UniversalCamera", new Vector3(-2.8217949121787824, 9.501053222397646, -28.271095914917254), scene);
-        camera.setTarget(new Vector3(-20.685020794343842, 5.944684257925115, -4.485705925161142));
+const camera = new UniversalCamera("UniversalCamera", new Vector3(-2.81346387881024, 9.501053222402463, -29.703129205471587), scene);
+        camera.setTarget(new Vector3(25.480399380589255, -0.33416390626756076, -29.241383565822954));
 
         camera.speed = 0.08;
 

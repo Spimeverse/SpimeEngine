@@ -1,9 +1,13 @@
-import { Chunk } from "../";
+import { Chunk, setSeamExtra } from "../";
 import { Vector3 } from "@babylonjs/core";
 
 
 export function TestChunkDimensions() 
 {        
+    beforeEach(() => {
+        setSeamExtra(3);
+    });
+
     describe('Chunk dimensions ', () => {
 
         it('calculates how many samples are needed', () => {
@@ -20,7 +24,7 @@ export function TestChunkDimensions()
     it('converts sample index to world space', () => {
         const chunk = new Chunk();
         chunk.setSize({ x: 5, y: 5, z: 5 }, 1);
-        chunk.setPosition({ x: 3.5, y: 4.5, z: 5.5 });
+        chunk.setPosition({ x: 3, y: 4, z: 5 });
         const samplePoint = new Vector3();
         chunk.indexToWorldSpace(0, samplePoint);
         expect(samplePoint.toString()).toBe("{X: 0 Y: 1 Z: 2}");
@@ -37,7 +41,7 @@ export function TestChunkDimensions()
         it('converts cell space world space', () => {
             const chunk = new Chunk();
             chunk.setSize({ x: 5, y: 5, z: 5 }, 1);
-            chunk.setPosition({ x: 2.5, y: 4.5, z: 6.5 });
+            chunk.setPosition({ x: 2, y: 4, z: 6 });
             const samplePoint = new Vector3();
             chunk.voxelSpaceToWorldSpace({ x: 0, y: 0, z: 0 }, samplePoint);
             expect(samplePoint.toString()).toBe("{X: 2 Y: 4 Z: 6}");

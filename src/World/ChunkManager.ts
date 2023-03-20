@@ -289,7 +289,7 @@ class ChunkManager {
             // use fewer voxels per chunk further away
             newChunk.setSize({ x: extent, y: extent, z: extent }, extent / voxels);
 
-            const sampleCache = new DistanceCache(newChunk.currentBounds);
+            const sampleCache = new DistanceCache(newChunk.currentBounds, newChunk.getVoxelSize());
             newChunk.setDistanceCache(sampleCache);
 
             newChunk.updateCurrentBounds();

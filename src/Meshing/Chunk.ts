@@ -2,6 +2,7 @@ import { Scene, StandardMaterial } from "@babylonjs/core"
 import { Nullable } from "@babylonjs/core";
 import { Color3, Color4, Vector3 } from "@babylonjs/core/Maths";
 import { Mesh, VertexData, MeshBuilder } from "@babylonjs/core/Meshes"
+import { bumpFragment } from "@babylonjs/core/Shaders/ShadersInclude/bumpFragment";
 import { AxisAlignedBoxBound, DistanceCache, EMPTY_DISTANCE_CACHE } from "..";
 import { SignedDistanceField } from "..";
 import { Bounds } from "..";
@@ -35,8 +36,8 @@ interface XYZ { x: number; y: number; z: number}
 interface XY { x: number; y: number;}
 
 const normals = new Array<number>();
-const seamExtra = 3;
-const seamExtraDouble = seamExtra * 2;
+let seamExtra = 2;
+let seamExtraDouble = seamExtra * 2;
 
 /**
  * Make working with a 1 dimensional array work like a 3d array
@@ -91,7 +92,7 @@ class Chunk implements IhasBounds {
     private _chunkMesh: Nullable<Mesh> = null;
     private _newChunkMesh: Nullable<Mesh> = null;
     private _markedForRemoval = false;
-    private _distanceCache = EMPTY_DISTANCE_CACHE;
+    private _distanceCache = null;
 
     //  X   X   X   X
     //    c   c   c 
@@ -246,18 +247,16 @@ class Chunk implements IhasBounds {
         return x + (y * this._stride.x) + (z * this._stride.y);
     }
     
-    voxelSpaceToWorldSpace(voxel: XYZ, samplePoint: XYZ, borderSize = 1) {
-        // if (voxel.x < -seamExtra || voxel.y < -seamExtra || voxel.z < -seamExtra)
-        //     debugger;
-        // if (voxel.x > this._voxelRange.x + seamExtra ||
-        //     voxel.y > this._voxelRange.y + seamExtra ||
-        //     voxel.z > this._voxelRange.z + seamExtra)
-        //     debugger;
-        
-        const offset = (this._voxelSize * borderSize) * 0.5; 
-        samplePoint.x = this._position.x + (voxel.x * this._voxelSize) - offset;
-        samplePoint.y = this._position.y + (voxel.y * this._voxelSize) - offset;
-        samplePoint.z = this._position.z + (voxel.z * this._voxelSize) - offset;
+    voxelSpaceToWorldSpace(voxel: XYZ, samplePoint: XYZ) {     
+        samplePoint.x = this._position.x + (voxel.x * this._voxelSize);
+        samplePoint.y = this._position.y + (voxel.y * this._voxelSize);
+        samplePoint.z = this._position.z + (voxel.z * this._voxelSize);
+    }
+
+    worldSpaceToVoxelSpace(world: XYZ, voxel: XYZ) {
+        voxel.x = (world.x - this._position.x) / this._voxelSize;
+        voxel.y = (world.y - this._position.y) / this._voxelSize;
+        voxel.z = (world.z - this._position.z) / this._voxelSize;
     }
 
     toggleWireframe() {
@@ -467,5 +466,10 @@ function CopyXy (src: XY, dest: XY) {
     dest.y = src.y;
 }
 
-export {Chunk, CORNERS,BORDERS, XYZ,XY,CopyXyz,CopyXy}
+function setSeamExtra (_seamExtra: number) {
+    seamExtra = _seamExtra;
+    seamExtraDouble = seamExtra * 2;
+}
+
+export {Chunk, CORNERS,BORDERS, XYZ,XY,CopyXyz,CopyXy,setSeamExtra}
 

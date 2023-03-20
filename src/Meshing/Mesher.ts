@@ -3,7 +3,7 @@
 
 
 import { SignedDistanceField, EMPTY_FIELD } from "../signedDistanceFields";
-import { Chunk,XYZ,BORDERS, DistanceCache, EMPTY_DISTANCE_CACHE } from ".";
+import { Chunk,XYZ,BORDERS, DistanceCache } from ".";
 import { Vector3 } from "@babylonjs/core/Maths";
 import { AxisAlignedBoxBound } from "..";
 
@@ -125,6 +125,8 @@ let borderSeams = 0;
 let borderScale = 1;
 let maxVoxels = 0;
 let distances: Float32Array;
+let validDistances: Uint8Array;
+
 const voxelRange = new Vector3();
 const origin = new Vector3();
 const worldSize = new Vector3();
@@ -149,7 +151,7 @@ let negativeSamples = false;
 let totalSamples = 0;
 let totalSampleTime = 0;
 
-let distanceCache = EMPTY_DISTANCE_CACHE;
+let distanceCache: DistanceCache | null = null;
 
 function ExtractSurface (_chunk: Chunk,
     _field: SignedDistanceField,
@@ -162,6 +164,7 @@ function ExtractSurface (_chunk: Chunk,
 
     if (numSamples > maxSamples) {
         distances = new Float32Array(numSamples);
+        validDistances = new Uint8Array(numSamples);
         maxSamples = numSamples;
     }
 
@@ -237,8 +240,8 @@ function SampleChunkField (): boolean {
     positiveSamples = false;
     negativeSamples = false;
 
-    if (!distanceCache.isEmpty()) {
-        SampleCachedVoxels();
+    if (distanceCache) {
+        SampleCachedVoxels(distanceCache);
         CheckCachedVoxels();
     }
     else {
@@ -248,16 +251,20 @@ function SampleChunkField (): boolean {
     return positiveSamples && negativeSamples;
 }
 
-function SampleCachedVoxels() {
-    // TODO need to fill in the gaps in the cache
-    // or downsample the cache
-    // TODO need to align voxel offsets to the chunk
-    const voxelIndicies = distanceCache.getVoxelIndices();
+const cachedWorldPosition = new Vector3();
+
+function SampleCachedVoxels(distanceCache: DistanceCache) {
+    distanceCache.rescale(chunk,field);
+    const positions = distanceCache.getPositions();
     const distances = distanceCache.getDistances();
-    for (let i = 0; i < voxelIndicies.length; i++) {
-        const voxIndex = voxelIndicies[i];
+    for (let i = 0; i < distances.length; i++) {
+        const offset = i * 3;
+        cachedWorldPosition.set(positions[offset], positions[offset + 1], positions[offset + 2]);
+
+        chunk.worldSpaceToVoxelSpace(cachedWorldPosition, voxelPosition);
+        const voxIndex = chunk.voxelIndex(voxelPosition.x, voxelPosition.y, voxelPosition.z);
         const dist = distances[i];
-        distances[voxIndex] = dist;
+        distances[voxIndex] = distances[i];
         if (dist > 0)
             positiveSamples = true;
         else
@@ -290,7 +297,7 @@ function SampleAllPoints(chunk: Chunk) {
                 const voxelIndex = chunk.voxelIndex(voxX, voxY, voxZ);
                 distances[voxelIndex] = surfaceDist; 
 
-                distanceCache.cacheDistance(voxelIndex, surfaceDist);
+                distanceCache?.cacheDistance(worldPosition.x, worldPosition.y, worldPosition.z, surfaceDist);
             }
         }
     }
@@ -309,7 +316,7 @@ function CheckAllVoxels() {
 
 function CheckCachedVoxels() {
     // note examine voxels < voxelRange
-    const voxelIndicies = distanceCache.getVoxelIndices();
+    const voxelIndicies = distanceCache.getPositions();
     for (let i = 0; i < voxelIndicies.length; i++) {
         const voxIndex = voxelIndicies[i];
         chunk.voxelIndexToVoxelPosition(voxIndex, voxelPosition);
@@ -330,7 +337,7 @@ function CheckVoxelIntersection(voxX: number, voxY: number, voxZ: number): boole
     let edgeMask = 0;
 
     voxelPosition.set(voxX, voxY, voxZ);
-    chunk.voxelSpaceToWorldSpace(voxelPosition, worldPosition, 1);
+    chunk.voxelSpaceToWorldSpace(voxelPosition, worldPosition);
 
     for (let cornerNum = 0; cornerNum < 8; cornerNum++) {
         const cornerIndex = chunk.voxelIndex(
