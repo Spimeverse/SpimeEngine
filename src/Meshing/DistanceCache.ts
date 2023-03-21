@@ -10,19 +10,11 @@ const voxelPosition = new Vector3();
 
 let doneDistances = new Float32Array(0);
 
-class DistanceCache implements IhasBounds {
-
-    currentBounds: Bounds;
+class DistanceCache {
     private _cachedDistances: number[] = [];
     private _cachedPosition: number[] = [];
     private _parent: DistanceCache | null = null;
     private _children: DistanceCache[] = [];
-    voxelSize: number;
-
-    constructor(bounds: AxisAlignedBoxBound, voxelSize: number) {
-        this.currentBounds = bounds;
-        this.voxelSize = voxelSize;
-    }
 
     cacheDistance(x: number, y: number, z: number, distance: number) {
         this._cachedDistances.push(distance);
@@ -58,44 +50,48 @@ class DistanceCache implements IhasBounds {
         return this._cachedDistances.length;
     }
 
-    rescale(chunk: Chunk, sdf: SignedDistanceField) {
-        debugger;
+    /// <summary>
+    /// Fill in missing distances from the parent or children
+    /// by sampling the sdf around the known distances
+    /// </summary>
+    fillIn(chunk: Chunk, sdf: SignedDistanceField) {
         if (this._cachedDistances.length)
             return;
         
         if (this._parent) {
-            this._rescaleFromParent(chunk, sdf,this._parent.getDistances());
+            this._fillInFromParent(chunk, sdf,this._parent.getPositions(),this._parent.getDistances());
             this._parent = null;
         }
         else {
-            this._rescaleFromChildren(chunk, sdf);
+            this._fillInFromChildren(chunk, sdf);
             this._children.length = 0;
         }
     }
     
-    private _rescaleFromParent(chunk: Chunk, sdf: SignedDistanceField, parentDistances: number[]) {
+    private _fillInFromParent(chunk: Chunk, sdf: SignedDistanceField,parentPositions: number[], parentDistances: number[]) {
         for (let i = 0; i < parentDistances.length; i++) {
-            const positionIndex = i * 3;
-            worldPosition.set(this._cachedPosition[positionIndex], this._cachedPosition[positionIndex + 1], this._cachedPosition[positionIndex + 2]);
+            const posIndex = i * 3
+            worldPosition.set(parentPositions[posIndex],parentPositions[posIndex + 1], parentPositions[posIndex + 2]);
             this.cacheDistance(worldPosition.x, worldPosition.y, worldPosition.z, parentDistances[i]);
 
-            this._sampleOffset(0, 1, 0, sdf);
-            this._sampleOffset(1, 0, 0, sdf);
-            this._sampleOffset(1, 1, 0, sdf);
+            const voxelSize = chunk.getVoxelSize();
+            this._sampleOffset(0, 1, 0, sdf,voxelSize);
+            this._sampleOffset(1, 0, 0, sdf,voxelSize);
+            this._sampleOffset(1, 1, 0, sdf,voxelSize);
 
-            this._sampleOffset(0, 0, 1, sdf);
-            this._sampleOffset(0, 1, 1, sdf);
-            this._sampleOffset(1, 0, 1, sdf);
-            this._sampleOffset(1, 1, 1, sdf);
+            this._sampleOffset(0, 0, 1, sdf,voxelSize);
+            this._sampleOffset(0, 1, 1, sdf,voxelSize);
+            this._sampleOffset(1, 0, 1, sdf,voxelSize);
+            this._sampleOffset(1, 1, 1, sdf,voxelSize);
         }
     }
         
-    private _rescaleFromChildren(chunk: Chunk, sdf: SignedDistanceField) {
+    private _fillInFromChildren(chunk: Chunk, sdf: SignedDistanceField) {
         if (doneDistances.length < chunk.getNumSamples()) {
             doneDistances = new Float32Array(chunk.getNumSamples(),);
         }
         doneDistances.fill(0);
-        const voxelSize = this.voxelSize;
+        const voxelSize = chunk.getVoxelSize();
         // first pass get mark all known distances from children
         for (let i = 0; i < this._children.length; i++) {
             const child = this._children[i];
@@ -183,11 +179,11 @@ class DistanceCache implements IhasBounds {
         }
     }
     
-    private _sampleOffset(x: number, y: number, z: number, sdf: SignedDistanceField) {  
+    private _sampleOffset(x: number, y: number, z: number, sdf: SignedDistanceField,voxelSize: number) {  
         samplePosition.set(
-            worldPosition.x + x * this.voxelSize,
-            worldPosition.y + y * this.voxelSize,
-            worldPosition.z + z * this.voxelSize);
+            worldPosition.x + x * voxelSize,
+            worldPosition.y + y * voxelSize,
+            worldPosition.z + z * voxelSize);
         this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdf.sample(samplePosition));
     }
 }

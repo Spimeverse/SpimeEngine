@@ -254,7 +254,7 @@ function SampleChunkField (): boolean {
 const cachedWorldPosition = new Vector3();
 
 function SampleCachedVoxels(distanceCache: DistanceCache) {
-    distanceCache.rescale(chunk,field);
+    distanceCache.fillIn(chunk,field);
     const positions = distanceCache.getPositions();
     const distances = distanceCache.getDistances();
     for (let i = 0; i < distances.length; i++) {
