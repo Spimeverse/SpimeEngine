@@ -8,6 +8,7 @@ const samplePosition = new Vector3();
 const roundedPosition = new Vector3();
 const voxelPosition = new Vector3();
 
+// TODO replace with https://github.com/kig/bitview.js
 let doneDistances = new Float32Array(0);
 
 class DistanceCache {
@@ -15,10 +16,17 @@ class DistanceCache {
     private _cachedPosition: number[] = [];
     private _parent: DistanceCache | null = null;
     private _children: DistanceCache[] = [];
+    private _maxDistance: number;
+
+    constructor(private _voxelSize: number) {
+        this._maxDistance = _voxelSize * 2;
+    }
 
     cacheDistance(x: number, y: number, z: number, distance: number) {
-        this._cachedDistances.push(distance);
-        this._cachedPosition.push(x,y,z);
+        if (distance <= this._maxDistance && distance >= -this._maxDistance) {
+            this._cachedDistances.push(distance);
+            this._cachedPosition.push(x, y, z);
+        }
     }
 
     addChild(child: DistanceCache) {
@@ -54,39 +62,39 @@ class DistanceCache {
     /// Fill in missing distances from the parent or children
     /// by sampling the sdf around the known distances
     /// </summary>
-    fillIn(chunk: Chunk, sdf: SignedDistanceField) {
+    fillIn(chunk: Chunk, sdfFunc: (samplePoint: Vector3) => number) {
         if (this._cachedDistances.length)
             return;
         
         if (this._parent) {
-            this._fillInFromParent(chunk, sdf,this._parent.getPositions(),this._parent.getDistances());
+            this._fillInFromParent(chunk, sdfFunc,this._parent.getPositions(),this._parent.getDistances());
             this._parent = null;
         }
         else {
-            this._fillInFromChildren(chunk, sdf);
+            this._fillInFromChildren(chunk, sdfFunc);
             this._children.length = 0;
         }
     }
     
-    private _fillInFromParent(chunk: Chunk, sdf: SignedDistanceField,parentPositions: number[], parentDistances: number[]) {
+    private _fillInFromParent(chunk: Chunk, sdfFunc: (samplePoint: Vector3) => number,parentPositions: number[], parentDistances: number[]) {
         for (let i = 0; i < parentDistances.length; i++) {
             const posIndex = i * 3
             worldPosition.set(parentPositions[posIndex],parentPositions[posIndex + 1], parentPositions[posIndex + 2]);
             this.cacheDistance(worldPosition.x, worldPosition.y, worldPosition.z, parentDistances[i]);
 
             const voxelSize = chunk.getVoxelSize();
-            this._sampleOffset(0, 1, 0, sdf,voxelSize);
-            this._sampleOffset(1, 0, 0, sdf,voxelSize);
-            this._sampleOffset(1, 1, 0, sdf,voxelSize);
+            this._sampleOffset(0, 1, 0, sdfFunc,voxelSize);
+            this._sampleOffset(1, 0, 0, sdfFunc,voxelSize);
+            this._sampleOffset(1, 1, 0, sdfFunc,voxelSize);
 
-            this._sampleOffset(0, 0, 1, sdf,voxelSize);
-            this._sampleOffset(0, 1, 1, sdf,voxelSize);
-            this._sampleOffset(1, 0, 1, sdf,voxelSize);
-            this._sampleOffset(1, 1, 1, sdf,voxelSize);
+            this._sampleOffset(0, 0, 1, sdfFunc,voxelSize);
+            this._sampleOffset(0, 1, 1, sdfFunc,voxelSize);
+            this._sampleOffset(1, 0, 1, sdfFunc,voxelSize);
+            this._sampleOffset(1, 1, 1, sdfFunc,voxelSize);
         }
     }
         
-    private _fillInFromChildren(chunk: Chunk, sdf: SignedDistanceField) {
+    private _fillInFromChildren(chunk: Chunk, sdfFunc: (samplePoint: Vector3) => number) {
         if (doneDistances.length < chunk.getNumSamples()) {
             doneDistances = new Float32Array(chunk.getNumSamples(),);
         }
@@ -128,50 +136,50 @@ class DistanceCache {
                 // check all 8 corners of voxel and sample if not used
                 let index = chunk.voxelIndex(voxelPosition.x, voxelPosition.y, voxelPosition.z);
                 if (doneDistances[index] == 0) {
-                    chunk.voxelSpaceToWorldSpace(voxelPosition, samplePosition);
-                    this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdf.sample(roundedPosition));
+                    chunk.indexToWorldSpace(index, samplePosition);
+                    this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdfFunc(samplePosition));
                     doneDistances[index] = 1;
                 }
                 index = chunk.voxelIndex(voxelPosition.x + 1, voxelPosition.y, voxelPosition.z);
                 if (doneDistances[index] == 0) {
-                    chunk.voxelSpaceToWorldSpace(voxelPosition, samplePosition);
-                    this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdf.sample(roundedPosition));
+                    chunk.indexToWorldSpace(index, samplePosition);
+                    this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdfFunc(samplePosition));
                     doneDistances[index] = 1;
                 }
                 index = chunk.voxelIndex(voxelPosition.x, voxelPosition.y + 1, voxelPosition.z);
                 if (doneDistances[index] == 0) {
-                    chunk.voxelSpaceToWorldSpace(voxelPosition, samplePosition);
-                    this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdf.sample(roundedPosition));
+                    chunk.indexToWorldSpace(index, samplePosition);
+                    this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdfFunc(samplePosition));
                     doneDistances[index] = 1;
                 }
                 index = chunk.voxelIndex(voxelPosition.x, voxelPosition.y, voxelPosition.z + 1);
                 if (doneDistances[index] == 0) {
-                    chunk.voxelSpaceToWorldSpace(voxelPosition, samplePosition);
-                    this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdf.sample(roundedPosition));
+                    chunk.indexToWorldSpace(index, samplePosition);
+                    this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdfFunc(samplePosition));
                     doneDistances[index] = 1;
                 }
                 index = chunk.voxelIndex(voxelPosition.x + 1, voxelPosition.y + 1, voxelPosition.z);
                 if (doneDistances[index] == 0) {
-                    chunk.voxelSpaceToWorldSpace(voxelPosition, samplePosition);
-                    this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdf.sample(roundedPosition));
+                    chunk.indexToWorldSpace(index, samplePosition);
+                    this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdfFunc(samplePosition));
                     doneDistances[index] = 1;
                 }
                 index = chunk.voxelIndex(voxelPosition.x + 1, voxelPosition.y, voxelPosition.z + 1);
                 if (doneDistances[index] == 0) {
-                    chunk.voxelSpaceToWorldSpace(voxelPosition, samplePosition);
-                    this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdf.sample(roundedPosition));
+                    chunk.indexToWorldSpace(index, samplePosition);
+                    this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdfFunc(samplePosition));
                     doneDistances[index] = 1;
                 }
                 index = chunk.voxelIndex(voxelPosition.x, voxelPosition.y + 1, voxelPosition.z + 1);
                 if (doneDistances[index] == 0) {
-                    chunk.voxelSpaceToWorldSpace(voxelPosition, samplePosition);
-                    this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdf.sample(roundedPosition));
+                    chunk.indexToWorldSpace(index, samplePosition);
+                    this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdfFunc(samplePosition));
                     doneDistances[index] = 1;
                 }
                 index = chunk.voxelIndex(voxelPosition.x + 1, voxelPosition.y + 1, voxelPosition.z + 1);
                 if (doneDistances[index] == 0) {
-                    chunk.voxelSpaceToWorldSpace(voxelPosition, samplePosition);
-                    this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdf.sample(roundedPosition));
+                    chunk.indexToWorldSpace(index, samplePosition);
+                    this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdfFunc(samplePosition));
                     doneDistances[index] = 1;
                 }
                 
@@ -179,12 +187,23 @@ class DistanceCache {
         }
     }
     
-    private _sampleOffset(x: number, y: number, z: number, sdf: SignedDistanceField,voxelSize: number) {  
+    private _sampleOffset(x: number, y: number, z: number, sdf: (samplePoint: Vector3) => number,voxelSize: number) {  
         samplePosition.set(
             worldPosition.x + x * voxelSize,
             worldPosition.y + y * voxelSize,
             worldPosition.z + z * voxelSize);
-        this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdf.sample(samplePosition));
+        this.cacheDistance(samplePosition.x, samplePosition.y, samplePosition.z, sdf(samplePosition));
+    }
+
+    toString(): string {
+        let result = "";
+        for (let i = 0; i < this._cachedDistances.length; i++) {
+            const pos = i * 3;
+            if (result != "")
+                result += ", ";
+            result += `(${this._cachedPosition[pos]}, ${this._cachedPosition[pos + 1]}, ${this._cachedPosition[pos + 2]}):[${this._cachedDistances[i]}]`;
+        }   
+        return result;
     }
 }
 
