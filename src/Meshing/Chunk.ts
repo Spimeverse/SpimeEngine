@@ -1,11 +1,9 @@
 import { Scene, StandardMaterial } from "@babylonjs/core"
 import { Nullable } from "@babylonjs/core";
 import { Color3, Color4, Vector3 } from "@babylonjs/core/Maths";
-import { Mesh, VertexData, MeshBuilder } from "@babylonjs/core/Meshes"
-import { bumpFragment } from "@babylonjs/core/Shaders/ShadersInclude/bumpFragment";
-import { AxisAlignedBoxBound, DistanceCache, EMPTY_DISTANCE_CACHE } from "..";
+import { Mesh, VertexData } from "@babylonjs/core/Meshes"
+import { AxisAlignedBoxBound, DistanceCache } from "..";
 import { SignedDistanceField } from "..";
-import { Bounds } from "..";
 import { IhasBounds } from "..";
 import { ExtractSurface } from "..";
 
@@ -92,7 +90,7 @@ class Chunk implements IhasBounds {
     private _chunkMesh: Nullable<Mesh> = null;
     private _newChunkMesh: Nullable<Mesh> = null;
     private _markedForRemoval = false;
-    private _distanceCache = null;
+    private _distanceCache: Nullable<DistanceCache> = null;
 
     //  X   X   X   X
     //    c   c   c 
@@ -236,7 +234,7 @@ class Chunk implements IhasBounds {
     
     indexToWorldSpace(index: number, samplePoint: XYZ) {
         this.voxelIndexToVoxelPosition(index,voxelPosition);
-        this.voxelSpaceToWorldSpace(voxelPosition, samplePoint);
+        this.voxelSpaceToWorldSpace(voxelPosition.x,voxelPosition.y,voxelPosition.z, samplePoint);
     }
 
     // get the index of array at this coordinate
@@ -247,10 +245,10 @@ class Chunk implements IhasBounds {
         return x + (y * this._stride.x) + (z * this._stride.y);
     }
     
-    voxelSpaceToWorldSpace(voxel: XYZ, samplePoint: XYZ) {     
-        samplePoint.x = this._position.x + (voxel.x * this._voxelSize);
-        samplePoint.y = this._position.y + (voxel.y * this._voxelSize);
-        samplePoint.z = this._position.z + (voxel.z * this._voxelSize);
+    voxelSpaceToWorldSpace(voxX: number, voxY: number, voxZ: number, samplePoint: XYZ) {     
+        samplePoint.x = this._position.x + (voxX * this._voxelSize);
+        samplePoint.y = this._position.y + (voxY * this._voxelSize);
+        samplePoint.z = this._position.z + (voxZ * this._voxelSize);
     }
 
     worldSpaceToVoxelSpace(world: XYZ, voxel: XYZ) {
@@ -327,17 +325,17 @@ class Chunk implements IhasBounds {
                 this._chunkMesh = this._newChunkMesh;
                 this._newChunkMesh = null;
 
-                // if (showChunkBounds) {
-                //     const chunkBounds = MeshBuilder.CreateBox("Chunk Bounds" + this.toString(), { size: this._worldSize.x }, scene);
-                //     const boundsMaterial = new StandardMaterial("boundsMaterial", scene);
-                //     chunkBounds.position.copyFrom(this._position);
-                //     chunkBounds.position.addInPlace(this._worldSize.scale(0.5));
-                //     boundsMaterial.diffuseColor = new Color3(1, 1, 1);
-                //     boundsMaterial.emissiveColor = new Color3(1, 1, 1);
-                //     boundsMaterial.wireframe = true;
-                //     chunkBounds.material = boundsMaterial;
-                //     chunkBounds.isVisible = true;
-                // }
+                if (showChunkBounds) {
+                    // const chunkBounds = MeshBuilder.CreateBox("Chunk Bounds" + this.toString(), { size: this._worldSize.x }, scene);
+                    // const boundsMaterial = new StandardMaterial("boundsMaterial", scene);
+                    // chunkBounds.position.copyFrom(this._position);
+                    // chunkBounds.position.addInPlace(this._worldSize.scale(0.5));
+                    // boundsMaterial.diffuseColor = new Color3(1, 1, 1);
+                    // boundsMaterial.emissiveColor = new Color3(1, 1, 1);
+                    // boundsMaterial.wireframe = true;
+                    // chunkBounds.material = boundsMaterial;
+                    // chunkBounds.isVisible = true;
+                }
             }
         }
     }
@@ -466,10 +464,10 @@ function CopyXy (src: XY, dest: XY) {
     dest.y = src.y;
 }
 
-function setSeamExtra (_seamExtra: number) {
+function SetSeamExtra (_seamExtra: number) {
     seamExtra = _seamExtra;
     seamExtraDouble = seamExtra * 2;
 }
 
-export {Chunk, CORNERS,BORDERS, XYZ,XY,CopyXyz,CopyXy,setSeamExtra}
+export {Chunk, CORNERS,BORDERS, XYZ,XY,CopyXyz,CopyXy,SetSeamExtra}
 

@@ -1,5 +1,5 @@
 import { Vector3,Scene } from "@babylonjs/core";
-import { AxisAlignedBoxBound, SphereBound, Bounds } from "./Bounds";
+import { AxisAlignedBoxBound, Bounds } from "./Bounds";
 import { SignedDistanceField, Chunk, DistanceCache } from "..";
 import { SparseOctTree } from "."
 import { SdfUnion } from "..";
@@ -10,7 +10,6 @@ const chunkBounds = new AxisAlignedBoxBound(0, 0, 0, 0, 0, 0);
 const worldSize = 16384;
 const halfWorld = worldSize / 2;
 const nearbyChunks = new Set<Chunk>();
-const chunkPosition = new Vector3();
 let maxUpdatesPerFrame = 10000;
 
 class ChunkManager {
@@ -110,7 +109,7 @@ class ChunkManager {
                     // console.log("rescale chunk", chunk.toString(), chunk.currentBounds.extent, targetScale);
                     chunk.markForRemoval();
                     this._dirtyChunks.add(chunk);
-                    this._createChunksForBounds(chunk.currentBounds, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld, scale / 2);
+                    this._createChunksForBounds(chunk.currentBounds, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
                 }
             }
         }
@@ -148,7 +147,7 @@ class ChunkManager {
         } 
 
         if (this._updateChunkQueue.count > 0) {
-            const updateComplete = this._updateDirtyChunkMeshes(scene);
+            const updateComplete = this._updateDirtyChunkMeshes();
             if (updateComplete) {
                 console.log("update complete",totalTime / 1000, "seconds");
                 this._showUpdatedMeshes(scene, showChunkBounds);
@@ -174,7 +173,7 @@ class ChunkManager {
         this._nextUpdateChunk = null;
     }
 
-    private _updateDirtyChunkMeshes(scene: Scene): boolean {
+    private _updateDirtyChunkMeshes(): boolean {
         const chunkFields = this._chunkFields;
 
         let updates = maxUpdatesPerFrame;
@@ -227,7 +226,7 @@ class ChunkManager {
             // ensure all chunks within the fields current bounds are created and updated
             this._createChunksForBounds(field.currentBounds, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
 
-            // move the field to it's new positon and new bounds
+            // move the field to it's new position and new bounds
             this._fieldTree.update(field, field.newBounds);
 
             // ensure all chunks within the fields new bounds are created and updated
@@ -289,47 +288,71 @@ class ChunkManager {
             // use fewer voxels per chunk further away
             newChunk.setSize({ x: extent, y: extent, z: extent }, extent / voxels);
 
-            const sampleCache = new DistanceCache(newChunk.currentBounds, newChunk.getVoxelSize());
+            const sampleCache = new DistanceCache(newChunk.getVoxelSize());
             newChunk.setDistanceCache(sampleCache);
 
             newChunk.updateCurrentBounds();
-
-            const expandBy = newChunk.getVoxelSize() * 2;
-            chunkBounds.expandByScalar(expandBy);
+         
             nearbyChunks.clear();
+
+            let log = false;
+    if (newChunk.toString() == "Origin: -8,0,8 Size: 8,8,8 VoxelSize: 0.5")
+                log = true;
+            if (log) {
+                console.log("---- ");
+                console.log("newChunk: " + newChunk.toString());
+            }
+
             this._chunkTree.getItemsInBox(chunkBounds, nearbyChunks);
             for (const nearChunk of nearbyChunks) {
                 if (!nearChunk.isMarkedForRemoval()) {
-                    if (nearChunk.currentBounds.overlaps(newChunk.currentBounds)) {
-                        if (nearChunk.currentBounds.extent == newChunk.currentBounds.extent &&
-                            nearChunk.isAtSamePositionAs(newChunk)) {
-                            // new chunk is same as existing chunk, so skip it
-                            return;
+                    if (nearChunk.currentBounds.extent == newChunk.currentBounds.extent &&
+                        nearChunk.isAtSamePositionAs(newChunk) &&
+                        !nearChunk.isMarkedForRemoval()) {
+                        // new chunk is same as existing chunk, so skip it
+                        if (log) {
+                            console.log("already exists: " + newChunk.toString());
                         }
-                        else {
-                            // mark existing chunk for removal
+                        return;
+                    }
+                    else {
+                        if (log) {
+                            console.log("overlaps: " + newChunk.toString());
+                        }
+
+                        let markForRemoval = false;
+                        const nearChunkSampleCache = nearChunk.getDistanceCache();
+                        if (nearChunkSampleCache) {
+                            if (nearChunk.currentBounds.contains(newChunk.currentBounds)) {
+                                if (log) {
+                                    console.log("parent: " + nearChunk.toString());
+                                }
+                                sampleCache.addParent(nearChunkSampleCache);
+                                if (!nearChunk.isMarkedForRemoval())
+                                    markForRemoval = true;
+                            }
+                            if (newChunk.currentBounds.contains(nearChunk.currentBounds)) {
+                                if (log) {
+                                    console.log("child: " + nearChunk.toString());
+                                }
+                                sampleCache.addChild(nearChunkSampleCache);
+                                if (!nearChunk.isMarkedForRemoval())
+                                    markForRemoval = true;                            }
+                        }
+
+                        // mark existing chunk for removal
+                        if (markForRemoval) {
                             nearChunk.markForRemoval();
                             this._dirtyChunks.add(nearChunk);
-
-                            const nearChunkSampleCache = nearChunk.getDistanceCache();
-                            if (nearChunkSampleCache) {
-                                if (nearChunk.currentBounds.extent > newChunk.currentBounds.extent) {
-                                    sampleCache.addParent(nearChunkSampleCache);
-                                }
-                                else {
-                                    sampleCache.addChild(nearChunkSampleCache);
-                                }
-                            }
                         }
                     }
-                    // else {
-                    //     // mark any close by chunks as dirty in case their borders need to be updated
-                    //     this._dirtyChunks.add(nearChunk);
-                    // }
-                    
+                }
+                else {
+                    if (log) {
+                        console.log("already marked for removal: " + newChunk.toString());
+                    }
                 }
             }
-            chunkBounds.expandByScalar(-expandBy);
 
             this._chunkTree.insert(newChunk);
             this._dirtyChunks.add(newChunk);

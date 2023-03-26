@@ -1,7 +1,5 @@
 import { Vector3 } from "@babylonjs/core";
-import { Chunk, SignedDistanceField } from "..";
-import { Bounds, IhasBounds } from "../World";
-import { AxisAlignedBoxBound } from "../World";
+import { Chunk } from "..";
 
 const worldPosition = new Vector3();
 const samplePosition = new Vector3();
@@ -9,7 +7,7 @@ const roundedPosition = new Vector3();
 const voxelPosition = new Vector3();
 
 // TODO replace with https://github.com/kig/bitview.js
-let doneDistances = new Float32Array(0);
+let doneDistances = new Int8Array(0);
 
 class DistanceCache {
     private _cachedDistances: number[] = [];
@@ -38,10 +36,16 @@ class DistanceCache {
     }
 
     isEmpty(): boolean {
-        if (this._parent ||
-            this._children.length > 0 ||
-            this._cachedDistances.length > 0) {
+        if (this._cachedDistances.length > 0) {
             return false;
+        }
+        if (this._parent && this._parent._cachedDistances.length > 0) {
+            return false;
+        }
+        for (let i = 0; i < this._children.length; i++) {
+            if (this._children[i]._cachedDistances.length > 0) {
+                return false;
+            }
         }
         return true;
     }

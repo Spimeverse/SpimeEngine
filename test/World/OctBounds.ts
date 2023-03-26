@@ -160,6 +160,28 @@ export function TestAxisAlignedBoxBounds() {
             expect(brt.maxZ).toBe(1);
         });
 
+        it('entirely contains another', () => {
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
+            const b2 = new AxisAlignedBoxBound(0.1, 0.1, 0.1, 0.9, 0.9, 0.9);
+            expect(b.contains(b2)).toBe(true);
+            expect(b2.contains(b)).toBe(false);
+        });
+
+        it('does not partially contain another', () => {
+            const b = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
+            const b2 = new AxisAlignedBoxBound(0.1, 0.1, 0.1, 1.1, 1.1, 1.1);
+            expect(b.contains(b2)).toBe(false);
+            expect(b2.contains(b)).toBe(false);
+        });
+
+        it('entirely contains negative ranges', () => {
+            const b = new AxisAlignedBoxBound(-1, -1, -1, 0, 0, 0);
+            const b2 = new AxisAlignedBoxBound(-0.9, -0.9, -0.9, -0.1, -0.1, -0.1);
+            expect(b.contains(b2)).toBe(true);
+            expect(b2.contains(b)).toBe(false);
+        });
+
+
     });
 }
 

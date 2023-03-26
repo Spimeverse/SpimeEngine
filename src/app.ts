@@ -166,9 +166,9 @@ const camera = new UniversalCamera("UniversalCamera", new Vector3(-2.81346387881
         viewOrigin.copyFrom(marker.position);
         chunkManager.setViewOrigin(viewOrigin);
 
-        chunkManager.addField(fieldSphere);
+        //chunkManager.addField(fieldSphere);
         //chunkManager.addField(field);
-        chunkManager.addField(fieldTorus);
+        //chunkManager.addField(fieldTorus);
         chunkManager.addField(fieldBig);
 
         let addedSamples = false;
@@ -194,10 +194,7 @@ const camera = new UniversalCamera("UniversalCamera", new Vector3(-2.81346387881
             if (!camera.position.equals(viewOrigin)) {
                 viewOrigin.copyFrom(camera.position);
                 chunkManager.setViewOrigin(viewOrigin);
-                console.log(`
-        const camera = new UniversalCamera("UniversalCamera", new Vector3(${camera.position.x}, ${camera.position.y}, ${camera.position.z}), scene);
-        camera.setTarget(new Vector3(${camera.target.x}, ${camera.target.y}, ${camera.target.z}));`
-                )
+
             }
 
             chunkManager.updateChangedMeshes(scene,showChunkBounds);
@@ -259,6 +256,10 @@ const camera = new UniversalCamera("UniversalCamera", new Vector3(-2.81346387881
 
             if (ev.key === "m") {
                 console.log(`samples ${totalSamples} sample time ${totalSampleTime}ms`);
+                                console.log(`
+        const camera = new UniversalCamera("UniversalCamera", new Vector3(${camera.position.x}, ${camera.position.y}, ${camera.position.z}), scene);
+        camera.setTarget(new Vector3(${camera.target.x}, ${camera.target.y}, ${camera.target.z}));`
+                )
             }
         });
 

@@ -119,10 +119,9 @@ class SphereBound extends Bounds {
 
 // allocate intermediate vectors once
 const q = new Vector3();
-const maxq = new Vector3();
+const maxQ = new Vector3();
 
 class AxisAlignedBoxBound extends Bounds {
-
  
     public constructor(
         public minX: number = 0, public minY: number = 0, public minZ: number = 0,
@@ -248,23 +247,23 @@ class AxisAlignedBoxBound extends Bounds {
         return new AxisAlignedBoxBound(this.minX + this.halfExtent, this.minY + this.halfExtent, this.minZ + this.halfExtent, this.maxX, this.maxY, this.maxZ);
     }
 
-    expandByScalar(amountToExand: number) {
-        this.minX -= amountToExand;
-        this.minY -= amountToExand;
-        this.minZ -= amountToExand;
-        this.maxX += amountToExand;
-        this.maxY += amountToExand;
-        this.maxZ += amountToExand;
+    expandByScalar(amountToExpand: number) {
+        this.minX -= amountToExpand;
+        this.minY -= amountToExpand;
+        this.minZ -= amountToExpand;
+        this.maxX += amountToExpand;
+        this.maxY += amountToExpand;
+        this.maxZ += amountToExpand;
     }
     
     distanceTo(point: Vector3): number {
         q.set(point.x - (this.minX + this.halfExtent), point.y - (this.minY + this.halfExtent), point.z - (this.minZ + this.halfExtent));
         AbsVec3(q,q);
         SubVec3(q,this.halfExtent,this.halfExtent,this.halfExtent,q);
-        MaxVec3(q,Vector3.Zero(),maxq);
+        MaxVec3(q,Vector3.Zero(),maxQ);
         const d = Max3(q.x,q.y,q.z);
         if (d > 0)
-            return maxq.length();
+            return maxQ.length();
         else
             return d;
     }
@@ -275,6 +274,11 @@ class AxisAlignedBoxBound extends Bounds {
 
     public get extent() {
         return Math.abs(this.maxX - this.minX);
+    }
+
+    contains(currentBounds: AxisAlignedBoxBound) {
+        return this.minX <= currentBounds.minX && this.minY <= currentBounds.minY && this.minZ <= currentBounds.minZ &&
+            this.maxX >= currentBounds.maxX && this.maxY >= currentBounds.maxY && this.maxZ >= currentBounds.maxZ;
     }
 
     public toString(): string {

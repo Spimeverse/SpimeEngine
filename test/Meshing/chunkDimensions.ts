@@ -1,11 +1,11 @@
-import { Chunk, setSeamExtra } from "../";
+import { Chunk, SetSeamExtra } from "../";
 import { Vector3 } from "@babylonjs/core";
 
 
 export function TestChunkDimensions() 
 {        
     beforeEach(() => {
-        setSeamExtra(3);
+        SetSeamExtra(3);
     });
 
     describe('Chunk dimensions ', () => {
@@ -43,15 +43,15 @@ export function TestChunkDimensions()
             chunk.setSize({ x: 5, y: 5, z: 5 }, 1);
             chunk.setPosition({ x: 2, y: 4, z: 6 });
             const samplePoint = new Vector3();
-            chunk.voxelSpaceToWorldSpace({ x: 0, y: 0, z: 0 }, samplePoint);
+            chunk.voxelSpaceToWorldSpace(0,0,0, samplePoint);
             expect(samplePoint.toString()).toBe("{X: 2 Y: 4 Z: 6}");
-            chunk.voxelSpaceToWorldSpace({ x: 1, y: 0, z: 0 }, samplePoint);
+            chunk.voxelSpaceToWorldSpace(1,0,0 , samplePoint);
             expect(samplePoint.toString()).toBe("{X: 3 Y: 4 Z: 6}");
-            chunk.voxelSpaceToWorldSpace({ x: 0, y: 1, z: 0 }, samplePoint);
+            chunk.voxelSpaceToWorldSpace(0,1,0 , samplePoint);
             expect(samplePoint.toString()).toBe("{X: 2 Y: 5 Z: 6}");
-            chunk.voxelSpaceToWorldSpace({ x: 0, y: 0, z: 1 }, samplePoint);
+            chunk.voxelSpaceToWorldSpace(0,0,1 , samplePoint);
             expect(samplePoint.toString()).toBe("{X: 2 Y: 4 Z: 7}");
-            chunk.voxelSpaceToWorldSpace({ x: 2, y: 2, z: 2 }, samplePoint);
+            chunk.voxelSpaceToWorldSpace(2,2,2, samplePoint);
             expect(samplePoint.toString()).toBe("{X: 4 Y: 6 Z: 8}");
         })
 
