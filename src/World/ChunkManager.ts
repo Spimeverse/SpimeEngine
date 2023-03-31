@@ -1,10 +1,9 @@
 import { Vector3,Scene } from "@babylonjs/core";
 import { AxisAlignedBoxBound, Bounds } from "./Bounds";
-import { SignedDistanceField, Chunk, DistanceCache } from "..";
+import { SignedDistanceField, Chunk } from "..";
 import { SparseOctTree } from "."
 import { SdfUnion } from "..";
 import { LinkedList, LinkedListNode } from "../Collection/LinkedList";
-import { totalTime } from "..";
 
 const chunkBounds = new AxisAlignedBoxBound(0, 0, 0, 0, 0, 0);
 const worldSize = 16384;
@@ -149,7 +148,6 @@ class ChunkManager {
         if (this._updateChunkQueue.count > 0) {
             const updateComplete = this._updateDirtyChunkMeshes();
             if (updateComplete) {
-                console.log("update complete",totalTime / 1000, "seconds");
                 this._showUpdatedMeshes(scene, showChunkBounds);
 
                 maxUpdatesPerFrame = 1;
@@ -288,20 +286,19 @@ class ChunkManager {
             // use fewer voxels per chunk further away
             newChunk.setSize({ x: extent, y: extent, z: extent }, extent / voxels);
 
-            const sampleCache = new DistanceCache(newChunk.getVoxelSize());
-            newChunk.setDistanceCache(sampleCache);
-
             newChunk.updateCurrentBounds();
          
             nearbyChunks.clear();
 
+            //---- Debug code to log when a chunk is created
             let log = false;
-    if (newChunk.toString() == "Origin: -8,0,8 Size: 8,8,8 VoxelSize: 0.5")
+            if (newChunk.toString() == "Origin: -8,0,8 Size: 8,8,8 VoxelSize: 0.5")
                 log = true;
             if (log) {
                 console.log("---- ");
                 console.log("newChunk: " + newChunk.toString());
             }
+            //---- End debug code
 
             this._chunkTree.getItemsInBox(chunkBounds, nearbyChunks);
             for (const nearChunk of nearbyChunks) {
@@ -309,36 +306,41 @@ class ChunkManager {
                     if (nearChunk.currentBounds.extent == newChunk.currentBounds.extent &&
                         nearChunk.isAtSamePositionAs(newChunk) &&
                         !nearChunk.isMarkedForRemoval()) {
+                        
+                        //---- Debug code to log when a chunk is skipped
                         // new chunk is same as existing chunk, so skip it
                         if (log) {
                             console.log("already exists: " + newChunk.toString());
                         }
+                        //---- End debug code
                         return;
                     }
                     else {
+                        //---- Debug code to log when a chunk overlaps
                         if (log) {
                             console.log("overlaps: " + newChunk.toString());
                         }
+                        //---- End debug code
 
                         let markForRemoval = false;
-                        const nearChunkSampleCache = nearChunk.getDistanceCache();
-                        if (nearChunkSampleCache) {
-                            if (nearChunk.currentBounds.contains(newChunk.currentBounds)) {
-                                if (log) {
-                                    console.log("parent: " + nearChunk.toString());
-                                }
-                                sampleCache.addParent(nearChunkSampleCache);
-                                if (!nearChunk.isMarkedForRemoval())
-                                    markForRemoval = true;
+                        if (nearChunk.currentBounds.contains(newChunk.currentBounds)) {
+                            //---- Debug code to log when a chunk is a parent
+                            if (log) {
+                                console.log("parent: " + nearChunk.toString());
                             }
-                            if (newChunk.currentBounds.contains(nearChunk.currentBounds)) {
-                                if (log) {
-                                    console.log("child: " + nearChunk.toString());
-                                }
-                                sampleCache.addChild(nearChunkSampleCache);
-                                if (!nearChunk.isMarkedForRemoval())
-                                    markForRemoval = true;                            }
+                            //---- End debug code
+                            if (!nearChunk.isMarkedForRemoval())
+                                markForRemoval = true;
                         }
+                        if (newChunk.currentBounds.contains(nearChunk.currentBounds)) {
+                            //---- Debug code to log when a chunk is a child
+                            if (log) {
+                                console.log("child: " + nearChunk.toString());
+                            }
+                            //---- End debug code
+                            if (!nearChunk.isMarkedForRemoval())
+                                markForRemoval = true;
+                        }                     
 
                         // mark existing chunk for removal
                         if (markForRemoval) {

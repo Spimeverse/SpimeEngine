@@ -1,5 +1,5 @@
 import { TestSdfShapes,TestSdfTransforms } from "./signedDistanceFields";
-import { TestMesher,TestChunkDimensions, TestDistanceCache } from "./Meshing";
+import { TestMesher,TestChunkDimensions } from "./Meshing";
 import { TestAxisAlignedBoxBounds, TestChunkManager, TestSparseOctTree, TestSphereBoxBounds } from "./World";
 import { TestLinkedList } from "./Collection";
 
@@ -13,4 +13,3 @@ TestSparseOctTree();
 TestSphereBoxBounds();
 TestChunkManager();
 TestLinkedList();
-TestDistanceCache();

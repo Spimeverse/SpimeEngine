@@ -2,7 +2,7 @@ import { Scene, StandardMaterial } from "@babylonjs/core"
 import { Nullable } from "@babylonjs/core";
 import { Color3, Color4, Vector3 } from "@babylonjs/core/Maths";
 import { Mesh, VertexData } from "@babylonjs/core/Meshes"
-import { AxisAlignedBoxBound, DistanceCache } from "..";
+import { AxisAlignedBoxBound } from "..";
 import { SignedDistanceField } from "..";
 import { IhasBounds } from "..";
 import { ExtractSurface } from "..";
@@ -90,7 +90,6 @@ class Chunk implements IhasBounds {
     private _chunkMesh: Nullable<Mesh> = null;
     private _newChunkMesh: Nullable<Mesh> = null;
     private _markedForRemoval = false;
-    private _distanceCache: Nullable<DistanceCache> = null;
 
     //  X   X   X   X
     //    c   c   c 
@@ -437,14 +436,6 @@ class Chunk implements IhasBounds {
             const borderScale = largerChunk._voxelSize / smallerChunk._voxelSize;
             smallerChunk._borderScale = borderScale;
          }
-    }
-
-    setDistanceCache(distanceCache: DistanceCache) {
-        this._distanceCache = distanceCache;
-    }
-
-    getDistanceCache() {
-        return this._distanceCache;
     }
     
     toString() {

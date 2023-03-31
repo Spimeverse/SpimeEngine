@@ -1,4 +1,4 @@
-import { Chunk, SetSeamExtra } from "../";
+import { Chunk, SetSeamExtra } from "..";
 import { Vector3 } from "@babylonjs/core";
 
 
