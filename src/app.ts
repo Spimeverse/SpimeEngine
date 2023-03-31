@@ -62,7 +62,7 @@ class App {
         const camera = new UniversalCamera("UniversalCamera", new Vector3(-2.81346387881024, 9.501053222402463, -29.703129205471587), scene);
         camera.setTarget(new Vector3(25.480399380589255, -0.33416390626756076, -29.241383565822954));
 
-        camera.speed = 0.08;
+        camera.speed = 0.15;
 
         const serializedAnimations = JSON.parse(`{"animations":[{"name":"Cam pos","property":"position","framePerSecond":20,"dataType":1,"loopBehavior":2,"blendingSpeed":0.01,"keys":[{"frame":0,"values":[-2.8217949121787824,9.501053222397646,-28.27,[0,0,0],[0,0,0]]},{"frame":129.21995743172116,"values":[0.8527955366178549,11.692062928401029,-13.843473583201243,[-0.06155180388584942,-0.0036429561538406097,0.21937598776534395],[-0.06155180388584942,-0.0036429561538406097,0.21937598776534395]]},{"frame":297.2223927120956,"values":[-16.301708346773143,8.760765204861066,16.403518169650695,[-0.022056328838331633,-0.0013979831494550484,0.009165545290436245],[-0.022056328838331633,-0.0013979831494550484,0.009165545290436245]]},{"frame":299.7436442682032,"values":[-16.349656983197097,8.758994395014197,16.415109837412473,[-0.01595209092782805,0,-0.0031404693645491998],[0.013631925844310422,-0.0006740162009732571,-0.0031404742411068926]]},{"frame":432.94589620149475,"values":[12.148107358349497,9.091097974605935,21.12755694160433,[0.05013419294102299,0.003025587790556905,-0.21598667454605458],[0.05013419294102299,0.003025587790556905,-0.21598667454605458]]},{"frame":603.0017032707535,"values":[-2.82,9.506869799372636,-28.15,[0.0446143361455839,0.002466135300141024,-0.0021022206112283064]]}],"ranges":[]},{"name":"cam target","property":"target","framePerSecond":20,"dataType":1,"loopBehavior":2,"blendingSpeed":0.01,"keys":[{"frame":0,"values":[-20.685020928684036,5.944684231179481,-4.485705746283372,[0,0,0],[0,0,0]]},{"frame":129.21995743172116,"values":[-5.180320651830292,7.948138521880864,-2.98818130254878,[0.03632983261995387,-0.008284038602870619,0.009190434826888975],[0.03632983261995387,-0.008284038602870619,0.009190434826888975]]},{"frame":297.2223927120956,"values":[-1.923797962732456,6.218489003567818,35.02,[0.016416429787903173,-0.019796543802244673,0.011180446446101963],[0.016416429787903173,-0.019796543802244673,0.011180446446101963]]},{"frame":432.94589620149475,"values":[28.245593115939684,9.054696334592894,35.26339765727455,[-0.0939243596565713,0.002301700014770213,-0.19343467862478309],[-0.0939243596565713,0.002301700014770213,-0.19343467862478309]]},{"frame":603.0017032707535,"values":[-20.69,5.94,-4.49,[0,0,0],[0,0,0]]}],"ranges":[]}]}`)
             .animations;
@@ -114,13 +114,14 @@ class App {
             floorMeshes: [ground]
         });
 
-        const marker = MeshBuilder.CreateSphere("marker", { diameter: 1 }, scene);
+        const marker = MeshBuilder.CreateSphere("marker", { diameter: 0.1 }, scene);
         marker.position.x = 0;
         marker.position.y = 12;
         marker.position.z = 0;
         const markerMaterial = new StandardMaterial("markerMaterial", scene);
         markerMaterial.wireframe = false;
         markerMaterial.diffuseColor = new Color3(1, 1, 0);
+        markerMaterial.emissiveColor = new Color3(1, 1, 0);
         marker.material = markerMaterial;
 
         const box = MeshBuilder.CreateBox("box", { size: 0.05 }, scene);
@@ -154,9 +155,17 @@ class App {
         // const unionField = new SdfUnion([field,fieldSphere]);
 
         const chunkManager = new ChunkManager();
+
+        const originSetup = false;
+        const cameraFront = new Vector3();
+        const previousCameraFront = new Vector3();
+        const previousViewOrigin = new Vector3();
         const viewOrigin = new Vector3();
-        viewOrigin.copyFrom(marker.position);
-        chunkManager.setViewOrigin(viewOrigin);
+        const cameraDelta = new Vector3();
+        const idealOrigin = new Vector3();
+
+        cameraFront.copyFrom(marker.position);
+        chunkManager.setViewOrigin(cameraFront);
 
         //chunkManager.addField(fieldSphere);
         //chunkManager.addField(field);
@@ -181,10 +190,28 @@ class App {
                 chunkManager.updateField(fieldTorus);
             }
 
-            if (!camera.position.equals(viewOrigin)) {
-                viewOrigin.copyFrom(camera.position);
+
+            previousCameraFront.copyFrom(cameraFront);
+            cameraFront.copyFrom(camera.getFrontPosition(3));
+            const deltaTime = scene.deltaTime;
+            if (deltaTime) {
+
+                // set viewOrigin to where the camera will be in the future
+                // taking acceleration into account
+        
+                cameraDelta.copyFrom(cameraFront).subtractInPlace(previousCameraFront).scaleInPlace(deltaTime * 4);
+                
+                idealOrigin.copyFrom(cameraFront).addInPlace(cameraDelta);
+        
+                Vector3.LerpToRef(viewOrigin, idealOrigin, 0.1, viewOrigin);
+            }
+
+            if (!previousViewOrigin.equals(viewOrigin)) {
+                console.log(`delta: ${deltaTime} cameraDelta: ${cameraDelta.length()}`);
+                previousViewOrigin.copyFrom(viewOrigin);
                 chunkManager.setViewOrigin(viewOrigin);
 
+                marker.position.copyFrom(viewOrigin);
             }
 
             chunkManager.updateChangedMeshes(scene, showChunkBounds);
