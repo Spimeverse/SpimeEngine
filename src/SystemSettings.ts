@@ -39,11 +39,11 @@ app.ts:273 chunkTimer: 4,922.7
 
 
 class SystemSettings {
-    initializeOriginToCamera = false;
+    initializeOriginToCamera = true;
     updateViewOrigin = true;
 
     debugChunks = false;
-    showChunkBounds = true;
+    showChunkBounds = false;
     showVoxelVertex = false;
     showVoxelBounds = false;
     showChunkQueueLength = true;
