@@ -5,6 +5,7 @@
 import { SignedDistanceField } from "../signedDistanceFields";
 import { Chunk,BORDERS } from ".";
 import { Vector3 } from "@babylonjs/core/Maths";
+import { systemSettings } from "../SystemSettings";
 
 const voxelCenter = new Vector3();
 const samplePoint = new Vector3();
@@ -37,20 +38,27 @@ const CUBE_CORNER_OFFSETS: Vector3[] = [
 ];
 
 // flags describing how each voxel needs to be connected to it's neighbour
-const CONNECTED_CELL =    0b0000000001; // 1
-const XZ_FACE_CLOCKWISE = 0b0000000010; // 2
-const XY_FACE_CLOCKWISE = 0b0000000100; // 4
-const YZ_FACE_CLOCKWISE = 0b0000001000; // 8
-const XZ_FACE_ANTICLOCK = 0b0000010000; // 16
-const XY_FACE_ANTICLOCK = 0b0000100000; // 32
-const YZ_FACE_ANTICLOCK = 0b0001000000; // 64
-const OVERLAPPING_SEAM  = 0b0010000000; // 128
+const CONNECTED_CELL =    0b0000000000001; // 1
+const XZ_FACE_CLOCKWISE = 0b0000000000010; // 2
+const XY_FACE_CLOCKWISE = 0b0000000000100; // 4
+const YZ_FACE_CLOCKWISE = 0b0000000001000; // 8
+const XZ_FACE_ANTICLOCK = 0b0000000010000; // 16
+const XY_FACE_ANTICLOCK = 0b0000000100000; // 32
+const YZ_FACE_ANTICLOCK = 0b0000001000000; // 64
+const X_PLUS_EDGE       = 0b0000010000000; // 128
+const X_MINUS_EDGE      = 0b0000100000000; // 256
+const Y_PLUS_EDGE       = 0b0001000000000; // 512
+const Y_MINUS_EDGE      = 0b0010000000000; // 1024
+const Z_PLUS_EDGE       = 0b0100000000000; // 2048
+const Z_MINUS_EDGE      = 0b1000000000000; // 4096
+
 // CUBE_EDGES defines the 12 edges of the cube, from the start point to the end point
 // and also a flag to indicate if a face needs to be output.
 // only output a face on when the edge meets the far corner of the cube
 // i.e c are the cube voxel corners and v are the vertices in each voxel
-// c1 is the corner to generate a face around. 
-// each voxel will generate a face which is offset but will meet up with the other faces
+// the c1 is the corner to generate a face around.
+// each voxel will generate a vertex and faces connecting this cubes
+// vertex to the vertex of the voxel to the left (-x), below (-y) or Outwards (-z)
 //     
 //     |   v--+--v
 //     |   |  |  |
@@ -59,51 +67,94 @@ const OVERLAPPING_SEAM  = 0b0010000000; // 128
 //     |      |
 //     c ---- c ----
 // 
-const EDGE_START_CORNER = 0;
-const EDGE_END_CORNER = 1;
-const EDGE_FACE_NORMAL = 2;
-const EDGE_FACE_REVERSED = 3;
+
 
 // only create faces on edges connecting to the voxel to the left (-x), below (-y) or Outwards (-z)
-// create a clockwise or anticlockwise face depending on whether the edge goes 
+// create a clockwise or anticlockwise face depending on whether the edge goes
 // from outside to inside or inside to outside
-// 
-// Edge numbers
-//      +---11---+
-//     /|       /|
-//    /6|9     /7|10
-//   +---5----+  |
-//   |  !---8-|--!
-//   1 /      3  /
-//   |/2      | /4
-//   +----0---!
 //
-const CUBE_EDGES = [
-    [0, 1, YZ_FACE_CLOCKWISE, YZ_FACE_ANTICLOCK], // edge 0 
-    [0, 2, XZ_FACE_CLOCKWISE, XZ_FACE_ANTICLOCK], // edge 1 
-    [0, 4, XY_FACE_CLOCKWISE, XY_FACE_ANTICLOCK], // edge 2 
-    [1, 3, 0, 0], // edge 3 
-    [1, 5, 0, 0], // edge 4 
-    [2, 3, 0, 0], // edge 5 
-    [2, 6, 0, 0], // edge 6
-    [3, 7, 0, 0], // edge 7 
-    [4, 5, 0, 0], // edge 8 
-    [4, 6, 0, 0], // edge 9 
-    [5, 7, 0, 0], // edge 10 
-    [6, 7, 0, 0], // edge 11   
-];
-
-/**
- * lookup which axis each edge aligns with
- */
-const CUBE_EDGE_AXIS: Vector3[] = [];
-
-for (let edge = 0; edge < CUBE_EDGES.length; edge++) {
-    CUBE_EDGE_AXIS[edge] = new Vector3();
-    CUBE_EDGE_AXIS[edge].copyFrom(CUBE_CORNER_OFFSETS[CUBE_EDGES[edge][EDGE_END_CORNER]]);
-    CUBE_EDGE_AXIS[edge].subtractInPlace(CUBE_CORNER_OFFSETS[CUBE_EDGES[edge][EDGE_START_CORNER]]);
+// Corner numbers   // Edge numbers
+//                  //      +---11---+
+//     6 -----7     //     /|       /|
+//    /|     /|     //    /6|9     /7|10
+//   2------3 |     //   +----5---+  |
+//   | 4----|-5     //   |  !---8-|--!
+//   |/     |/      //   1 /      3  /
+//   0------1       //   |/2      | /4
+//                  //   +----0---!
+//                  // 
+type Edge = {
+    startCorner: number;
+    endCorner: number;
+    faceNormal: number;
+    faceReversed: number;
 }
 
+const CUBE_EDGES: Edge[] = [
+    {
+        startCorner: 0, endCorner: 1,
+        faceNormal: YZ_FACE_CLOCKWISE | Z_MINUS_EDGE | Y_MINUS_EDGE,
+        faceReversed: YZ_FACE_ANTICLOCK | Z_MINUS_EDGE | Y_MINUS_EDGE
+    }, // edge 0
+    {
+        startCorner: 0, endCorner: 2,
+        faceNormal: XZ_FACE_CLOCKWISE | X_MINUS_EDGE | Z_MINUS_EDGE,
+        faceReversed: XZ_FACE_ANTICLOCK | X_MINUS_EDGE | Z_MINUS_EDGE
+    }, // edge 1
+    {
+        startCorner: 0, endCorner: 4,
+        faceNormal: XY_FACE_CLOCKWISE | X_MINUS_EDGE | Y_MINUS_EDGE,
+        faceReversed: XY_FACE_ANTICLOCK | X_MINUS_EDGE | Y_MINUS_EDGE
+    }, // edge 2
+    {
+        startCorner: 1, endCorner: 3,
+        faceNormal: X_PLUS_EDGE | Z_MINUS_EDGE,
+        faceReversed: X_PLUS_EDGE | Z_MINUS_EDGE
+    }, // edge 3
+    {   
+        startCorner: 1, endCorner: 5,
+        faceNormal: X_PLUS_EDGE | Y_MINUS_EDGE,
+        faceReversed: X_PLUS_EDGE | Y_MINUS_EDGE
+    }, // edge 4
+    {
+        startCorner: 2, endCorner: 3,
+        faceNormal: Z_MINUS_EDGE | Y_PLUS_EDGE,
+        faceReversed: Z_MINUS_EDGE | Y_PLUS_EDGE
+    }, // edge 5
+    {
+        startCorner: 2, endCorner: 6,
+        faceNormal: X_MINUS_EDGE | Y_PLUS_EDGE,
+        faceReversed: X_MINUS_EDGE | Y_PLUS_EDGE
+    }, // edge 6
+    {
+        startCorner: 3, endCorner: 7,
+        faceNormal: X_PLUS_EDGE | Y_PLUS_EDGE,
+        faceReversed: X_PLUS_EDGE | Y_PLUS_EDGE
+    }, // edge 7
+    {
+        startCorner: 4, endCorner: 5,
+        faceNormal: Z_PLUS_EDGE | Y_MINUS_EDGE,
+        faceReversed: Z_PLUS_EDGE | Y_MINUS_EDGE
+    }, // edge 8
+    {
+        startCorner: 4, endCorner: 6,
+        faceNormal: X_MINUS_EDGE | Z_PLUS_EDGE,
+        faceReversed: X_MINUS_EDGE | Z_PLUS_EDGE
+    }, // edge 9
+    {
+        startCorner: 5, endCorner: 7,
+        faceNormal: X_PLUS_EDGE | Z_PLUS_EDGE,
+        faceReversed: X_PLUS_EDGE | Z_PLUS_EDGE
+    }, // edge 10
+    {
+        startCorner: 6, endCorner: 7,
+        faceNormal: Z_PLUS_EDGE | Y_PLUS_EDGE,
+        faceReversed: Z_PLUS_EDGE | Y_PLUS_EDGE
+    }, // edge 11
+];
+        
+    
+    
 
 interface Voxels {
     vertexCount: number;
@@ -139,11 +190,9 @@ let zSampleEnd = 0;
 
 let voxels: Voxels;
 let voxelSize = 0;
-const sampledPoints: Vector3[] = [];
-const sampledLabels: string[] = [];
-
-let totalSamples = 0;
-
+const debugPoints: Vector3[] = [];
+const debugLabels: string[] = [];
+const debugPointSize: number[] = [];
 
 function ExtractSurface (_chunk: Chunk,
     _field: SignedDistanceField,
@@ -178,14 +227,7 @@ function ExtractSurface (_chunk: Chunk,
     verticies.length = 0;
     faces.length = 0;
 
-    if (SkipChunk())
-        return false;
-
     SetupSampleRange();
-
-    // if (chunk.toString() != "Origin: -12,4,-20 Size: 4,4,4 VoxelSize: 0.25")
-    //     return false;
-
 
     if (SampleChunkField()) {
         ExtractSurfaceVoxels();
@@ -201,36 +243,8 @@ function ExtractSurface (_chunk: Chunk,
     return faces.length > 0;
 }
 
-// no optimization
-// samples 13,624,794 sample time 25,873ms
-// samples 13,679,243 sample time 22,573ms
-// samples 12,856,289 sample time 21,409ms
-
-// distance cache broken.
-// samples 6,260,913 sample time 17,248ms
-
-// sample corners
-// samples 13,959,691 sample time 22,210ms
-// samples 13,830,086 sample time 22,968ms
-// samples  6,940,588 sample time 13,627ms
-// samples  6,547,175 sample time 14,114ms
-// samples  6,553,102 sample time 14,772ms
-
-// sample corners no movement
-// samples 11,050,819 sample time 40,956ms
-// samples 11,173,557 sample time 42,161ms
-// samples  9,837,139 sample time 20,330ms
-// samples  1,043,191 sample time  5,666ms
-// samples  1,143,753 sample time  5,601ms
-// samples  1,173,128 sample time  5,388ms
-// samples  1,179,732 sample time  2,958ms
-// samples  1,173,396 sample time  2,254ms
-
-// sample all no movement
-// samples  3,173,053 sample time  4,754ms
-
 function SampleField(position: Vector3): number {
-    totalSamples++;
+    systemSettings.debugCounters.totalSamples++;
     return field.sample(position);
 }
 
@@ -339,7 +353,7 @@ function SampleRange(x1: number, x2: number, y1: number, y2: number, z1: number,
 
             const edgeMask = CalcWorldVertex(x1, y1, z1, voxelIndex, 1);
         
-            AddDebugMarker(voxelPosition.x, voxelPosition.y, voxelPosition.z, edgeMask);
+            AddDebugMarker(x1, y1, z1, edgeMask);
             
             AppendVertex(voxelIndex, vertexPoint);
 
@@ -378,34 +392,78 @@ function SampleCorner(x: number, y: number, z: number) {
 
 
 function AddDebugMarker(voxX: number, voxY: number, voxZ: number, edgeMask: number) {
-    if (DebugVox(voxX, voxY, voxZ)) {
-        let edges = "";
-        if (edgeMask & XZ_FACE_CLOCKWISE) {
-            edges += "XZ_CLOCKWISE ";
-        }
-        if (edgeMask & XZ_FACE_ANTICLOCK) {
-            edges += "XZ_ANTICLOCK ";
-        }
+    if ((systemSettings.showVoxelVertex || systemSettings.showVoxelBounds) && systemSettings.isTargetChunk(chunk)) {
+        if (voxX >= systemSettings.showVoxelRange.x1 && voxX <= systemSettings.showVoxelRange.x2 &&
+            voxY >= systemSettings.showVoxelRange.y1 && voxY <= systemSettings.showVoxelRange.y2 &&
+            voxZ >= systemSettings.showVoxelRange.z1 && voxZ <= systemSettings.showVoxelRange.z2) {
+            
+            let edges = "";
+            if (edgeMask & XZ_FACE_CLOCKWISE) {
+                edges += "XZ_CLOCKWISE ";
+            }
+            if (edgeMask & XZ_FACE_ANTICLOCK) {
+                edges += "XZ_ANTICLOCK ";
+            }
 
-        if (edgeMask & XY_FACE_CLOCKWISE) {
-            edges += "XY_CLOCKWISE ";
-        }
-        if (edgeMask & XY_FACE_ANTICLOCK) {
-            edges += "XY_ANTICLOCK ";
-        }
+            if (edgeMask & XY_FACE_CLOCKWISE) {
+                edges += "XY_CLOCKWISE ";
+            }
+            if (edgeMask & XY_FACE_ANTICLOCK) {
+                edges += "XY_ANTICLOCK ";
+            }
 
-        if (edgeMask & YZ_FACE_CLOCKWISE) {
-            edges += "YZ_CLOCKWISE ";
-        }
-        if (edgeMask & YZ_FACE_ANTICLOCK) {
-            edges += "YZ_ANTICLOCK ";
-        }
-        if (edges == "")
-            edges = "???";
+            if (edgeMask & YZ_FACE_CLOCKWISE) {
+                edges += "YZ_CLOCKWISE ";
+            }
+            if (edgeMask & YZ_FACE_ANTICLOCK) {
+                edges += "YZ_ANTICLOCK ";
+            }
+            if (edgeMask & X_PLUS_EDGE) {
+                edges += "X+ ";
+            }
+            if (edgeMask & X_MINUS_EDGE) {
+                edges += "X- ";
+            }
+            if (edgeMask & Y_PLUS_EDGE) {
+                edges += "Y+ ";
+            }
+            if (edgeMask & Y_MINUS_EDGE) {
+                edges += "Y- ";
+            }
+            if (edgeMask & Z_PLUS_EDGE) {
+                edges += "Z+ ";
+            }
+            if (edgeMask & Z_MINUS_EDGE) {
+                edges += "Z- ";
+            }
+            if (edges == "" && edgeMask & CONNECTED_CELL) {
+                edges += "CONNECTED_CELL ";
+            }
 
-        sampledPoints.push(vertexPoint.clone().addInPlaceFromFloats(0, 0.06, 0));
-        sampledLabels.push(`seam center ${voxX} ${voxY} ${voxZ} seam ${edges}`);
+            if (edges == "")
+                edges = "??? " + edgeMask;
+
+            // corner distances to 2 decimal places
+            // const cornerDistances = ` x1 ${cornerDist[0].toFixed(2)} x2 ${cornerDist[1].toFixed(2)} y1 ${cornerDist[2].toFixed(2)} y2 ${cornerDist[3].toFixed(2)} z1 ${cornerDist[4].toFixed(2)} z2 ${cornerDist[5].toFixed(2)}`
+            
+            if (systemSettings.showVoxelVertex) {
+                // show the voxel center just slightly above the surface
+                debugPoints.push(vertexPoint.clone());
+                debugPointSize.push(voxelSize / 8);
+                debugLabels.push(`voxelCenter ${voxX} ${voxY} ${voxZ} edges ${edges}`);
+            }
+
+            if (systemSettings.showVoxelBounds) {
+                const voxelBounds = new Vector3();
+                chunk.voxelSpaceToWorldSpace(voxX, voxY, voxZ, voxelBounds);
+                debugPoints.push(voxelBounds);
+                debugPointSize.push(voxelSize);
+                debugLabels.push(`voxelBounds ${voxX} ${voxY} ${voxZ} edges ${edges}`);
+            }
+    
+        }
     }
+
 }
 
 function CalcWorldVertex(voxX: number, voxY: number, voxZ: number, voxelIndex: number,scale: number) {
@@ -498,43 +556,41 @@ function ExtractVoxel(connectEdges: number) {
         return; 
     if (worldPosition.z <= 0)
         return;
-    
-    const isSeamFace = (connectEdges & OVERLAPPING_SEAM) != 0;
 
     if (connectEdges & XZ_FACE_CLOCKWISE) {
-        ExtractFace(isSeamFace,worldPosition, [
+        ExtractFace(worldPosition, [
             [0, 0, 0], [0, 0, -1], [-1, 0, -1],
             [-1, 0, -1], [-1, 0, 0], [0, 0, 0]
         ]);
     }
     if (connectEdges & XZ_FACE_ANTICLOCK) {
-        ExtractFace(isSeamFace,worldPosition, [
+        ExtractFace(worldPosition, [
             [0, 0, 0], [-1, 0, 0], [-1, 0, -1],
             [-1, 0, -1], [0, 0, -1], [0, 0, 0]
         ]);
     }
 
     if (connectEdges & XY_FACE_CLOCKWISE) {
-        ExtractFace(isSeamFace,worldPosition, [
+        ExtractFace(worldPosition, [
             [0, 0, 0], [-1, 0, 0], [-1, -1, 0],
             [-1, -1, 0], [0, -1, 0], [0, 0, 0]
         ]);
     }
     if (connectEdges & XY_FACE_ANTICLOCK) {
-        ExtractFace(isSeamFace,worldPosition, [
+        ExtractFace(worldPosition, [
             [0, 0, 0], [0, -1, 0], [-1, -1, 0],
             [-1, -1, 0], [-1, 0, 0], [0, 0, 0]
         ]);
     }
 
     if (connectEdges & YZ_FACE_CLOCKWISE) {
-        ExtractFace(isSeamFace,worldPosition, [
+        ExtractFace(worldPosition, [
             [0, 0, 0], [0, -1, 0], [0, -1, -1],
             [0, -1, -1], [0, 0, -1], [0, 0, 0]
         ]);
     }
     if (connectEdges & YZ_FACE_ANTICLOCK) {
-        ExtractFace(isSeamFace,worldPosition, [
+        ExtractFace(worldPosition, [
             [0, 0, 0], [0, 0, -1], [0, -1, -1],
             [0, -1, -1], [0, -1, 0], [0, 0, 0]
         ]);
@@ -548,8 +604,8 @@ function CalcVoxelVertex(cornerDist: Float32Array,voxelCenter: Vector3): number 
     let connectEdges = 0;
     for (let edgeNum = 0; edgeNum < 12; edgeNum++) {
         const edgeDetails = CUBE_EDGES[edgeNum];         
-        const dist0 = cornerDist[edgeDetails[EDGE_START_CORNER]];
-        const dist1 = cornerDist[edgeDetails[EDGE_END_CORNER]];
+        const dist0 = cornerDist[edgeDetails.startCorner];
+        const dist1 = cornerDist[edgeDetails.endCorner];
         // if the distance to the surface changes sign
         // then this edge intersects the surface
         const distNeg0 = (dist0 < 0);
@@ -559,14 +615,14 @@ function CalcVoxelVertex(cornerDist: Float32Array,voxelCenter: Vector3): number 
             // record edges were crossed which we need to connect up
             // and if they face in or out ( negative to positive distance or positive to negative)
             if (distNeg0) // at this point if distNeg0 is true, distNeg1 must be false or visa versa
-                connectEdges |= edgeDetails[EDGE_FACE_REVERSED];
+                connectEdges |= edgeDetails.faceReversed;
             else
-                connectEdges |= edgeDetails[EDGE_FACE_NORMAL];
+                connectEdges |= edgeDetails.faceNormal;
             edgeCount++;
             const distDiff = dist0 / (dist0 - dist1);
             const inverseDiff = 1 - distDiff;
-            const corner0 = CUBE_CORNER_OFFSETS[edgeDetails[0]];
-            const corner1 = CUBE_CORNER_OFFSETS[edgeDetails[1]];
+            const corner0 = CUBE_CORNER_OFFSETS[edgeDetails.startCorner];
+            const corner1 = CUBE_CORNER_OFFSETS[edgeDetails.endCorner];
             voxelCenter.x += (corner1.x * distDiff) + (corner0.x * inverseDiff);
             voxelCenter.y += (corner1.y * distDiff) + (corner0.y * inverseDiff);
             voxelCenter.z += (corner1.z * distDiff) + (corner0.z * inverseDiff);
@@ -583,7 +639,7 @@ const triVert = new Uint16Array(3);
 const faceVertices: Vector3[] = [new Vector3(),new Vector3(),new Vector3()]; 
 const minEdgeLength = 0.000001;
 
-function ExtractFace(isSeamFace: boolean,voxelPosition: Vector3,offsets: number[][]) {
+function ExtractFace(voxelPosition: Vector3,offsets: number[][]) {
 
     for (let offsetNum = 0; offsetNum < offsets.length; offsetNum += 3) {
         let skipFace = false;
@@ -635,48 +691,10 @@ function SetupVoxels(numSamples: number) {
     }
 }
 
-// selectively skip chunks for debugging
-function SkipChunk(): boolean {
-    return false;
-
-    const chunkID = chunk.toString();
-     const targetChunks = ["Origin: 16,8,24 Size: 8,8,8 VoxelSize: 0.5"];
-    // const targetChunks = [
-    //     "Origin: -4,6,6 Size: 2,2,2 VoxelSize: 0.125",
-    //     "Origin: -2,6,6 Size: 2,2,2 VoxelSize: 0.125",
-    //     "Origin: -2,6,4 Size: 2,2,2 VoxelSize: 0.125",
-    //     "Origin: -4,6,4 Size: 2,2,2 VoxelSize: 0.125",
-    //     "Origin: -6,6,4 Size: 2,2,2 VoxelSize: 0.125",
-    //     "Origin: -6,6,6 Size: 2,2,2 VoxelSize: 0.125",
-    //     "Origin: -8,4,8 Size: 4,4,4 VoxelSize: 0.25",
-    //     "Origin: -4,4,8 Size: 4,4,4 VoxelSize: 0.25"
-    // ];
-
-    if (targetChunks.indexOf(chunkID) == -1)
-        return true;
-    return false;
-}
-
-// focus on a subset of voxels for debugging
-function DebugVox(voxX: number, voxY: number, voxZ: number) {
-    return false;
-    if (voxX < 0)
-        return false;
-    if (voxX > 1)
-        return false;
-    if (voxY < 6)
-        return false;
-    if (voxY > 8)
-        return false;
-    if (voxZ < 10)
-        return false;
-    if (voxZ > 12)
-        return false;
-    return true;
-}
 
 export {
     ExtractSurface,
+    ConnectedChunks,
     CalcVoxelVertex,
     CONNECTED_CELL,
     XZ_FACE_CLOCKWISE,
@@ -685,7 +703,12 @@ export {
     XZ_FACE_ANTICLOCK,
     XY_FACE_ANTICLOCK,
     YZ_FACE_ANTICLOCK,
-    sampledPoints, sampledLabels,
-    totalSamples
+    X_MINUS_EDGE,
+    X_PLUS_EDGE,
+    Y_MINUS_EDGE,
+    Y_PLUS_EDGE,
+    Z_MINUS_EDGE,
+    Z_PLUS_EDGE,
+    debugPoints, debugLabels, debugPointSize
 }
 

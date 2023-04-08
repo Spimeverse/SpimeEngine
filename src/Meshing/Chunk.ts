@@ -6,6 +6,8 @@ import { AxisAlignedBoxBound } from "..";
 import { SignedDistanceField } from "..";
 import { IhasBounds } from "..";
 import { ExtractSurface } from "..";
+import { MeshBuilder } from "@babylonjs/core/Meshes";
+import { systemSettings } from "../SystemSettings";
 
 const voxelPosition = new Vector3();
     
@@ -22,12 +24,13 @@ enum CORNERS {
 }
 
 const BORDERS = {
-     xMin : 0b000001,
-     xMax : 0b000010,
-     yMin : 0b000100,
-     yMax : 0b001000,
-     zMin : 0b010000,
-     zMax : 0b100000
+    xMin : 0b000001,
+    xMax : 0b000010,
+    yMin : 0b000100,
+    yMax : 0b001000,
+    zMin : 0b010000,
+    zMax : 0b100000,
+    fullySurrounded: 0b111111
 }
 
 interface XYZ { x: number; y: number; z: number}
@@ -75,9 +78,10 @@ class Chunk implements IhasBounds {
     private _halfVoxel = 0;
 
     /**
-     * bit flags indicating which borders need to be down sampled
+     * bit flags indicating which borders need to overlap with neighboring chunks
      */
     private _borderSeams = 0;
+
     /**
      * how many voxels deep the border is eg 2 if the bordering chunk is half the scale of this chunk
      */
@@ -223,12 +227,6 @@ class Chunk implements IhasBounds {
         voxelPosition.x -= seamExtra;
         voxelPosition.y -= seamExtra;
         voxelPosition.z -= seamExtra;
-        // if (voxelPosition.x < -seamExtra || voxelPosition.y < -seamExtra || voxelPosition.z < -seamExtra)
-        //     debugger;
-        // if (voxelPosition.x > this._voxelRange.x + seamExtra ||
-        //     voxelPosition.y > this._voxelRange.y + seamExtra ||
-        //     voxelPosition.z > this._voxelRange.z + seamExtra)
-        //     debugger;
     }
     
     indexToWorldSpace(index: number, samplePoint: XYZ) {
@@ -271,7 +269,7 @@ class Chunk implements IhasBounds {
             this,
             field,
             this._vertexData.positions as number[],
-            this._vertexData.indices as number[])
+            this._vertexData.indices as number[]);
 
         if (extracted) {
             this._newChunkMesh = new Mesh("custom");
@@ -305,7 +303,7 @@ class Chunk implements IhasBounds {
         return extracted;
     }
 
-    swapMeshes(scene: Scene, showChunkBounds: boolean) {
+    swapMeshes(scene: Scene) {
         if (this._chunkMesh) {
             this._chunkMesh.isVisible = false;
             scene.removeMesh(this._chunkMesh);
@@ -324,16 +322,17 @@ class Chunk implements IhasBounds {
                 this._chunkMesh = this._newChunkMesh;
                 this._newChunkMesh = null;
 
-                if (showChunkBounds) {
-                    // const chunkBounds = MeshBuilder.CreateBox("Chunk Bounds" + this.toString(), { size: this._worldSize.x }, scene);
-                    // const boundsMaterial = new StandardMaterial("boundsMaterial", scene);
-                    // chunkBounds.position.copyFrom(this._position);
-                    // chunkBounds.position.addInPlace(this._worldSize.scale(0.5));
-                    // boundsMaterial.diffuseColor = new Color3(1, 1, 1);
-                    // boundsMaterial.emissiveColor = new Color3(1, 1, 1);
-                    // boundsMaterial.wireframe = true;
-                    // chunkBounds.material = boundsMaterial;
-                    // chunkBounds.isVisible = true;
+                if (systemSettings.showChunkBounds) {
+                    const chunkBounds = MeshBuilder.CreateBox("Chunk Bounds" + this.toString(), { size: this._worldSize.x }, scene);
+                    const boundsMaterial = new StandardMaterial("boundsMaterial", scene);
+                    chunkBounds.position.copyFrom(this._position);
+                    chunkBounds.position.addInPlace(this._worldSize.scale(0.5));
+                    boundsMaterial.diffuseColor = new Color3(1, 1, 1);
+                    boundsMaterial.emissiveColor = new Color3(1, 1, 1);
+                    boundsMaterial.wireframe = true;
+                    chunkBounds.material = boundsMaterial;
+                    chunkBounds.isVisible = true;
+                    chunkBounds.setParent(this._chunkMesh);
                 }
             }
         }
@@ -351,9 +350,8 @@ class Chunk implements IhasBounds {
     }
 
     updateSharedBorders(newChunk: Chunk) {
-        
-        if (this._voxelSize == newChunk._voxelSize)
-            return;
+        // if (this._voxelSize == newChunk._voxelSize) 
+        //     return;
 
         let largerChunk: Chunk;
         let smallerChunk: Chunk;
@@ -370,30 +368,27 @@ class Chunk implements IhasBounds {
             largerChunk = this;
             smallerChunk = newChunk;
         }
-
-
         
         const smallerBounds = smallerChunk.currentBounds as AxisAlignedBoxBound;
         const largerBounds = largerChunk.currentBounds as AxisAlignedBoxBound;
 
-        let sharedFace = false;
+        let largerChunkBorders = 0;
+        let smallerChunkBorders = 0;
 
         // shared border on the x axis
         if (largerBounds.minX == smallerBounds.maxX &&
             largerBounds.minY < smallerBounds.maxY && largerBounds.maxY > smallerBounds.minY &&
             largerBounds.minZ < smallerBounds.maxZ && largerBounds.maxZ > smallerBounds.minZ)
         {
-            largerChunk._borderSeams |= BORDERS.xMin;
-            smallerChunk._borderSeams |= BORDERS.xMax;
-            sharedFace = true;
+            largerChunkBorders |= BORDERS.xMin;
+            smallerChunkBorders |= BORDERS.xMax;
         }
         if (largerBounds.maxX == smallerBounds.minX &&
             largerBounds.minY < smallerBounds.maxY && largerBounds.maxY > smallerBounds.minY &&
             largerBounds.minZ < smallerBounds.maxZ && largerBounds.maxZ > smallerBounds.minZ)
         {
-            largerChunk._borderSeams |= BORDERS.xMax;
-            smallerChunk._borderSeams |= BORDERS.xMin;
-            sharedFace = true;
+            largerChunkBorders |= BORDERS.xMax;
+            smallerChunkBorders |= BORDERS.xMin;
         }
 
         // shared border on the y axis
@@ -401,17 +396,15 @@ class Chunk implements IhasBounds {
             largerBounds.minX < smallerBounds.maxX && largerBounds.maxX > smallerBounds.minX &&
             largerBounds.minZ < smallerBounds.maxZ && largerBounds.maxZ > smallerBounds.minZ)
         {
-            largerChunk._borderSeams |= BORDERS.yMin;
-            smallerChunk._borderSeams |= BORDERS.yMax;
-            sharedFace = true;
+            largerChunkBorders |= BORDERS.yMin;
+            smallerChunkBorders |= BORDERS.yMax;
         }
         if (largerBounds.maxY == smallerBounds.minY &&
             largerBounds.minX < smallerBounds.maxX && largerBounds.maxX > smallerBounds.minX &&
             largerBounds.minZ < smallerBounds.maxZ && largerBounds.maxZ > smallerBounds.minZ)
         {
-            largerChunk._borderSeams |= BORDERS.yMax;
-            smallerChunk._borderSeams |= BORDERS.yMin;
-            sharedFace = true;
+            largerChunkBorders |= BORDERS.yMax;
+            smallerChunkBorders |= BORDERS.yMin;
         }
 
         // shared border on the z axis
@@ -419,23 +412,32 @@ class Chunk implements IhasBounds {
             largerBounds.minX < smallerBounds.maxX && largerBounds.maxX > smallerBounds.minX &&
             largerBounds.minY < smallerBounds.maxY && largerBounds.maxY > smallerBounds.minY)
         {
-            largerChunk._borderSeams |= BORDERS.zMin;
-            smallerChunk._borderSeams |= BORDERS.zMax;
-            sharedFace = true;
+            largerChunkBorders |= BORDERS.zMin;
+            smallerChunkBorders |= BORDERS.zMax;
         }
         if (largerBounds.maxZ == smallerBounds.minZ &&
             largerBounds.minX < smallerBounds.maxX && largerBounds.maxX > smallerBounds.minX &&
             largerBounds.minY < smallerBounds.maxY && largerBounds.maxY > smallerBounds.minY)
         {
-            largerChunk._borderSeams |= BORDERS.zMax;
-            smallerChunk._borderSeams |= BORDERS.zMin;
-            sharedFace = true;
+            largerChunkBorders |= BORDERS.zMax;
+            smallerChunkBorders |= BORDERS.zMin;
         }
 
-        if (sharedFace) {
-            const borderScale = largerChunk._voxelSize / smallerChunk._voxelSize;
-            smallerChunk._borderScale = borderScale;
-         }
+        if (this._voxelSize != newChunk._voxelSize) {
+            largerChunk._borderSeams |= largerChunkBorders;
+            smallerChunk._borderSeams |= smallerChunkBorders;
+        }
+
+        // if (sharedFace) {
+        //     const borderScale = largerChunk._voxelSize / smallerChunk._voxelSize;
+        //     smallerChunk._borderScale = borderScale;
+        //  }
+        if (smallerChunk == this) {
+            return smallerChunkBorders;
+        }
+        else {
+            return largerChunkBorders;
+        }
     }
     
     toString() {

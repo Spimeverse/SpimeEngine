@@ -51,7 +51,15 @@ abstract class Bounds {
     }
 
     abstract get extent(): number;
+    abstract get minX(): number;
+    abstract get minY(): number;
+    abstract get minZ(): number;
+    abstract get maxX(): number;
+    abstract get maxY(): number;
+    abstract get maxZ(): number;
 
+    abstract toAABBRef(aabb: AxisAlignedBoxBound): void;
+ 
     public constructor(public boundType: BoundTypes) {
 
     }
@@ -60,6 +68,8 @@ abstract class Bounds {
 
 class SphereBound extends Bounds {
 
+    // TODO this isn't right, it should be radius *2 , fix it
+    // it appears we assume it's the radius somewhere
     get extent(): number {
         return this.radius;
     }
@@ -102,6 +112,36 @@ class SphereBound extends Bounds {
         const distanceSquared = dx * dx + dy * dy + dz * dz;
         const radiusSum = this.radius + otherSphere.radius;
         return distanceSquared <= radiusSum * radiusSum;
+    }
+
+    toAABBRef(aabb: AxisAlignedBoxBound): void {
+        aabb.set(
+            this.xPos - this.radius, this.yPos - this.radius, this.zPos - this.radius,
+            this.xPos + this.radius, this.yPos + this.radius, this.zPos + this.radius);
+    }
+
+    get minX(): number {
+        return this.xPos - this.radius;
+    }
+
+    get minY(): number {
+        return this.yPos - this.radius;
+    }
+
+    get minZ(): number {
+        return this.zPos - this.radius;
+    }
+
+    get maxX(): number {
+        return this.xPos + this.radius;
+    }
+
+    get maxY(): number {
+        return this.yPos + this.radius;
+    }
+
+    get maxZ(): number {
+        return this.zPos + this.radius;
     }
 
     public toString(): string {
@@ -147,6 +187,10 @@ class AxisAlignedBoxBound extends Bounds {
         newBounds.maxY = this.maxY;
         newBounds.maxZ = this.maxZ;
         return newBounds;
+    }
+
+    public toAABBRef(aabb: AxisAlignedBoxBound): void {
+        aabb.copy(this);
     }
 
     public copy(b: AxisAlignedBoxBound): void {
@@ -273,7 +317,10 @@ class AxisAlignedBoxBound extends Bounds {
     }
 
     public get extent() {
-        return Math.abs(this.maxX - this.minX);
+        return Math.max(
+            Math.abs(this.maxX - this.minX),
+            Math.abs(this.maxY - this.minY),
+            Math.abs(this.maxZ - this.minZ));
     }
 
     contains(currentBounds: AxisAlignedBoxBound) {
@@ -284,6 +331,10 @@ class AxisAlignedBoxBound extends Bounds {
     public toString(): string {
         return `[${this.minX} ${this.minY} ${this.minZ} ${this.maxX} ${this.maxY} ${this.maxZ}]`;
     }   
+
+    public toDetailedString(): string {
+        return `minX: ${this.minX} minY: ${this.minY} minZ: ${this.minZ} maxX: ${this.maxX} maxY: ${this.maxY} maxZ: ${this.maxZ}`;
+    }
 }
 
 export { AxisAlignedBoxBound, SphereBound, IhasBounds, Bounds };

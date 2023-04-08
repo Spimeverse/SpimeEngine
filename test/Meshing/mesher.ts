@@ -1,6 +1,6 @@
 import { Chunk, ExtractSurface, CalcVoxelVertex,SetSeamExtra} from "..";
-import { CONNECTED_CELL, XZ_FACE_ANTICLOCK, XY_FACE_ANTICLOCK, YZ_FACE_ANTICLOCK} from "..";
-import { SdfBox,SdfSphere } from "..";
+import { CONNECTED_CELL, XZ_FACE_ANTICLOCK, XY_FACE_ANTICLOCK, YZ_FACE_ANTICLOCK, X_MINUS_EDGE,Y_MINUS_EDGE,Z_MINUS_EDGE} from "..";
+import { SdfBox } from "..";
 import { Vector3 } from "@babylonjs/core";
 
 
@@ -25,7 +25,14 @@ export function TestMesher()
             const vertex = new Vector3();
             const edges = CalcVoxelVertex(cornerDist,vertex);
             expect(RoundVert(vertex)).toEqual("0.17, 0.17 0.17");
-            expect(edges).toEqual(CONNECTED_CELL | XZ_FACE_ANTICLOCK | XY_FACE_ANTICLOCK | YZ_FACE_ANTICLOCK)
+            expect(edges).toEqual(
+                CONNECTED_CELL |
+                XZ_FACE_ANTICLOCK |
+                XY_FACE_ANTICLOCK |
+                YZ_FACE_ANTICLOCK |
+                X_MINUS_EDGE |
+                Z_MINUS_EDGE |
+                Y_MINUS_EDGE)
         })
     });
 

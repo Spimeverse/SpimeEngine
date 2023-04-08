@@ -13,19 +13,17 @@ import { StandardMaterial } from "@babylonjs/core/Materials"
 import { MeshBuilder } from "@babylonjs/core/Meshes"
 import { FreeCameraKeyboardMoveInput } from "@babylonjs/core/Cameras/Inputs/freeCameraKeyboardMoveInput"
 
-import { sampledPoints,sampledLabels } from "./Meshing";
+import { debugLabels,debugPointSize,debugPoints } from "./Meshing";
 import { SdfTerrain, SdfSphere } from "./signedDistanceFields";
 import { ChunkManager } from "./World"
 
 import { Animation } from "@babylonjs/core/Animations/animation";
 
-import { totalSamples } from "./Meshing";
+import { systemSettings } from "./SystemSettings";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: it's an image
 //import grassTextureUrl from "../assets/grass.jpg";
-
-let showChunkBounds = false;
 
 class App {
     engine: Engine;
@@ -46,21 +44,8 @@ class App {
     async setup(): Promise<void> {
         const scene = new Scene(this.engine);
 
-
-        // This creates and positions a free camera (non-mesh)
-        // const camera = new ArcRotateCamera(
-        //     "camera",
-        //     -2.3053, //-Math.PI / 4,
-        //     1.0634, //Math.PI / 4,
-        //     16.7337,
-        //     new Vector3(17.194,13.131,27.050),
-        //     scene
-        // );
-        // camera.fov = 0.4264;
-        // camera.wheelDeltaPercentage = 0.01;
-
-        const camera = new UniversalCamera("UniversalCamera", new Vector3(-2.81346387881024, 9.501053222402463, -29.703129205471587), scene);
-        camera.setTarget(new Vector3(25.480399380589255, -0.33416390626756076, -29.241383565822954));
+   const camera = new UniversalCamera("UniversalCamera", new Vector3(-3.962005819285092, 14.72372714362647, -42.68172032429846), scene);
+        camera.setTarget(new Vector3(-14.817822850946555, 6.935841478744608, -15.867777884122031));
 
         camera.speed = 0.15;
 
@@ -124,6 +109,11 @@ class App {
         markerMaterial.emissiveColor = new Color3(1, 1, 0);
         marker.material = markerMaterial;
 
+        const voxelMaterial = new StandardMaterial("voxelMaterial", scene);
+        voxelMaterial.wireframe = true;
+        voxelMaterial.diffuseColor = new Color3(1, 0, 0);
+        voxelMaterial.emissiveColor = new Color3(1, 0, 0);
+
         const box = MeshBuilder.CreateBox("box", { size: 0.05 }, scene);
         const boxMaterial = new StandardMaterial("boxMaterial", scene);
         box.position.set(-2.478, 6.442, 21.392);
@@ -141,10 +131,10 @@ class App {
         box2.material = boxMaterial2;
 
         const fieldBig = new SdfTerrain(5, 50);
-        fieldBig.setPosition(5, 0, 5)
+        fieldBig.setPosition(5, 0, 5);
         const fieldTorus = new SdfSphere(0.7);
         fieldTorus.setPosition(0, 0, -10);
-        const field = new SdfSphere(10);
+        const field = new SdfSphere(1);
         //field.rotation = new Vector3(Math.PI / 4,0,0);
         const fieldSphere = new SdfSphere(1);
         fieldSphere.setPosition(0, -5, 0);
@@ -156,7 +146,6 @@ class App {
 
         const chunkManager = new ChunkManager();
 
-        const originSetup = false;
         const cameraFront = new Vector3();
         const previousCameraFront = new Vector3();
         const previousViewOrigin = new Vector3();
@@ -167,9 +156,9 @@ class App {
         cameraFront.copyFrom(marker.position);
         chunkManager.setViewOrigin(cameraFront);
 
-        //chunkManager.addField(fieldSphere);
-        //chunkManager.addField(field);
-        //chunkManager.addField(fieldTorus);
+        // chunkManager.addField(fieldSphere);
+        chunkManager.addField(field);
+        // chunkManager.addField(fieldTorus);
         chunkManager.addField(fieldBig);
 
         let addedSamples = false;
@@ -194,43 +183,54 @@ class App {
             previousCameraFront.copyFrom(cameraFront);
             cameraFront.copyFrom(camera.getFrontPosition(3));
             const deltaTime = scene.deltaTime;
-            if (deltaTime) {
+            if (!deltaTime) {
+                if (systemSettings.initializeOriginToCamera) {
+                    viewOrigin.copyFrom(cameraFront);
+                    chunkManager.setViewOrigin(viewOrigin);
+                }
+            }
+            else
+            {
 
                 // set viewOrigin to where the camera will be in the future
                 // taking acceleration into account
         
                 cameraDelta.copyFrom(cameraFront).subtractInPlace(previousCameraFront).scaleInPlace(deltaTime * 4);
                 
-                idealOrigin.copyFrom(cameraFront).addInPlace(cameraDelta);
-        
+                idealOrigin.copyFrom(cameraFront).addInPlace(cameraDelta);        
                 Vector3.LerpToRef(viewOrigin, idealOrigin, 0.1, viewOrigin);
             }
 
             if (!previousViewOrigin.equals(viewOrigin)) {
-                console.log(`delta: ${deltaTime} cameraDelta: ${cameraDelta.length()}`);
                 previousViewOrigin.copyFrom(viewOrigin);
-                chunkManager.setViewOrigin(viewOrigin);
 
-                marker.position.copyFrom(viewOrigin);
+                if (systemSettings.updateViewOrigin) {
+                    chunkManager.setViewOrigin(viewOrigin);
+                    marker.position.copyFrom(viewOrigin);
+                }
             }
 
-            chunkManager.updateChangedMeshes(scene, showChunkBounds);
+            // keep a running total of the time spent in the chunk manager
+            // so we can display it in the stats
+            const now = performance.now();
+            chunkManager.updateChangedMeshes(scene,deltaTime);
+            systemSettings.debugCounters.chunkTimer += performance.now() - now;
 
-            if (!addedSamples && sampledPoints.length > 0) {
+            if (!addedSamples && debugPoints.length > 0) {
                 addedSamples = true;
                 let index = 0;
-                for (const point of sampledPoints) {
-                    const sampleMarker = MeshBuilder.CreateBox("NormalSample", { size: 0.07 }, scene);
-                    sampleMarker.position.x = point.x;
-                    sampleMarker.position.y = point.y;
-                    sampleMarker.position.z = point.z;
-                    sampleMarker.name = sampledLabels[index++]
-                    if (sampleMarker.name.startsWith("samp norm"))
-                        sampleMarker.material = markerMaterial;
-                    if (sampleMarker.name.startsWith("samp center"))
-                        sampleMarker.material = boxMaterial;
-                    if (sampleMarker.name.startsWith("samp seam"))
-                        sampleMarker.material = boxMaterial2;
+                for (const point of debugPoints) {
+                    const debugMarker = MeshBuilder.CreateBox("NormalSample", { size: debugPointSize[index] }, scene);
+                    debugMarker.position.x = point.x + debugPointSize[index] / 2;
+                    debugMarker.position.y = point.y + debugPointSize[index] / 2;
+                    debugMarker.position.z = point.z + debugPointSize[index] / 2;
+                    debugMarker.name = debugLabels[index++]
+                    if (debugMarker.name.startsWith("voxelCenter"))
+                        debugMarker.material = markerMaterial;
+                    if (debugMarker.name.startsWith("voxelBounds"))
+                        debugMarker.material = voxelMaterial;
+                    if (debugMarker.name.startsWith("samp seam"))
+                        debugMarker.material = boxMaterial2;
                 }
 
             }
@@ -242,7 +242,6 @@ class App {
         window.addEventListener("keydown", (ev) => {
             // Shift+Ctrl+Alt+I
             if (ev.key === "i") {
-                showChunkBounds = !showChunkBounds;
                 if (scene.debugLayer.isVisible()) {
                     scene.debugLayer.hide();
                 } else {
@@ -270,7 +269,12 @@ class App {
             }
 
             if (ev.key === "m") {
-                console.log(`samples ${totalSamples}`);
+                const options = { minimumFractionDigits: 0, maximumFractionDigits: 2 };
+                for (const property in systemSettings.debugCounters) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const value = (systemSettings.debugCounters as any)[property];
+                    console.log(`${property}: ${value.toLocaleString(undefined, options)}`);
+                }
                 console.log(`
         const camera = new UniversalCamera("UniversalCamera", new Vector3(${camera.position.x}, ${camera.position.y}, ${camera.position.z}), scene);
         camera.setTarget(new Vector3(${camera.target.x}, ${camera.target.y}, ${camera.target.z}));`
