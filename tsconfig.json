@@ -14,7 +14,7 @@
     "sourceMap": true,
     "rootDirs": ["src","test"],
     "lib": [
-      "es2016",
+      "es2020",
       "dom"
     ],
     "paths": { "@babylonjs/*": ["./node_modules/@babylonjs/*"] },
