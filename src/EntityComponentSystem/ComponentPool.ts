@@ -1,5 +1,5 @@
 class ComponentPool<T> {
-  private _pool: (T | null)[];
+  private _pool: (T)[];
   private _free: number[];
   private _createFn: () => T;
   private _resetFn: (item: T) => void;
@@ -11,7 +11,7 @@ class ComponentPool<T> {
     this._createFn = createFn;
     this._resetFn = resetFn;
     this._initialSize = initialSize;
-    this._pool = new Array<T | null>(this._initialSize).fill(null);
+    this._pool = new Array<T>(this._initialSize);
     this._free = new Array<number>(this._initialSize).fill(-1);
     this._freeCount = 0;
     this._poolCount = 0;
@@ -24,9 +24,8 @@ class ComponentPool<T> {
     } else {
       id = this._poolCount;
       this._poolCount++;
+      this._pool[id] = this._createFn();
     }
-
-    this._pool[id] = this._createFn();
 
     return id;
   }
@@ -45,11 +44,21 @@ class ComponentPool<T> {
     return this._poolCount - this._freeCount;
   }
 
-  public getComponentById(id: number): T | null {
+  /**
+   * 
+   * @param id the ID of a previously added component
+   * @returns the component with the given ID or null if the ID is invalid
+   * @WARNING this method does not check if the component has been released
+   */
+  public get(id: number): T | null {
     if (id >= this._poolCount) {
       return null;
     }
     return this._pool[id] || null;
+  }
+
+  public contents(): T[] {
+    return this._pool;
   }
 }
 

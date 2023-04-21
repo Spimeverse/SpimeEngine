@@ -12,123 +12,90 @@ interface ComponentType {
 
 class System<T> {
   componentTypes: string[];
-  componentIdentities: bigint;
-  systemIdentity: bigint;
-  private _entities: Set<number>;
-  protected callback: (world: World, archetype: T) => void;
-  private _world: World;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private _archetype: any;
-  private _componentTypeIndices: number[];
+  requiredComponentIdentities: bigint;
+  private _entitiesArray: number[];
+  private _entityIdToIndex: Map<number, number>;
+  protected callback: (world: World, allEntities: Array<T>, entityIds: number[]) => void;
+  private _world: World | null = null;
 
-  constructor(world: World, archetype: T, callback: (world: World, archetype: T) => void) {
-    this._world = world;
+  constructor(
+    archetype: T,
+    callback: (world: World, allEntities: Array<T>, entityIds: number[]) => void
+  ) {
     if (typeof archetype !== 'object') {
       throw new Error('archetype must be an object.');
     }
-    this._archetype = archetype;
     this.componentTypes = Object.keys(archetype as Archetype);
     if (this.componentTypes.length === 0) {
       throw new Error('archetype has no component properties. System must have at least one component type.');
     }
-    this.componentIdentities = this._getComponentIdentities(world);
-    this.systemIdentity = this._getSystemIdentity();
-    this._entities = new Set<number>();
-    this._componentTypeIndices = this.componentTypes.map(typeName => world.getComponentTypeIndex(typeName));
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    this._entitiesArray = [];
+    this._entityIdToIndex = new Map<number, number>();
     this.callback = callback;
+    this.requiredComponentIdentities = 0n;
   }
 
-  private _getComponentIdentities(world: World): bigint {
-    let componentIdentities = BigInt(0);
-    for (const typeName of this.componentTypes) {
-      const identity = world.getComponentIdentity(typeName);
-      if (identity) {
-        componentIdentities |= identity;
-      } else {
-        console.warn(`Component type "${typeName}" not found.`);
-      }
+  setup(world: World) {
+    this._world = world;
+    this.requiredComponentIdentities = world.getComponentIdentities(this.componentTypes);
+  }
+
+  addEntity(entityId: number): void {
+    const newIndex = this._entitiesArray.length;
+    this._entitiesArray.push(entityId);
+    this._entityIdToIndex.set(entityId, newIndex);
+  }
+
+  removeEntity(entityId: number): void {
+    const indexToRemove = this._entityIdToIndex.get(entityId);
+    if (indexToRemove === undefined) {
+      return;
     }
-    return componentIdentities;
-  }
 
-  private _getSystemIdentity(): bigint {
-    return BigInt(0) | this.componentIdentities;
-  }
+    const lastIndex = this._entitiesArray.length - 1;
 
-  add(entityId: number): void {
-    this._entities.add(entityId);
+    if (indexToRemove !== lastIndex) {
+      const lastEntityId = this._entitiesArray[lastIndex];
+      this._entitiesArray[indexToRemove] = lastEntityId;
+      this._entityIdToIndex.set(lastEntityId, indexToRemove);
+    }
+
+    this._entitiesArray.pop();
+    this._entityIdToIndex.delete(entityId);
   }
 
   tick(): void {
-    const archetype = this._archetype;
-    const componentTypes = this.componentTypes;
-    const componentTypeIndices = this._componentTypeIndices;
-    const getComponent = this._world.getComponent.bind(this._world);
-    const componentCount = componentTypes.length;
     const callback = this.callback;
     const world = this._world;
 
-    for (const entityId of this._entities) {
-      // Set each member of the archetype by getting the value of each named component
-      for (let i = 0; i < componentCount; i++) {
-        const componentTypeName = componentTypes[i];
-        const componentTypeIndex = componentTypeIndices[i];
-        archetype[componentTypeName] = getComponent(entityId, componentTypeIndex);
-      }
-
-      // Call the callback with the world and the updated archetype
-      callback(world, archetype);
+    // Call the callback with the world and the array of entities
+    if (world !== null) {
+      callback(world, world.getEntities() as Array<T>, this._entitiesArray);
     }
   }
 
 }
 
-class World {
-
+class WorldBuilder {
   private _pools: Array<ComponentPool<unknown>>;
   private _componentTypes: ComponentType[];
   private _systems: System<unknown>[];
-  private _entityComponents: Array<bigint>;
-  private _lookupBlockRecords: number;
-  private _componentLookupBlock: Int16Array | null;
-  private _entityCreated: boolean;
-  private _componentCount: number;
-  private _pipeline: System<unknown>[];
 
-  constructor(blockSize = 10000) {
+  constructor() {
     this._pools = [];
     this._componentTypes = [];
     this._systems = [];
-    this._entityComponents = [];
-    this._lookupBlockRecords = blockSize;
-    this._componentCount = 0;
-    this._pipeline = [];
-    this._componentLookupBlock = null;
-    this._entityCreated = false;
   }
 
   public registerComponentPool<T>(pool: ComponentPool<T>, typeName: string): number {
-    if (this._entityCreated) {
-      throw new Error('Cannot register more component pools after the first entity is created.');
-    }
-    const type = this._componentCount;
+    const componentIndex = this._componentTypes.length;
     this._pools.push(pool as ComponentPool<unknown>);
     this._componentTypes.push({
       name: typeName,
-      identity: BigInt(1) << BigInt(type),
-      systems: [], // Add the systems array to the ComponentType
+      identity: BigInt(1) << BigInt(componentIndex),
+      systems: [],
     });
-    this._componentCount++;
-    return type;
-  }
-
-  getComponentPool(typeName: string): ComponentPool<unknown> | null {
-    const index = this.getComponentTypeIndex(typeName);
-    if (index >= 0) {
-      return this._pools[index];
-    }
-    return null;
+    return componentIndex;
   }
 
   public registerSystem<T>(system: System<T>): void {
@@ -144,23 +111,81 @@ class World {
     });
   }
 
+  createWorld(): World {
+    const world = new World(this._pools, this._componentTypes, this._systems);
+
+    // Call the 'setup' method for each system
+    this._systems.forEach(system => system.setup(world));
+
+    return world;
+  }
+}
+
+
+interface EntityType {
+  [key: string]: unknown;
+}
+
+class World {
+
+  private _pools: Array<ComponentPool<unknown>>;
+  private _componentTypes: ComponentType[];
+  private _systems: System<unknown>[];
+  private _entityComponents: Array<bigint>;
+  private _lookupBlockRecords: number;
+  private _componentLookupBlock: Int16Array;
+  private _componentCount: number;
+  private _pipeline: System<unknown>[];
+  private _entityPool: ComponentPool<EntityType>;
+
+
+  constructor(
+    pools: Array<ComponentPool<unknown>>,
+    componentTypes: ComponentType[],
+    systems: System<unknown>[],
+    blockSize = 10000) {
+    this._pools = pools;
+    this._componentTypes = componentTypes;
+    this._systems = systems;
+    this._entityComponents = new Array<bigint>(blockSize).fill(0n);
+    this._lookupBlockRecords = blockSize;
+    this._componentCount = componentTypes.length;
+    this._pipeline = [];
+    this._componentLookupBlock = new Int16Array(this._lookupBlockRecords * this._componentCount);
+
+    this._entityPool = new ComponentPool<EntityType>(
+      this._initializeEntity.bind(this),
+      this._resetEntity.bind(this),
+      blockSize
+    );
+  }
+
+  private _initializeEntity(): EntityType {
+    const entity: EntityType = {};
+    for (const componentType of this._componentTypes) {
+      entity[componentType.name] = null;
+    }
+    return entity;
+  }
+
+  private _resetEntity(entity: EntityType): void {
+    for (const componentType of this._componentTypes) {
+      entity[componentType.name] = null;
+    }
+  }
+
+
   public createPipeline(...systems: System<unknown>[]): void {
     this._pipeline = systems;
   }
 
   public createEntity(): number {
-    const entityId = this._entityComponents.length;
-
-    if (!this._entityCreated) {
-      this._entityCreated = true;
-      this._componentLookupBlock = new Int16Array(this._lookupBlockRecords * this._componentCount);
-    }
+    const entityId = this._entityPool.add();
+    this._entityComponents[entityId] = BigInt(0);
 
     if (entityId >= this._lookupBlockRecords) {
       this._resizeComponentLookupBlock();
     }
-
-    this._entityComponents.push(BigInt(0));
 
     return entityId;
   }
@@ -171,66 +196,128 @@ class World {
     const newBlock = new Int16Array(newBlockSize * this._componentCount);
 
     // Copy old data into the new block
-    if (this._componentLookupBlock) {
-      newBlock.set(this._componentLookupBlock);
-    }
+    newBlock.set(this._componentLookupBlock);
 
     this._lookupBlockRecords = newBlockSize;
     this._componentLookupBlock = newBlock;
   }
 
-  public addComponent(entityId: number, componentType: number) {
-    if (componentType >= this._componentCount || componentType < 0) {
-      console.warn(`Component type ${componentType} not found.`);
+  public releaseEntity(entityId: number): void {
+    // Remove entity from all systems.
+    for (const system of this._systems) {
+      system.removeEntity(entityId);
+    }
+
+    // Reset the entity's components.
+    this._entityComponents[entityId] = BigInt(0);
+
+    // Release the entity back to the pool.
+    this._entityPool.release(entityId);
+  }
+
+  public addComponent(entityId: number, componentIndex: number) {
+    if (componentIndex >= this._componentCount || componentIndex < 0) {
+      console.warn(`Component type ${componentIndex} not found.`);
+      return false;
+    }
+    const entity = this._entityPool.get(entityId);
+    if (!entity) {
+      console.warn(`Entity ${entityId} not found.`);
       return false;
     }
     const existingComponents = this._entityComponents[entityId];
-    const componentIdentity = this._componentTypes[componentType].identity;
+    const componentIdentity = this._componentTypes[componentIndex].identity;
 
-    if ((existingComponents & componentIdentity) !== BigInt(0)) {
-      console.warn(`Entity ${entityId} already has a component of type ${componentType}.`);
+    if ((existingComponents & componentIdentity)) {
+      console.warn(`Entity ${entityId} already has a component of type ${componentIndex}.`);
       return false;
     }
   
-    const index = entityId * this._componentCount;
+    const index = entityId * this._componentCount + componentIndex;
 
-    if (this._componentLookupBlock) {
-      this._entityComponents[entityId] = existingComponents | componentIdentity;
+    const entityComponentIdentities = existingComponents | componentIdentity;
+    this._entityComponents[entityId] = entityComponentIdentities;
 
-      const componentPool = this._pools[componentType];
-      this._componentLookupBlock[index] = componentPool.add();
+    const componentPool = this._pools[componentIndex];
+    const componentID = componentPool.add();
+    this._componentLookupBlock[index] = componentID;
 
-      const systems = this._componentTypes[componentType].systems;
-      for (const system of systems) {
-        system.add(entityId);
+    // Set the component property on the entity
+    const componentTypeName = this._componentTypes[componentIndex].name;
+    entity[componentTypeName] = componentPool.get(componentID);
+
+    const systems = this._componentTypes[componentIndex].systems;
+    for (const system of systems) {
+      // check all bits in the system's required components are set in the entity's components
+      // using xor to check if the result is 0
+      if ((entityComponentIdentities ^ system.requiredComponentIdentities) === 0n) {
+        system.addEntity(entityId);
       }
-    } else {
-      console.warn('Entity components have not been initialized. Call the initialize method first.');
-      return false;
     }
     return true;
   }
 
-
-  public getComponent<T>(entityId: number, componentType: number): T {
-    if (!this._componentLookupBlock) {
-      throw new Error('Entity components have not been initialized. Call the createEntity method first.');
+  public removeComponent(entityId: number, componentIndex: number): boolean {
+    if (componentIndex >= this._componentCount || componentIndex < 0) {
+      console.warn(`Component type ${componentIndex} not found.`);
+      return false;
     }
 
-    const index = entityId * this._componentCount;
+    const componentIdentity = this._componentTypes[componentIndex].identity;
+    
+    const entity = this._entityPool.get(entityId);
+    if (!entity) {
+      console.warn(`Entity ${entityId} not found.`);
+      return false;
+    }
 
-    const componentPool = this._pools[componentType];
+    const existingComponents = this._entityComponents[entityId];
+    if (!(existingComponents & componentIdentity)) {
+      console.warn(`Entity ${entityId} does not have a component of type ${componentIndex}.`);
+      return false;
+    }
+
+    this._entityComponents[entityId] = existingComponents ^ componentIdentity;
+
+    const index = entityId * this._componentCount + componentIndex;
     const componentID = this._componentLookupBlock[index];
-    return componentPool.getComponentById(componentID) as T;
+    const componentPool = this._pools[componentIndex];
+    componentPool.release(componentID);
+
+
+    const systems = this._componentTypes[componentIndex].systems;
+    for (const system of systems) {
+      // check if this system requires the component we just removed
+      if (componentIdentity & system.requiredComponentIdentities) {
+        system.removeEntity(entityId);
+      }
+    }
+    return true;
   }
 
-  public getComponentIdentity(typeName: string): bigint | null {
-    const componentType = this._componentTypes.find(ct => ct.name === typeName);
-    return componentType ? componentType.identity : null;
+  public getEntity(entityId: number): EntityType | null{
+    if (this._entityComponents[entityId] === 0n) {
+      return null;
+    }
+    return this._entityPool.get(entityId);
+  }
+  
+  public getComponentIdentities(componentTypes: string[]): bigint {
+    let componentIdentities = BigInt(0);
+    for (const typeName of componentTypes) {
+      const componentIndex = this._componentTypes.findIndex(ct => ct.name === typeName);
+      if (componentIndex < 0) {
+        console.warn(`Component type "${typeName}" not found.`);
+        continue;
+      }
+      const identity = this._componentTypes[componentIndex].identity;
+      componentIdentities |= identity;
+    }
+    return componentIdentities;
   }
 
-  public getComponentTypeIndex(typeName: string): number {
-    return this._componentTypes.findIndex(ct => ct.name === typeName);
+  public getEntities(): Array<{ [key: string]: unknown }> {
+    return this._entityPool.contents();
   }
 
   public tick(): void {
@@ -240,4 +327,4 @@ class World {
   }
 }
 
-export { World, System };
+export { WorldBuilder, World, System };
