@@ -1,9 +1,9 @@
-import { ComponentPool } from ".."; // Adjust the import path according to your project structure
+import { ResourcePool } from ".."; // Adjust the import path according to your project structure
 
-export function TestComponentPool() {
+export function TestResourcePool() {
 
-    describe("ComponentPool", () => {
-        class TestComponent {
+    describe("Resource Pool", () => {
+        class TestItem {
             public value: number;
 
             constructor() {
@@ -11,15 +11,15 @@ export function TestComponentPool() {
             }
         }
 
-        function ResetFn(component: TestComponent): void {
-            component.value = 0;
+        function ResetFn(item: TestItem): void {
+            item.value = 0;
         }
 
         const initialSize = 5;
-        let pool: ComponentPool<TestComponent>;
+        let pool: ResourcePool<TestItem>;
 
         beforeEach(() => {
-            pool = new ComponentPool(() => new TestComponent(), ResetFn, initialSize);
+            pool = new ResourcePool<TestItem>(() => new TestItem(), ResetFn, initialSize);
         });
 
         it("should create an instance with the correct initial size", () => {
@@ -29,26 +29,26 @@ export function TestComponentPool() {
             }
         });
 
-        it("should release and reuse components correctly", () => {
+        it("should release and reuse items correctly", () => {
             const ids: number[] = [];
             for (let i = 0; i < 10; i++) {
                 ids.push(pool.add());
             }
 
             const releaseId = ids[2];
-            const component = pool.get(releaseId);
-            if (component) {
-                component.value = 42;
+            const item = pool.get(releaseId);
+            if (item) {
+                item.value = 42;
             }
 
             pool.release(releaseId);
 
             const reuseId = pool.add();
             expect(reuseId).toBe(releaseId);
-            const reusedComponent = pool.get(reuseId);
-            expect(reusedComponent).not.toBeNull();
-            if (reusedComponent) {
-                expect(reusedComponent.value).toBe(0); // Expect the component to be reset
+            const reusedItem = pool.get(reuseId);
+            expect(reusedItem).not.toBeNull();
+            if (reusedItem) {
+                expect(reusedItem.value).toBe(0); // Expect the item to be reset
             }
 
             const newId = pool.add();
@@ -57,7 +57,7 @@ export function TestComponentPool() {
 
 
 
-        it("should handle acquiring components beyond the initial size", () => {
+        it("should handle acquiring items beyond the initial size", () => {
             for (let i = 0; i < initialSize; i++) {
                 pool.add();
             }
@@ -73,21 +73,21 @@ export function TestComponentPool() {
             }
 
             const releaseId = ids[2];
-            const component = pool.get(releaseId);
-            if (component) {
-                component.value = 42;
+            const item = pool.get(releaseId);
+            if (item) {
+                item.value = 42;
             }
 
             pool.release(releaseId);
 
             const reuseId = pool.add();
             expect(reuseId).toBe(releaseId);
-            const reusedComponentAfterReAdd = pool.get(reuseId);
-            expect(reusedComponentAfterReAdd).not.toBeNull();
-            if (reusedComponentAfterReAdd) {
-                expect(reusedComponentAfterReAdd.value).toBe(0); // Expect the component to be reset
+            const reusedItemAfterReAdd = pool.get(reuseId);
+            expect(reusedItemAfterReAdd).not.toBeNull();
+            if (reusedItemAfterReAdd) {
+                expect(reusedItemAfterReAdd.value).toBe(0); // Expect the item to be reset
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                expect(reusedComponentAfterReAdd).toBe(component as any); // Expect the reused component to be the same instance
+                expect(reusedItemAfterReAdd).toBe(item as any); // Expect the reused item to be the same instance
             }
         });
 

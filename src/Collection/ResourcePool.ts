@@ -1,4 +1,4 @@
-class ComponentPool<T> {
+class ResourcePool<T> {
   private _pool: (T)[];
   private _free: number[];
   private _createFn: () => T;
@@ -36,7 +36,7 @@ class ComponentPool<T> {
       this._resetFn(item);
       this._free[this._freeCount++] = id;
     } else {
-      console.warn(`Component with ID ${id} not found in the pool.`);
+      console.warn(`Item with ID ${id} not found in the pool.`);
     }
   }
 
@@ -46,9 +46,9 @@ class ComponentPool<T> {
 
   /**
    * 
-   * @param id the ID of a previously added component
-   * @returns the component with the given ID or null if the ID is invalid
-   * @WARNING this method does not check if the component has been released
+   * @param id the ID of a previously added resource
+   * @returns the item with the given ID or null if the ID is invalid
+   * @WARNING this method does not check if the item has been released
    */
   public get(id: number): T | null {
     if (id >= this._poolCount) {
@@ -62,4 +62,4 @@ class ComponentPool<T> {
   }
 }
 
-export { ComponentPool };
+export { ResourcePool };
