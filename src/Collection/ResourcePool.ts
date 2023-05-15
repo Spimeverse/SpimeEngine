@@ -1,20 +1,44 @@
 class ResourcePool<T> {
   private _pool: (T)[];
-  private _free: number[];
+  private _free: Uint32Array;
   private _createFn: () => T;
   private _resetFn: (item: T) => void;
-  private _initialSize: number;
+  private _capacity: number;
   private _freeCount: number;
   private _poolCount: number;
+  private _allocated: Uint8Array;
+  private _blockSize: number;
 
-  constructor(createFn: () => T, resetFn: (item: T) => void, initialSize = 10) {
+  constructor(createFn: () => T, resetFn: (item: T) => void, initialSize = 1000) {
     this._createFn = createFn;
     this._resetFn = resetFn;
-    this._initialSize = initialSize;
-    this._pool = new Array<T>(this._initialSize);
-    this._free = new Array<number>(this._initialSize).fill(-1);
-    this._freeCount = 0;
-    this._poolCount = 0;
+    this._capacity = initialSize;
+    this._pool = new Array<T>(this._capacity);
+    this._free = new Uint32Array(this._capacity);
+    for (let i = 0; i < this._capacity; i++) {
+      this._free[i] = i;
+      this._pool[i] = this._createFn();
+    }
+    this._freeCount = this._capacity;
+    this._poolCount = this._capacity;
+    this._allocated = new Uint8Array(this._capacity);
+    this._blockSize = initialSize;
+  }
+
+  private _resizeArrays(): void {
+    const newSize = this._capacity + this._blockSize;
+    console.warn('Resizing resource pool arrays', this._capacity, '->', newSize);
+
+    // Resize _free and _allocated arrays
+    const newFree = new Uint32Array(newSize);
+    const newAllocated = new Uint8Array(newSize);
+
+    newFree.set(this._free);
+    newAllocated.set(this._allocated);
+
+    this._free = newFree;
+    this._allocated = newAllocated;
+    this._capacity = newSize;
   }
 
   public add(): number {
@@ -22,21 +46,24 @@ class ResourcePool<T> {
     if (this._freeCount > 0) {
       id = this._free[--this._freeCount];
     } else {
-      id = this._poolCount;
-      this._poolCount++;
+      id = this._poolCount++;
+
+      if (id >= this._capacity) {
+        this._resizeArrays();
+      }
       this._pool[id] = this._createFn();
     }
 
+    this._allocated[id] = 1;
     return id;
   }
 
   public release(id: number): void {
     const item = this._pool[id];
-    if (item) {
+    if (item && this._allocated[id]) {
       this._resetFn(item);
       this._free[this._freeCount++] = id;
-    } else {
-      console.warn(`Item with ID ${id} not found in the pool.`);
+      this._allocated[id] = 0;
     }
   }
 
@@ -44,14 +71,17 @@ class ResourcePool<T> {
     return this._poolCount - this._freeCount;
   }
 
+  public get capacity(): number {
+    return this._capacity;
+  }
+
   /**
    * 
    * @param id the ID of a previously added resource
    * @returns the item with the given ID or null if the ID is invalid
-   * @WARNING this method does not check if the item has been released
    */
   public get(id: number): T | null {
-    if (id >= this._poolCount) {
+    if (id >= this._pool.length || this._allocated[id] === 0) {
       return null;
     }
     return this._pool[id] || null;

@@ -2,11 +2,10 @@ import { ResourcePool } from '../Collection/ResourcePool';
 import { StateHandler } from './StateHandler';
 
 
-interface StateType<T> {
+interface StateType {
   name: string;
   stateFlag: number;
-  handlers: StateHandler<T>[];
-  handlerIndex: number[];
+  handlerIndicies: number[];
 }
 
 // we don't really expect this many items
@@ -14,9 +13,11 @@ interface StateType<T> {
 // item to remove item = item id - MAX_ITEMS
 const MAX_ITEMS = 10_000_000;
 
+const REMOVE_ALL_STATES = -1;
+
 class StateMachineBuilder<T> {
   private _pool: ResourcePool<T>;
-  private _stateTypes: StateType<T>[];
+  private _stateTypes: StateType[];
   private _handlers: StateHandler<T>[];
   private _requiredStates: number[];
   private _pipeline: StateHandler<T>[];
@@ -35,16 +36,16 @@ class StateMachineBuilder<T> {
     this._stateTypes.push({
       name: typeName,
       stateFlag: stateFlag,
-      handlers: [],
-      handlerIndex: [],
+      handlerIndicies: [],
     });
     return stateIndex;
   }
 
-  public registerHandler(handler: StateHandler<T>, ...requiredStates: number[]): StateHandler<T> {
+  public registerHandler(...requiredStates: number[]): StateHandler<T> {
     if (requiredStates.length === 0) {
       throw new Error('No required states specified.');
     }
+    const handler = new StateHandler<T>(this._pool.capacity);
     this._handlers.push(handler as StateHandler<T>);
     let requiredStateFlags = 0;
     for (const state of requiredStates) {
@@ -54,10 +55,8 @@ class StateMachineBuilder<T> {
       } else {
         throw new Error(`State type "${state}" not found.`);
       }
-      stateType.handlers.push(handler);
-      stateType.handlerIndex.push(this._handlers.length - 1);
+      stateType.handlerIndicies.push(this._handlers.length - 1);
     }
-    handler.requiredStateFlags = requiredStateFlags;
     this._requiredStates.push(requiredStateFlags);
     return handler;
   }
@@ -81,7 +80,7 @@ class StateMachineBuilder<T> {
     if (this._stateTypes.length === 0) {
       throw new Error('No states registered.');
     }
-    const stateMachine = new StateMachine(this._pool, this._stateTypes, this._handlers, this._requiredStates,this._pipeline);
+    const stateMachine = new StateMachine(this._pool, this._stateTypes, this._handlers, this._requiredStates,this._pipeline,this._pool.capacity);
 
     return stateMachine;
   }
@@ -89,45 +88,97 @@ class StateMachineBuilder<T> {
 
 class StateMachine<T> {
   private _pool: ResourcePool<T>;
-  private _registeredStates: StateType<T>[];
+  private _registeredStates: StateType[];
   private _handlers: StateHandler<T>[];
-  private _handlerRequiredStates: number[];
   private _pipeline: StateHandler<T>[];
-  private _itemStates: number[];
-  private _deferredStateItemIds: number[] = [];
-  private _deferredStateHandler: number[] = [];
+  private _itemStates: Uint32Array;
+  private _itemStatesSize: number;
+  private _blockSize: number;
+  private _handlerRequiredStates: number[];
+
+  private _deferredStateItemIds: Int32Array;
+  private _deferredStateHandler: Int32Array;
+  private _deferredStateCount: number;
+  
+  private _deferredReleaseItemIds: Int32Array;
+  private _deferredReleaseCount: number;
 
   constructor(
-    pool: ResourcePool<T>,
-    stateTypes: StateType<T>[],
-    handlers: StateHandler<T>[],
-    handlerRequiredStates: number[],
-    pipeline: StateHandler<T>[],
-    blockSize = 10000) {
-      this._pool = pool;
-      this._registeredStates = stateTypes;
-      this._handlers = handlers;
+      pool: ResourcePool<T>,
+      stateTypes: StateType[],
+      handlers: StateHandler<T>[],
+      handlerRequiredStates: number[],
+      pipeline: StateHandler<T>[],
+      initialSize = 10000) {
+    this._pool = pool;
+    this._registeredStates = stateTypes;
+    this._handlers = handlers;
     this._handlerRequiredStates = handlerRequiredStates;
     this._pipeline = pipeline;
-    this._itemStates = new Array(blockSize).fill(0);
+    this._itemStatesSize = initialSize;
+    this._blockSize = initialSize;
+    this._itemStates = new Uint32Array(initialSize);
+    this._deferredStateItemIds = new Int32Array(initialSize);
+    this._deferredStateHandler = new Int32Array(initialSize);
+    this._deferredStateCount = 0;
+    this._deferredReleaseItemIds = new Int32Array(initialSize);
+    this._deferredReleaseCount = 0;
   }
 
   public addItem(): number {
     const itemId = this._pool.add();
+    if (itemId >= this._itemStatesSize) {
+      this._resizeItemStates();
+    }
     this._itemStates[itemId] = 0;
 
     return itemId;
   }
 
+  private _resizeItemStates(): void {
+    const newSize = this._itemStatesSize + this._blockSize;
+    console.log('Resizing state machine ',this._itemStatesSize,' -> ',newSize);
+
+    // Resize _itemStates
+    const newItemStates = new Uint32Array(newSize);
+    newItemStates.set(this._itemStates);
+    this._itemStates = newItemStates;
+    this._itemStatesSize = newSize;
+
+    // go through all handlers and resize their arrays
+    for (const handler of this._handlers) {
+      handler.resize(newSize);
+    }
+  }
+
   public releaseItem(itemId: number): void {
     // Remove item from all handlers.
-    
-    this._deferredStateItemIds.push(itemId - MAX_ITEMS);
-    this._deferredStateHandler.push(-1);
+    if (this._deferredStateCount >= this._deferredStateItemIds.length) {
+      this._resizeDeferredArrays();
+    }
+
+    const deferredIndex = this._deferredStateCount++;
+    this._deferredStateItemIds[deferredIndex] = (itemId - MAX_ITEMS);
+    this._deferredStateHandler[deferredIndex] = REMOVE_ALL_STATES;
 
     // Reset the item's states.
     this._itemStates[itemId] = 0;
 
+  }
+
+  private _resizeDeferredArrays(): void {
+    const newSize = this._deferredStateItemIds.length + this._blockSize;
+    console.log('Resizing deferred arrays ',this._deferredStateItemIds.length,' -> ',newSize);
+
+    // Resize _deferredStateItemIds
+    const newDeferredStateItemIds = new Int32Array(newSize);
+    newDeferredStateItemIds.set(this._deferredStateItemIds);
+    this._deferredStateItemIds = newDeferredStateItemIds;
+
+    // Resize _deferredStateHandler
+    const newDeferredStateHandler = new Int32Array(newSize);
+    newDeferredStateHandler.set(this._deferredStateHandler);
+    this._deferredStateHandler = newDeferredStateHandler;
   }
 
   public addState(itemId: number, newState: number) {
@@ -146,13 +197,18 @@ class StateMachine<T> {
     const itemStates = currentStates | newStateFlag;
     this._itemStates[itemId] = itemStates;
 
-    const handlers = registeredState.handlers;
-    for (let i = 0; i < handlers.length; i++) {
-      const requiredStates = handlers[i].requiredStateFlags;
+    const handlersForState = registeredState.handlerIndicies;
+    for (let i = 0; i < handlersForState.length; i++) {
+      const requiredStates = this._handlerRequiredStates[handlersForState[i]];
       // check all bits in the handlers's required state are set in the item
       if ((itemStates & requiredStates) === requiredStates) {
-        this._deferredStateItemIds.push(itemId);
-        this._deferredStateHandler.push(registeredState.handlerIndex[i]);
+        if (this._deferredStateCount >= this._deferredStateItemIds.length) {
+          this._resizeDeferredArrays();
+        }
+        const deferredIndex = this._deferredStateCount++;
+        this._deferredStateItemIds[deferredIndex] = itemId;
+        this._deferredStateHandler[deferredIndex] = registeredState.handlerIndicies[i];
+
       }
     }
     return true;
@@ -171,36 +227,59 @@ class StateMachine<T> {
     const itemStates = currentStates ^ removeStateFlag;
     this._itemStates[itemId] = itemStates;
 
-    const handlers = registeredState.handlers;
-    for (let i = 0; i < handlers.length; i++) {
-      const requiredStates = handlers[i].requiredStateFlags;
+    const handlersForState = registeredState.handlerIndicies;
+    for (let i = 0; i < handlersForState.length; i++) {
+      const requiredStates = this._handlerRequiredStates[handlersForState[i]];
       // if this handler no longer has all the required states, remove it
       if ((removeStateFlag & requiredStates) !== 0) {
         // queue the item for removal from the handler
-        this._deferredStateItemIds.push(itemId - MAX_ITEMS);
-        this._deferredStateHandler.push(registeredState.handlerIndex[i]);
+        if (this._deferredStateCount >= this._deferredStateItemIds.length) {
+          this._resizeDeferredArrays();
+        }
+        const deferredIndex = this._deferredStateCount++;
+        this._deferredStateItemIds[deferredIndex] = itemId - MAX_ITEMS;
+        this._deferredStateHandler[deferredIndex] = registeredState.handlerIndicies[i];
       }
     }
     return true;
   }
 
   public tick(): void {
+    // release any items that have been removed from all handlers in the previous tick
+    this._processDeferredRelease();
+
     // Process deferred state changes.
-    this.updateHandlerItems();
-    const allEntities = this._pool.contents();
+    this._updateHandlerItems();
+    const allItems = this._pool.contents();
     for (const handler of this._pipeline) {
-      handler.tick(this, allEntities);
+      handler.tick(this, allItems);
       // Process deferred state changes from the handler.
-      this.updateHandlerItems();
+      this._updateHandlerItems();
     }
   }
 
-  public updateHandlerItems() {
-    for (let i = 0; i < this._deferredStateItemIds.length; i++) {
+  public cleanup(): void {
+    this._updateHandlerItems();
+    this._processDeferredRelease();
+  }
+
+  private _processDeferredRelease() {
+    for (let i = 0; i < this._deferredReleaseCount; i++) {
+      const itemId = this._deferredReleaseItemIds[i];
+      this._pool.release(itemId);
+    }
+    this._deferredReleaseCount = 0;
+  }
+
+  private _updateHandlerItems() {
+    for (let i = 0; i < this._deferredStateCount; i++) {
       let itemId = this._deferredStateItemIds[i];
       const handlerIndex = this._deferredStateHandler[i];
-      // if the item id is negative, it means it's a remove
-      if (itemId < 0) {
+      if (itemId >= 0) {
+        // item id is positive, so it's an add
+        this._handlers[handlerIndex].addItem(itemId);
+      } else {
+        // if the item id is negative, it means it's a remove
         // if the handler index is positive, it means it's a remove from a specific handler
         itemId += MAX_ITEMS;
         if (handlerIndex >= 0) {
@@ -210,16 +289,18 @@ class StateMachine<T> {
           for (let i = 0; i < this._handlers.length; i++) {
             this._handlers[i].removeItems(itemId);
           }
-          // Release the item back to the pool.
-          this._pool.release(itemId);
+          // queue the item for release to give exit handlers a chance to run in the next tick
+          if (this._deferredReleaseCount >= this._deferredReleaseItemIds.length) {
+            const newSize = this._deferredReleaseItemIds.length + this._blockSize;
+            const newDeferredReleaseItemIds = new Int32Array(newSize);
+            newDeferredReleaseItemIds.set(this._deferredReleaseItemIds);
+            this._deferredReleaseItemIds = newDeferredReleaseItemIds;
+          }
+          this._deferredReleaseItemIds[this._deferredReleaseCount++] = itemId;
         }
-      } else {
-        // item id is positive, so it's an add
-        this._handlers[handlerIndex].addItem(itemId);
       }
     }
-    this._deferredStateItemIds.length = 0;
-    this._deferredStateHandler.length = 0;
+    this._deferredStateCount = 0;
   }
 }
 

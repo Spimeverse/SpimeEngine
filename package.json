@@ -9,6 +9,7 @@
     "dev": "esbuild src/app.ts --servedir=public --serve=8000 --target=esnext --sourcemap --format=esm --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
     "dev_raw": "esbuild src/app.ts --servedir=public --serve=8000 --target=esnext --format=esm --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
     "test": "esbuild test/tests.ts --servedir=testRunner --serve=8001 --target=esnext --sourcemap --format=iife --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=testRunner/spec/tests.mjs",
+    "mjs": "esbuild test/tests.ts --target=esnext --sourcemap --tree-shaking=false --format=esm --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/spimescape.mjs",
     "extern": "node extern.js"
   },
   "keywords": [

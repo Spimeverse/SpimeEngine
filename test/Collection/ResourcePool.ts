@@ -22,11 +22,50 @@ export function TestResourcePool() {
             pool = new ResourcePool<TestItem>(() => new TestItem(), ResetFn, initialSize);
         });
 
+        it("should resize the pool correctly", () => {
+            const additionalItems = 5;
+            const totalItems = initialSize + additionalItems;
+
+            // Add items beyond the initial size to trigger resizing
+            const ids: number[] = [];
+            for (let i = 0; i < totalItems; i++) {
+                ids.push(pool.add());
+            }
+
+            // Check if all items were added correctly
+            for (const id of ids) {
+                expect(pool.get(id)).not.toBeNull();
+            }
+
+            // Check if the pool has resized correctly
+            expect(pool.count).toBe(totalItems);
+        });
+
+
+        it("should return null for freed items", () => {
+            const ids: number[] = [];
+            for (let i = 0; i < 5; i++) {
+                ids.push(pool.add());
+            }
+
+            const releaseId = ids[2];
+            pool.release(releaseId);
+
+            const freedItem = pool.get(releaseId);
+            expect(freedItem).toBeNull();
+        });
+
         it("should create an instance with the correct initial size", () => {
             for (let i = 0; i < initialSize; i++) {
                 const id = pool.add();
                 expect(pool.get(id)).not.toBeNull();
             }
+        });
+
+        it("should return null for unallocated items", () => {
+            const id = initialSize + 1;
+            const unallocatedItem = pool.get(id);
+            expect(unallocatedItem).toBeNull();
         });
 
         it("should release and reuse items correctly", () => {
