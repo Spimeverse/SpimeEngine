@@ -169,6 +169,10 @@ class AxisAlignedBoxBound extends Bounds {
         super(BoundTypes.axisAlignedBoxBound);
     }
 
+    reset() {
+        this.minX = this.minY = this.minZ = this.maxX = this.maxY = this.maxZ = 0;
+    }
+
     public set(minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number) {
         this.minX = minX;
         this.minY = minY;

@@ -15,6 +15,8 @@ const MAX_ITEMS = 10_000_000;
 
 const REMOVE_ALL_STATES = -1;
 
+let lastLog = '';
+
 class StateMachineBuilder<T> {
   private _pool: ResourcePool<T>;
   private _stateTypes: StateType[];
@@ -102,6 +104,7 @@ class StateMachine<T> {
   
   private _deferredReleaseItemIds: Int32Array;
   private _deferredReleaseCount: number;
+  getItem: (id: number) => T | null;
 
   constructor(
       pool: ResourcePool<T>,
@@ -123,6 +126,8 @@ class StateMachine<T> {
     this._deferredStateCount = 0;
     this._deferredReleaseItemIds = new Int32Array(initialSize);
     this._deferredReleaseCount = 0;
+    // point getItem to the pool's get method
+    this.getItem = pool.get.bind(pool);
   }
 
   public addItem(): number {
@@ -214,6 +219,15 @@ class StateMachine<T> {
     return true;
   }
 
+  public isInState(itemId: number, state: number) {
+    const registeredState = this._registeredStates[state];
+    if (!registeredState) {
+      throw new Error(`State "${state}" not registered.`);
+    }
+    const stateFlag = registeredState.stateFlag;
+    return (this._itemStates[itemId] & stateFlag) === stateFlag;
+  }
+
   public removeState(itemId: number, removedState: number): boolean {
     const currentStates = this._itemStates[itemId];
     const registeredState = this._registeredStates[removedState];
@@ -242,6 +256,18 @@ class StateMachine<T> {
       }
     }
     return true;
+  }
+
+  public logQueueLengths(): void {
+    let log = `def state: ${this._deferredStateCount} def rel: ${this._deferredReleaseCount} items: ${this._pool.count}`;
+    
+    for (const handler of this._handlers) {
+      log += handler.logQueueLengths();
+    }
+    if (lastLog !== log) {
+      lastLog = log;
+      console.log(log);
+    }
   }
 
   public tick(): void {

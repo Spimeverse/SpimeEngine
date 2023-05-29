@@ -1,6 +1,26 @@
 import { StateMachineBuilder, StateMachine, StateHandler } from '..';
 import { ResourcePool } from '..';
 
+
+class Creature {
+  public lifecycle: string;
+  public age: number;
+  public health: number;
+  public attacks: number;
+
+  constructor() {
+    this.lifecycle = "created";
+    this.age = 0;
+    this.health = 100;
+    this.attacks = -1;
+  }
+    
+}
+    
+let aliveHandler: StateHandler<Creature>;
+let damageHandler: StateHandler<Creature>;
+let deadHandler: StateHandler<Creature>;
+
 export function TestStateMachine() {
 
   describe('State Handler', () => {
@@ -41,7 +61,6 @@ export function TestStateMachine() {
 
       const count = 5;
 
-      debugger;
       for (let i = 0; i < count; i++) {
         const entityId = stateMachine.addItem();
         stateMachine.addState(entityId, A);
@@ -57,22 +76,6 @@ export function TestStateMachine() {
   });
 
   describe('State Machine', () => {
-
-    class Creature {
-      public lifecycle: string;
-      public age: number;
-      public health: number;
-      public attacks: number;
-
-      constructor() {
-        this.lifecycle = "created";
-        this.age = 0;
-        this.health = 100;
-        this.attacks = -1;
-      }
-    
-    }
-
     let isAlive = 0;
     let isDamaged = 0;
     let isDead = 0;
@@ -136,7 +139,7 @@ export function TestStateMachine() {
         isAlive = builder.registerState('alive');
         isDamaged = builder.registerState('damaged');
         isDead = builder.registerState('dead');
-        const aliveHandler = builder.registerHandler(isAlive)
+        aliveHandler = builder.registerHandler(isAlive)
           .onTick((stateMachine, allItems, itemIds, itemCount) => {
             for (let i = 0; i < itemCount; i++) {
               const entity = allItems[itemIds[i]];
@@ -148,7 +151,7 @@ export function TestStateMachine() {
               }
             }
           });
-        const damageHandler = builder.registerHandler(isAlive, isDamaged)
+        damageHandler = builder.registerHandler(isAlive, isDamaged)
           .onTick((stateMachine, allItems, itemIds, itemCount) => {
             for (let i = 0; i < itemCount; i++) {
               const entityId = itemIds[i];
@@ -161,7 +164,7 @@ export function TestStateMachine() {
               }
             }
           });
-        const deadHandler = builder.registerHandler(isDead)
+        deadHandler = builder.registerHandler(isDead)
           .onTick((stateMachine, allItems, itemIds, itemCount) => {
             for (let i = 0; i < itemCount; i++) {
               const entity = allItems[itemIds[i]];
@@ -179,6 +182,13 @@ export function TestStateMachine() {
         creature2 = pool.get(creature2Id);
         creature3Id = stateMachine.addItem();
         creature3 = pool.get(creature3Id);
+      });
+
+      it('should get items from the pool', () => {
+        const foundItem = stateMachine.getItem(creatureId);
+        expect(foundItem).toEqual(creature);
+        expect(foundItem).not.toBeNull();
+        expect(foundItem).toEqual(pool.get(creatureId));
       });
 
       it('should move through states', () => {
@@ -295,6 +305,27 @@ export function TestStateMachine() {
         const itemId = stateMachine.addItem();
         expect(stateMachine.addState(itemId, isAlive)).toBe(true);
         expect(stateMachine.removeState(itemId, isAlive)).toBe(true);
+      });
+
+      it('Should show if item is in a state', () => {
+        const itemId = stateMachine.addItem();
+        expect(stateMachine.addState(itemId, isAlive)).toBe(true);
+        expect(stateMachine.isInState(itemId, isAlive)).toBe(true);
+        expect(stateMachine.isInState(itemId, isDamaged)).toBe(false);
+        expect(stateMachine.removeState(itemId, isAlive)).toBe(true);
+        expect(stateMachine.isInState(itemId, isAlive)).toBe(false);
+      });
+      
+      it('should not remove items twice', () => {
+        const itemId = stateMachine.addItem();
+        expect(stateMachine.addState(itemId, isAlive)).toBe(true);
+        stateMachine.tick();        
+        expect(aliveHandler.getItemCount()).toEqual(1);
+
+        expect(stateMachine.removeState(itemId, isAlive)).toBe(true);
+        expect(stateMachine.removeState(itemId, isAlive)).toBe(false);
+        stateMachine.tick();        
+        expect(aliveHandler.getItemCount()).toEqual(0);
       });
 
       it('Should defer changes while iterating', () => {

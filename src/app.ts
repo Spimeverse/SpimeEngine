@@ -46,6 +46,8 @@ class App {
 
    const camera = new UniversalCamera("UniversalCamera", new Vector3(-3.962005819285092, 14.72372714362647, -42.68172032429846), scene);
         camera.setTarget(new Vector3(-14.817822850946555, 6.935841478744608, -15.867777884122031));
+        // const camera = new UniversalCamera("UniversalCamera", new Vector3(-7.812461480122939, 14.056310881753795, -11.719851124427887), scene);
+        // camera.setTarget(new Vector3(5.488554215972839, 3.2248212781719108, 12.841279555492335));
 
         camera.speed = 0.15;
 
@@ -114,9 +116,9 @@ class App {
         voxelMaterial.diffuseColor = new Color3(1, 0, 0);
         voxelMaterial.emissiveColor = new Color3(1, 0, 0);
 
-        const box = MeshBuilder.CreateBox("box", { size: 0.05 }, scene);
+        const box = MeshBuilder.CreateBox("box", { size: 0.5 }, scene);
         const boxMaterial = new StandardMaterial("boxMaterial", scene);
-        box.position.set(-2.478, 6.442, 21.392);
+        box.position.set(5.830, 6.129, 5.287);
         boxMaterial.diffuseColor = new Color3(1, 0.8, 0);
         boxMaterial.wireframe = true;
         box.material = boxMaterial;
@@ -130,7 +132,7 @@ class App {
         boxMaterial2.wireframe = true;
         box2.material = boxMaterial2;
 
-        const fieldBig = new SdfTerrain(5, 50);
+        const fieldBig = new SdfTerrain(5, 100);
         fieldBig.setPosition(5, 0, 5);
         const fieldTorus = new SdfSphere(0.7);
         fieldTorus.setPosition(0, 0, -10);
@@ -157,7 +159,7 @@ class App {
         chunkManager.setViewOrigin(cameraFront);
 
         // chunkManager.addField(fieldSphere);
-        chunkManager.addField(field);
+        // chunkManager.addField(field);
         // chunkManager.addField(fieldTorus);
         chunkManager.addField(fieldBig);
 
@@ -261,6 +263,10 @@ class App {
 
             if (ev.key === "o") {
                 scene.beginAnimation(camera, 0, 0, false);
+            }
+
+            if (ev.key === "g") {
+                camera.position.set(-5.562, 12.563, -8.214);
             }
 
             // if keycode  is "P"

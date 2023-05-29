@@ -1,7 +1,7 @@
 class ResourcePool<T> {
   private _pool: (T)[];
   private _free: Uint32Array;
-  private _createFn: () => T;
+  private _createFn: (id: number) => T;
   private _resetFn: (item: T) => void;
   private _capacity: number;
   private _freeCount: number;
@@ -9,7 +9,7 @@ class ResourcePool<T> {
   private _allocated: Uint8Array;
   private _blockSize: number;
 
-  constructor(createFn: () => T, resetFn: (item: T) => void, initialSize = 1000) {
+  constructor(createFn: (id: number) => T, resetFn: (item: T) => void, initialSize = 1000) {
     this._createFn = createFn;
     this._resetFn = resetFn;
     this._capacity = initialSize;
@@ -17,7 +17,7 @@ class ResourcePool<T> {
     this._free = new Uint32Array(this._capacity);
     for (let i = 0; i < this._capacity; i++) {
       this._free[i] = i;
-      this._pool[i] = this._createFn();
+      this._pool[i] = this._createFn(i);
     }
     this._freeCount = this._capacity;
     this._poolCount = this._capacity;
@@ -51,7 +51,7 @@ class ResourcePool<T> {
       if (id >= this._capacity) {
         this._resizeArrays();
       }
-      this._pool[id] = this._createFn();
+      this._pool[id] = this._createFn(id);
     }
 
     this._allocated[id] = 1;

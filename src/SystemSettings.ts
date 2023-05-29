@@ -47,7 +47,8 @@ class SystemSettings {
     showVoxelVertex = false;
     showVoxelBounds = false;
     showChunkQueueLength = true;
-    logDetails = false;
+    logDetails = true;
+    logStateHandler = true;
 
     debugCounters = {
         totalSamples: 0,
@@ -68,8 +69,7 @@ class SystemSettings {
     }
 
     targetChunks = [
-        "Origin: -16,0,-48 Size: 16,16,16 VoxelSize: 1",
-        "Origin: -8,8,-32 Size: 4,4,4 VoxelSize: 0.25"
+        "Origin: 4,4,4 Size: 4,4,4 VoxelSize: 0.25"
     ];
 
     debugOnChunk(chunk: Chunk) {
@@ -81,8 +81,10 @@ class SystemSettings {
                 caller = stack.split("\n")[2];
             }
             console.log("debugOnChunk", );
-            console.log(caller + "\ndebugOnChunk", chunk.toString());
-            debugger;
+            console.log(caller + "\ndebugOnChunk", chunk.toStringWithID());
+            return true;
+        } else {
+            return false;
         }
     }
 

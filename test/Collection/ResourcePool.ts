@@ -6,7 +6,8 @@ export function TestResourcePool() {
         class TestItem {
             public value: number;
 
-            constructor() {
+            constructor(public id: number) {
+                this.id = id;
                 this.value = 0;
             }
         }
@@ -19,7 +20,7 @@ export function TestResourcePool() {
         let pool: ResourcePool<TestItem>;
 
         beforeEach(() => {
-            pool = new ResourcePool<TestItem>(() => new TestItem(), ResetFn, initialSize);
+            pool = new ResourcePool<TestItem>((id) => new TestItem(id), ResetFn, initialSize);
         });
 
         it("should resize the pool correctly", () => {
@@ -127,6 +128,15 @@ export function TestResourcePool() {
                 expect(reusedItemAfterReAdd.value).toBe(0); // Expect the item to be reset
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 expect(reusedItemAfterReAdd).toBe(item as any); // Expect the reused item to be the same instance
+            }
+        });
+
+        it("should pass the resource pool id on creation", () => {
+            const id = pool.add();
+            const item = pool.get(id);
+            expect(item).not.toBeNull();
+            if (item) {
+                expect(item.id).toBe(id);
             }
         });
 

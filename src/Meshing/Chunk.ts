@@ -47,6 +47,7 @@ let seamExtraDouble = seamExtra * 2;
  */
 class Chunk implements IhasBounds {
 
+
         /**
      * the extent of the chunk in world coordinate space
      */
@@ -93,7 +94,6 @@ class Chunk implements IhasBounds {
 
     private _chunkMesh: Nullable<Mesh> = null;
     private _newChunkMesh: Nullable<Mesh> = null;
-    private _markedForRemoval = false;
 
     //  X   X   X   X
     //    c   c   c 
@@ -138,19 +138,16 @@ class Chunk implements IhasBounds {
         return this._position.equals(newChunk._position);
     }
 
-    markForRemoval() {
-        this._markedForRemoval = true;
-    }
-
-    isMarkedForRemoval() {
-        return this._markedForRemoval;
-    }
-
     currentBounds: AxisAlignedBoxBound;
 
-    constructor () {
+    constructor (public id: number) {
         this._maxSamples = 0;
         this.currentBounds = new AxisAlignedBoxBound(0,0,0,0,0,0);
+    }
+
+    reset(): void {
+        this._maxSamples = 0;
+        this.currentBounds.reset();
     }
 
     /**
@@ -303,6 +300,19 @@ class Chunk implements IhasBounds {
         return extracted;
     }
 
+    removeMeshes(scene: Scene) {
+        if (this._chunkMesh) {
+            scene.removeMesh(this._chunkMesh);
+            this._chunkMesh.dispose();
+            this._chunkMesh = null;
+        }
+        if (this._newChunkMesh) {
+            scene.removeMesh(this._newChunkMesh);
+            this._newChunkMesh.dispose();
+            this._newChunkMesh = null;
+        }
+    }
+
     swapMeshes(scene: Scene) {
         if (this._chunkMesh) {
             this._chunkMesh.isVisible = false;
@@ -311,29 +321,22 @@ class Chunk implements IhasBounds {
             this._chunkMesh = null;
         }
         if (this._newChunkMesh) {
-            if (this._markedForRemoval) {
-                scene.removeMesh(this._newChunkMesh);
-                this._newChunkMesh.dispose();
-                this._newChunkMesh = null;
-            }
-            else {
-                this._newChunkMesh.isVisible = true;
-                scene.addMesh(this._newChunkMesh);
-                this._chunkMesh = this._newChunkMesh;
-                this._newChunkMesh = null;
+            this._newChunkMesh.isVisible = true;
+            scene.addMesh(this._newChunkMesh);
+            this._chunkMesh = this._newChunkMesh;
+            this._newChunkMesh = null;
 
-                if (systemSettings.showChunkBounds) {
-                    const chunkBounds = MeshBuilder.CreateBox("Chunk Bounds" + this.toString(), { size: this._worldSize.x }, scene);
-                    const boundsMaterial = new StandardMaterial("boundsMaterial", scene);
-                    chunkBounds.position.copyFrom(this._position);
-                    chunkBounds.position.addInPlace(this._worldSize.scale(0.5));
-                    boundsMaterial.diffuseColor = new Color3(1, 1, 1);
-                    boundsMaterial.emissiveColor = new Color3(1, 1, 1);
-                    boundsMaterial.wireframe = true;
-                    chunkBounds.material = boundsMaterial;
-                    chunkBounds.isVisible = true;
-                    chunkBounds.setParent(this._chunkMesh);
-                }
+            if (systemSettings.showChunkBounds) {
+                const chunkBounds = MeshBuilder.CreateBox("Chunk Bounds" + this.toString(), { size: this._worldSize.x }, scene);
+                const boundsMaterial = new StandardMaterial("boundsMaterial", scene);
+                chunkBounds.position.copyFrom(this._position);
+                chunkBounds.position.addInPlace(this._worldSize.scale(0.5));
+                boundsMaterial.diffuseColor = new Color3(1, 1, 1);
+                boundsMaterial.emissiveColor = new Color3(1, 1, 1);
+                boundsMaterial.wireframe = true;
+                chunkBounds.material = boundsMaterial;
+                chunkBounds.isVisible = true;
+                chunkBounds.setParent(this._chunkMesh);
             }
         }
     }
@@ -442,6 +445,10 @@ class Chunk implements IhasBounds {
     
     toString() {
         return `Origin: ${this._position.x},${this._position.y},${this._position.z} Size: ${this._worldSize.x},${this._worldSize.y},${this._worldSize.z} VoxelSize: ${this._voxelSize}`;
+    }
+
+    toStringWithID() {
+        return `ID: ${this.id} Origin: ${this._position.x},${this._position.y},${this._position.z} Size: ${this._worldSize.x},${this._worldSize.y},${this._worldSize.z} VoxelSize: ${this._voxelSize}`;
     }
 }
 
