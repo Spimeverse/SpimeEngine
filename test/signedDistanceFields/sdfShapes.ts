@@ -1,6 +1,6 @@
 
 
-import { SdfSphere,SdfBox,SdfTorus,SdfCylinder } from ".."
+import { MakeSdfSphere,MakeSdfBox,MakeSdfTorus,MakeSdfCylinder } from ".."
 import { SampleFieldXy, SampleFieldXz, GreyScale, NumScale, Trim } from "./SdfHelper"
 
 export function TestSdfShapes() {
@@ -8,7 +8,7 @@ export function TestSdfShapes() {
     describe('Signed distance fields', () => {
 
         it('sphere field on XY plane', () => {
-            const field = new SdfSphere(45);
+            const field = MakeSdfSphere(45);
             const samples = SampleFieldXy(100,100,5,field);
             const numField = NumScale(samples);
             expect(Trim(numField)).toEqual(Trim(`
@@ -59,7 +59,8 @@ export function TestSdfShapes() {
         })
 
         it('sphere field on XZ plane', () => {
-            const field = new SdfSphere(45);
+            debugger;
+            const field = MakeSdfSphere(45);
             const samples = SampleFieldXz(100,100,5,field);
             const numField = NumScale(samples);
             expect(Trim(numField)).toEqual(Trim(`
@@ -133,7 +134,7 @@ export function TestSdfShapes() {
         })
 
         it('box field on XY plane', () => {
-            const field = new SdfBox(60,40,20);
+            const field = MakeSdfBox(60,40,20);
             const samples = SampleFieldXy(100,100,5,field);
             const numField = NumScale(samples);
             expect(Trim(numField)).toEqual(Trim(`
@@ -208,7 +209,7 @@ export function TestSdfShapes() {
         })
 
         it('box field on XZ plane', () => {
-            const field = new SdfBox(60,40,20);
+            const field = MakeSdfBox(60,40,20);
             const samples = SampleFieldXz(100,100,5,field);
             const numField = NumScale(samples);
             expect(Trim(numField)).toEqual(Trim(`
@@ -283,7 +284,7 @@ export function TestSdfShapes() {
         })        
 
         it('torus field on XY plane', () => {
-            const field = new SdfTorus(30,10);
+            const field = MakeSdfTorus(30,10);
             const samples = SampleFieldXy(100,100,5,field);
             const numField = NumScale(samples);
             expect(Trim(numField)).toEqual(Trim(`
@@ -358,7 +359,7 @@ export function TestSdfShapes() {
         })     
 
         it('torus field on XZ plane', () => {
-            const field = new SdfTorus(30,10);
+            const field = MakeSdfTorus(30,10);
             const samples = SampleFieldXz(100,100,5,field);
             const numField = NumScale(samples);
             expect(Trim(numField)).toEqual(Trim(`
@@ -433,7 +434,7 @@ export function TestSdfShapes() {
         })     
 
         it('cylinder field on XY plane', () => {
-            const field = new SdfCylinder(40,30);
+            const field = MakeSdfCylinder(40,30);
             const samples = SampleFieldXy(100,100,5,field);
             const numField = NumScale(samples);
             expect(Trim(numField)).toEqual(Trim(`
@@ -507,7 +508,7 @@ export function TestSdfShapes() {
         })     
 
         it('cylinder field on XZ plane', () => {
-            const field = new SdfCylinder(40,30);
+            const field = MakeSdfCylinder(40,30);
             const samples = SampleFieldXz(100,100,5,field);
             const numField = NumScale(samples);
             expect(Trim(numField)).toEqual(Trim(`

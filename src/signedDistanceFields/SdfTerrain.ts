@@ -1,8 +1,9 @@
 import { DeepImmutableObject } from "@babylonjs/core";
 import { Vector3,Matrix,Quaternion,Axis } from "@babylonjs/core/Maths";
-import { SignedDistanceField } from "./SignedDistanceField";
+import { SignedDistanceField, RegisterSdfSampleFunction, sdfPool } from "./SignedDistanceField";
 
 // https://iquilezles.org/articles/fbmsdf/
+
 
 // allocate intermediate vectors once
 const p2 = new Vector3(0, 0, 0);
@@ -86,50 +87,52 @@ const matrix = Matrix.Compose(scale, rotation, translation);
         
 const octiveSample = new Vector3(0, 0, 0);
 
-class SdfTerrain extends SignedDistanceField {
+function sdFbm(point: Vector3, distToPreviousLayer: number, hillScale: number): number {
+    let scale = hillScale;
+    
+    octiveSample.copyFrom(point);
+    for (let i = 0; i <= 5; i++) {
+        // evaluate new octave
+        // distance to next layer
+        const n = SdBase(octiveSample,scale);
 
-    constructor(private _bedrockDepth: number, radius: number) {
-        super();
-        this.boundingRadius = radius;
+        // stop if we are far enough away
+        if (Math.abs(distToPreviousLayer + n) > scale / 2)
+            break;
+
+        // add
+        const t1 = distToPreviousLayer - 0.1 * scale;
+        const t2 = 0.2 * scale;
+        const nClamped = SmoothMax(n, t1, t2);
+        distToPreviousLayer = SmoothMin(nClamped, distToPreviousLayer, t2);
+
+        // prepare next octave
+        Vector3.TransformCoordinatesToRef(octiveSample, matrix, octiveSample);
+        scale *= 0.33;
     }
 
-
-
-    sdFbm(point: Vector3, distToPreviousLayer: number, hillScale: number): number {
-        let scale = hillScale;
-        
-        octiveSample.copyFrom(point);
-        for (let i = 0; i <= 5; i++) {
-            // evaluate new octave
-            // distance to next layer
-            const n = SdBase(octiveSample,scale);
-
-            // stop if we are far enough away
-            if (Math.abs(distToPreviousLayer + n) > scale / 2)
-                break;
-
-            // add
-            const t1 = distToPreviousLayer - 0.1 * scale;
-            const t2 = 0.2 * scale;
-            const nClamped = SmoothMax(n, t1, t2);
-            distToPreviousLayer = SmoothMin(nClamped, distToPreviousLayer, t2);
-
-            // prepare next octave
-            Vector3.TransformCoordinatesToRef(octiveSample, matrix, octiveSample);
-            scale *= 0.33;
-        }
-
-        return distToPreviousLayer;
-    }
-
-    sample(samplePoint: Vector3): number {
-        const point = super.transformPoint(samplePoint);
-        const bedrockDist = point.y - this._bedrockDepth;
-        const hillScale = 50;
-        const result = this.sdFbm(point,bedrockDist,hillScale);
-        return result
-    }
-
+    return distToPreviousLayer;
 }
 
-export { SdfTerrain };
+const BEDROCK_DEPTH_PARAM = 0;
+const RADIUS_PARAM = 1;
+
+// register the sdf sample function
+const TerrainSampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Float32Array) => {
+    const bedrockDepth = sdfParams[BEDROCK_DEPTH_PARAM];
+    const radius = sdfParams[RADIUS_PARAM];
+    const hillScale = 50;
+    const result = sdFbm(point, bedrockDepth, hillScale);
+    return result;
+});
+
+function MakeSdfTerrain(bedrockDepth: number, radius: number) {
+    const sdf = sdfPool.newItem();
+    const params = sdf.Setup(TerrainSampler, radius);
+    params[BEDROCK_DEPTH_PARAM] = bedrockDepth;
+    params[RADIUS_PARAM] = radius;
+    return sdf;
+}
+
+
+export { MakeSdfTerrain };

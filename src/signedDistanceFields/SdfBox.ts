@@ -1,5 +1,5 @@
 import { Vector3 } from "@babylonjs/core/Maths";
-import { SignedDistanceField } from "./SignedDistanceField"
+import { SignedDistanceField, sdfPool,RegisterSdfSampleFunction } from "./SignedDistanceField"
 import { Max3, MaxVec3, AbsVec3, SubVec3} from "./VectorMath";
 
 // https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
@@ -12,6 +12,38 @@ import { Max3, MaxVec3, AbsVec3, SubVec3} from "./VectorMath";
 // allocate intermediate vectors once
 const q = new Vector3();
 const maxq = new Vector3();
+
+const HALF_WIDTH_PARAM = 0;
+const HALF_HEIGHT_PARAM = 1;
+const HALF_DEPTH_PARAM = 2;
+
+// register the sdf sample function
+const BoxSampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Float32Array) => {
+    const halfWidth = sdfParams[HALF_WIDTH_PARAM];
+    const halfHeight = sdfParams[HALF_HEIGHT_PARAM];
+    const halfDepth = sdfParams[HALF_DEPTH_PARAM];
+    AbsVec3(point,q);
+    SubVec3(q,halfWidth,halfHeight,halfDepth,q);
+    MaxVec3(q,Vector3.Zero(),maxq);
+    const d = Max3(q.x,q.y,q.z);
+    if (d > 0)
+        return maxq.length();
+    else
+        return d;
+});
+
+function MakeSdfBox(width: number, height: number, depth: number): SignedDistanceField {
+    const sdf =  sdfPool.newItem();
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
+    const halfDepth = depth / 2;
+    const boundingRadius = Math.sqrt((halfWidth * halfWidth) + (halfHeight * halfHeight) + (halfDepth * halfDepth));
+    const params = sdf.Setup(BoxSampler,boundingRadius);
+    params[HALF_WIDTH_PARAM] = halfWidth;
+    params[HALF_HEIGHT_PARAM] = halfHeight;
+    params[HALF_DEPTH_PARAM] = halfDepth;
+    return sdf;
+}
 
 class SdfBox extends SignedDistanceField {
 
@@ -41,4 +73,4 @@ class SdfBox extends SignedDistanceField {
 
 }
 
-export { SdfBox };
+export { MakeSdfBox };

@@ -1,5 +1,5 @@
 import { Matrix, Vector3 } from "@babylonjs/core/Maths";
-import { SignedDistanceField } from "./SignedDistanceField"
+import { SignedDistanceField, RegisterSdfSampleFunction, sdfPool } from "./SignedDistanceField"
 
 // see https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
 // float sdSphere( vec3 p, float s )
@@ -7,22 +7,20 @@ import { SignedDistanceField } from "./SignedDistanceField"
 //   return length(p)-s;
 // }
 
+const RADIUS_PARAM = 0;
 
-class SdfSphere extends SignedDistanceField {
+// register the sdf sample function
+const SphereSampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Float32Array) => {
+    const radius = sdfParams[RADIUS_PARAM];
+    return point.length() - radius;
+});
 
-    
-    boundingRadius: number;
-
-    constructor(radius: number) {
-        super();
-        this.boundingRadius = radius;
-    }
-
-    sample(samplePoint: Vector3): number {
-        const point = super.transformPoint(samplePoint);
-        return point.length() - this.boundingRadius;
-    }
-
+function MakeSdfSphere(radius: number): SignedDistanceField {
+    const sdf =  sdfPool.newItem();
+    const params = sdf.Setup(SphereSampler,radius);
+    params[RADIUS_PARAM] = radius;
+    return sdf;
 }
 
-export { SdfSphere };
+
+export { MakeSdfSphere };

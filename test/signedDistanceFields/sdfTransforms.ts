@@ -1,6 +1,6 @@
 
 
-import { SdfSphere,SdfBox,SdfTorus,SdfCylinder } from ".."
+import { MakeSdfSphere,MakeSdfBox,MakeSdfTorus,MakeSdfCylinder } from ".."
 import { SampleFieldXy, SampleFieldXz, GreyScale, NumScale, Trim } from "./SdfHelper"
 import { Matrix, Vector3 } from "@babylonjs/core"
 
@@ -9,7 +9,7 @@ export function TestSdfTransforms() {
     describe('Transform SDF', () => {
 
         it('translates a sphere', () => {
-            const field = new SdfSphere(45);
+            const field = MakeSdfSphere(45);
             field.setPosition(25,0,0);
             const samples = SampleFieldXy(100,100,5,field);
             const numField = NumScale(samples);
@@ -61,7 +61,7 @@ export function TestSdfTransforms() {
         })
 
         it('rotates a box', () => {
-            const field = new SdfBox(60,40,20);
+            const field = MakeSdfBox(60,40,20);
             field.rotation = new Vector3(0,0,Math.PI / 3);
             const samples = SampleFieldXy(100,100,5,field);
             const numField = NumScale(samples);

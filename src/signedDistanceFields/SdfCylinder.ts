@@ -1,5 +1,5 @@
 import { Vector2, Vector3 } from "@babylonjs/core/Maths";
-import { SignedDistanceField } from "./SignedDistanceField";
+import { SignedDistanceField,RegisterSdfSampleFunction,sdfPool } from "./SignedDistanceField";
 import { Max2, Min2, MaxVec2, AbsVec2} from "./VectorMath";
 
 // https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
@@ -15,25 +15,29 @@ const pxzy = new Vector2();
 const d = new Vector2();
 const dmax = new Vector2();
 
-class SdfCylinder extends SignedDistanceField {
-    hr: Vector2 = new Vector2();
+const HALF_HEIGHT_PARAM = 0;
+const RADIUS_PARAM = 1;
 
-    constructor(height: number, radius: number) {
-        super();
-        const halfHeight = height / 2;
-        this.hr.set(halfHeight, radius);
-        this.boundingRadius = Math.sqrt((halfHeight * halfHeight) + (radius * radius));
-    }
+// register the sdf sample function
+const CylinderSampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Float32Array) => {
+    const halfHeight = sdfParams[HALF_HEIGHT_PARAM];
+    const radius = sdfParams[RADIUS_PARAM];
+    pxz.set(point.x,point.z);
+    pxzy.set(pxz.length(),point.y);
+    AbsVec2(pxzy,d);
+    d.subtractInPlace(new Vector2(halfHeight,radius));
+    MaxVec2(d,Vector2.Zero(),dmax)
+    return Min2(Max2(d.x,d.y),0) + dmax.length();
+});
 
-    sample(point: Vector3): number {
-        pxz.set(point.x,point.z);
-        pxzy.set(pxz.length(),point.y);
-        AbsVec2(pxzy,d);
-        d.subtractInPlace(this.hr);
-        MaxVec2(d,Vector2.Zero(),dmax)
-        return Min2(Max2(d.x,d.y),0) + dmax.length();
-    }
-
+function MakeSdfCylinder(height: number, radius: number): SignedDistanceField {
+    const sdf =  sdfPool.newItem();
+    const halfHeight = height / 2;
+    const boundingRadius = Math.sqrt((halfHeight * halfHeight) + (radius * radius));
+    const params = sdf.Setup(CylinderSampler,boundingRadius);
+    params[HALF_HEIGHT_PARAM] = halfHeight;
+    params[RADIUS_PARAM] = radius;
+    return sdf;
 }
 
-export { SdfCylinder };
+export { MakeSdfCylinder };
