@@ -1,4 +1,4 @@
-import { ResourcePool } from '../Collection/ResourcePool';
+import { IhasPoolId, ResourcePool } from '../Collection/ResourcePool';
 import { StateHandler } from './StateHandler';
 
 
@@ -17,7 +17,7 @@ const REMOVE_ALL_STATES = -1;
 
 let lastLog = '';
 
-class StateMachineBuilder<T> {
+class StateMachineBuilder<T extends IhasPoolId> {
   private _pool: ResourcePool<T>;
   private _stateTypes: StateType[];
   private _handlers: StateHandler<T>[];
@@ -88,7 +88,7 @@ class StateMachineBuilder<T> {
   }
 }
 
-class StateMachine<T> {
+class StateMachine<T extends IhasPoolId> {
   private _pool: ResourcePool<T>;
   private _registeredStates: StateType[];
   private _handlers: StateHandler<T>[];
@@ -127,17 +127,22 @@ class StateMachine<T> {
     this._deferredReleaseItemIds = new Int32Array(initialSize);
     this._deferredReleaseCount = 0;
     // point getItem to the pool's get method
-    this.getItem = pool.get.bind(pool);
+    this.getItem = pool.getItem.bind(pool);
   }
 
-  public addItem(): number {
-    const itemId = this._pool.add();
+  public newId(): number {
+    const itemId = this._pool.newId();
     if (itemId >= this._itemStatesSize) {
       this._resizeItemStates();
     }
     this._itemStates[itemId] = 0;
 
     return itemId;
+  }
+
+  public newItem(): T{
+    const itemId = this.newId();
+    return this._pool.getItem(itemId) as T;
   }
 
   private _resizeItemStates(): void {
@@ -156,7 +161,7 @@ class StateMachine<T> {
     }
   }
 
-  public releaseItem(itemId: number): void {
+  public releaseId(itemId: number): void {
     // Remove item from all handlers.
     if (this._deferredStateCount >= this._deferredStateItemIds.length) {
       this._resizeDeferredArrays();
@@ -169,6 +174,10 @@ class StateMachine<T> {
     // Reset the item's states.
     this._itemStates[itemId] = 0;
 
+  }
+
+  public releaseItem(item: T): void {
+    this.releaseId(item.poolId);
   }
 
   private _resizeDeferredArrays(): void {
@@ -292,7 +301,7 @@ class StateMachine<T> {
   private _processDeferredRelease() {
     for (let i = 0; i < this._deferredReleaseCount; i++) {
       const itemId = this._deferredReleaseItemIds[i];
-      this._pool.release(itemId);
+      this._pool.releaseId(itemId);
     }
     this._deferredReleaseCount = 0;
   }

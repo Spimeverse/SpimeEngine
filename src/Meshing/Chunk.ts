@@ -8,6 +8,7 @@ import { IhasBounds } from "..";
 import { ExtractSurface } from "..";
 import { MeshBuilder } from "@babylonjs/core/Meshes";
 import { systemSettings } from "../SystemSettings";
+import { IhasPoolId } from "../Collection/ResourcePool";
 
 const voxelPosition = new Vector3();
     
@@ -45,10 +46,15 @@ let seamExtraDouble = seamExtra * 2;
  * by working out the index in the 1d array
  * Doesn't actually reference the array itself
  */
-class Chunk implements IhasBounds {
+class Chunk implements IhasBounds, IhasPoolId {
 
+    /**
+     * the pool id of this chunk
+     * @see ResourcePool
+     */
+    poolId = -1;
 
-        /**
+    /**
      * the extent of the chunk in world coordinate space
      */
     private _worldSize = new Vector3();
@@ -140,7 +146,7 @@ class Chunk implements IhasBounds {
 
     currentBounds: AxisAlignedBoxBound;
 
-    constructor (public id: number) {
+    constructor () {
         this._maxSamples = 0;
         this.currentBounds = new AxisAlignedBoxBound(0,0,0,0,0,0);
     }
@@ -448,7 +454,7 @@ class Chunk implements IhasBounds {
     }
 
     toStringWithID() {
-        return `ID: ${this.id} Origin: ${this._position.x},${this._position.y},${this._position.z} Size: ${this._worldSize.x},${this._worldSize.y},${this._worldSize.z} VoxelSize: ${this._voxelSize}`;
+        return `ID: ${this.poolId} Origin: ${this._position.x},${this._position.y},${this._position.z} Size: ${this._worldSize.x},${this._worldSize.y},${this._worldSize.z} VoxelSize: ${this._voxelSize}`;
     }
 }
 

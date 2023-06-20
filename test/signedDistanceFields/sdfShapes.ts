@@ -59,7 +59,6 @@ export function TestSdfShapes() {
         })
 
         it('sphere field on XZ plane', () => {
-            debugger;
             const field = MakeSdfSphere(45);
             const samples = SampleFieldXz(100,100,5,field);
             const numField = NumScale(samples);

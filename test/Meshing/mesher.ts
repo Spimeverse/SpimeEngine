@@ -1,6 +1,6 @@
 import { Chunk, ExtractSurface, CalcVoxelVertex,SetSeamExtra} from "..";
 import { CONNECTED_CELL, XZ_FACE_ANTICLOCK, XY_FACE_ANTICLOCK, YZ_FACE_ANTICLOCK, X_MINUS_EDGE,Y_MINUS_EDGE,Z_MINUS_EDGE} from "..";
-import { SdfBox } from "..";
+import { MakeSdfBox } from "..";
 import { Vector3 } from "@babylonjs/core";
 
 
@@ -40,7 +40,7 @@ export function TestMesher()
 
         it('creates a cube mesh', () => {
             SetSeamExtra(3);
-            const field = new SdfBox(5, 5, 5)
+            const field = MakeSdfBox(5, 5, 5)
             const chunk = new Chunk();
             chunk.setSize({ x: 10, y: 10, z: 10 }, 1);
             chunk.setPosition({ x: -5, y: -5, z: -5 });

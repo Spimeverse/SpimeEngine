@@ -1,19 +1,20 @@
 import { Vector3,Scene } from "@babylonjs/core";
 import { AxisAlignedBoxBound, Bounds } from "./Bounds";
-import { SignedDistanceField, Chunk, BORDERS } from "..";
+import { SignedDistanceField, SdfUnionFromSparseSet, sdfPool, Chunk, BORDERS } from "..";
 import { SparseOctTree } from "."
-import { SdfUnion } from "..";
 import { LinkedList, LinkedListNode } from "../Collection/LinkedList";
 import { systemSettings } from "../SystemSettings";
 import { StateMachineBuilder, StateMachine, StateHandler } from '..';
 import { ResourcePool } from '..';
+import { SparseSet } from '../Collection/SparseSet';
 
 const chunkBounds = new AxisAlignedBoxBound(0, 0, 0, 0, 0, 0);
 const worldSize = 16384;
 const halfWorld = worldSize / 2;
-const nearbyChunks = new Set<Chunk>();
+const nearbyChunks = new SparseSet(1000);
 let maxUpdatesPerFrame = 10000;
 const connectedBounds = new AxisAlignedBoxBound();
+const DEFAULT_POOL_SIZE = 1000;
 
 let logTime = 0;
 let lastLogTime = 0;
@@ -39,14 +40,14 @@ class ChunkManager {
     private _worldBounds: AxisAlignedBoxBound;
     private _chunkTree: SparseOctTree<Chunk>;
     private _fieldTree: SparseOctTree<SignedDistanceField>;
-    private _chunkFields = new Set<SignedDistanceField>();
-    private _unionFields = new SdfUnion(this._chunkFields);
-    private _dirtyChunks = new Set<Chunk>();
-    private _rescaleChunks = new Set<Chunk>();
-    private _changedFields = new Set<SignedDistanceField>();
+    private _chunkFields = new SparseSet(DEFAULT_POOL_SIZE);
+    private _chunkSdf = new SdfUnionFromSparseSet(this._chunkFields);
+    private _dirtyChunks = new SparseSet(DEFAULT_POOL_SIZE);
+    private _rescaleChunks = new SparseSet(DEFAULT_POOL_SIZE);
+    private _changedFields = new SparseSet(DEFAULT_POOL_SIZE);
     private _viewOriginUpdates: Vector3[] = [];
     private _meshUpdatesInProgress = false;
-    private _chunkPool = new ResourcePool<Chunk>((id) => new Chunk(id), (chunk) => chunk.reset(),1000);
+    private _chunkPool = new ResourcePool<Chunk>(() => new Chunk(), (chunk) => chunk.reset(),DEFAULT_POOL_SIZE);
     private _stateBuilder = new StateMachineBuilder<Chunk>(this._chunkPool);
     private _stateMachine: StateMachine<Chunk>;
     private _scene: Scene | null = null;
@@ -118,28 +119,29 @@ class ChunkManager {
             }
         }
     }
-    
-    getChunks(chunks: Set<Chunk>) {
-        this._chunkTree.getItemsInBox(this._worldBounds, chunks);
-    }
 
     addField(field: SignedDistanceField) {
         // TODO add and update field could be one function?
         // do we need to do anything with the field tree at this point?
         this._createChunksForBounds(field.currentBounds, -halfWorld, -halfWorld, -halfWorld, halfWorld, halfWorld, halfWorld);
         this._fieldTree.insert(field);
-        this._changedFields.add(field);
+        this._changedFields.add(field.poolId);
     }
 
     updateField(field: SignedDistanceField) {
-        this._changedFields.add(field);
+        this._changedFields.add(field.poolId);
     }
 
     private _processFieldChanges() {
-        for (const field of this._changedFields) {
-            field.commitUpdate();
+        const changedFieldIds = this._changedFields.allIndex();
+        const usedCount = this._changedFields.usedCount;
+        for (let i=0; i<usedCount; i++) {
+            const field = sdfPool.getItem(changedFieldIds[i]);
+            field?.commitUpdate();
         }
-        for (const field of this._changedFields) {
+        for (let i=0; i<changedFieldIds.length; i++) {
+            const field = sdfPool.getItem(changedFieldIds[i]);
+            if (!field) continue;
             // mark any existing chunks within the fields current bounds as dirty
             this._chunkTree.getItemsInSphere(field.currentBounds, this._dirtyChunks);
             // ensure all chunks within the fields current bounds are created and updated
@@ -159,12 +161,6 @@ class ChunkManager {
     private _createChunksForBounds(bounds: Bounds, minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number) {
         const voxels = 16;  //Math.max(8,1 << 31 - Math.clz32(32 - (chunkDist / 2)));
         
-        // if (systemSettings.logDetails) {
-        //     if (minX <= -8 && maxX >= -8 &&
-        //         minY <= 8 && maxY >= 8 &&
-        //         minZ <= -32 && maxZ >= -32)
-        //         debugger;
-        // }
         // fast rejection, compare chunk bounds to bounds
         chunkBounds.set(minX, minY, minZ, maxX, maxY, maxZ);
         if (!chunkBounds.overlaps(bounds)) {
@@ -219,7 +215,7 @@ class ChunkManager {
             const extent = chunkBounds.extent;
             // use fewer voxels per chunk further away
             const stateMachine = this._stateMachine;
-            const newChunkId = this._stateMachine.addItem()
+            const newChunkId = this._stateMachine.newId()
             const newChunk = this._stateMachine.getItem(newChunkId);
             if (newChunk != null) {
                 newChunk.setPosition({ x: chunkBounds.minX, y: chunkBounds.minY, z: chunkBounds.minZ });
@@ -229,57 +225,27 @@ class ChunkManager {
 
                 nearbyChunks.clear();
 
-                const log = systemSettings.debugOnChunk(newChunk);
-                if (log) {
-                    debugger;
-                    console.log("Chunk bounds ", chunkBounds.toString());
-                    console.log("newChunk: " + newChunk.toStringWithID());
-                }
-
                 this._chunkTree.getItemsInBox(chunkBounds, nearbyChunks);
                 const stateMachine = this._stateMachine;
-                for (const nearChunk of nearbyChunks) {
+                const nearbyChunksIds = nearbyChunks.allIndex();
+                const usedCount = nearbyChunks.usedCount;
+                for (let i=0; i<usedCount; i++) {
+                    const nearChunk = this._chunkPool.getItem(nearbyChunksIds[i]);
+                    if (!nearChunk)
+                        continue;
                     if (nearChunk.currentBounds.extent == newChunk.currentBounds.extent &&
                         nearChunk.isAtSamePositionAs(newChunk) &&
-                        !stateMachine.isInState(nearChunk.id, CHUNK_STATES.remove)) {
+                        !stateMachine.isInState(nearChunk.poolId, CHUNK_STATES.remove)) {
                         systemSettings.debugCounters.chunksSkipped++;
-                        //---- Debug code to log when a chunk is skipped
-                        // new chunk is same as existing chunk, so skip it
-                        if (log) {
-                            console.log("already exists: " + nearChunk.toStringWithID());
-                        }
-                        //---- End debug code
-                        if (systemSettings.debugOnChunk(newChunk)) debugger;
-                        stateMachine.releaseItem(newChunkId);
+
+                        stateMachine.releaseId(newChunkId);
                         return;
                     }
                     else {
                         let markForRemoval = false;
-                        if (nearChunk.currentBounds.contains(newChunk.currentBounds)) {
-                            //---- Debug code to log when a chunk is a parent
-                            if (!stateMachine.isInState(nearChunk.id, CHUNK_STATES.remove)) {
-                                if (log) {
-                                    console.log("remove parent: " + nearChunk.toStringWithID());
-                                }
-                                //---- End debug code
-                                markForRemoval = true;
-                            }
-                        }
-                        if (newChunk.currentBounds.contains(nearChunk.currentBounds)) {
-                            //---- Debug code to log when a chunk is a child
-                            if (!stateMachine.isInState(nearChunk.id, CHUNK_STATES.remove)) {
-                                if (log) {
-                                    console.log("remove child: " + nearChunk.toStringWithID());
-                                }
-                                //---- End debug code
-                                markForRemoval = true;
-                            }
-                        }
-
-                        // mark existing chunk for removal
-                        if (markForRemoval) {
-                            if (systemSettings.debugOnChunk(nearChunk)) debugger;
-                            stateMachine.addState(nearChunk.id, CHUNK_STATES.remove);
+                        if (nearChunk.currentBounds.overlapAABB(newChunk.currentBounds)) {
+                            markForRemoval = true;
+                            stateMachine.addState(nearChunk.poolId, CHUNK_STATES.remove);
                         }
                     }
 
@@ -335,30 +301,28 @@ class ChunkManager {
                 this._viewOrigin.x - scale, this._viewOrigin.y - scale, this._viewOrigin.z - scale,
                 this._viewOrigin.x + scale, this._viewOrigin.y + scale, this._viewOrigin.z + scale);
             this._chunkTree.getItemsInBox(ChunkManager._viewDeltaBounds, this._rescaleChunks);
-            // console.log("old bounds", ChunkManager._viewDeltaBounds.toString(),
-            //     "view origin", this._viewOrigin.toString(),
-            //     "rescale chunks", this._rescaleChunks.size);
 
             ChunkManager._viewDeltaBounds.set(
                 this._newOrigin.x - scale, this._newOrigin.y - scale, this._newOrigin.z - scale,
                 this._newOrigin.x + scale, this._newOrigin.y + scale, this._newOrigin.z + scale);
             this._chunkTree.getItemsInBox(ChunkManager._viewDeltaBounds, this._rescaleChunks);
-            // console.log("new bounds", ChunkManager._viewDeltaBounds.toString(),
-            //     "new origin", this._newOrigin.toString(),
-            //     "rescale chunks", this._rescaleChunks.size);
 
             this._viewOrigin.copyFrom(this._newOrigin);
 
             // examine chunks that have changed scale
-            for (const chunk of this._rescaleChunks) {
+            const rescaleChunksIds = this._rescaleChunks.allIndex();
+            const usedCount = this._rescaleChunks.usedCount;
+            for (let i=0; i<usedCount; i++) {
+                const chunk = this._chunkPool.getItem(rescaleChunksIds[i]);
+                if (!chunk)
+                    continue;
                 const chunkDist = chunk.currentBounds.distanceTo(this._viewOrigin);
                 const targetSize = Math.max(this._targetChunkSizeForDistance(chunkDist), 3);
                 // round target size down to nearest power of 2
                 const targetScale = Math.pow(2, Math.floor(Math.log2(targetSize)));
 
-                //console.log("rescale, ",chunk.currentBounds.extent != targetScale,"chunk, ", chunk.toString(), " extent, ", chunk.currentBounds.extent, " target scale, ", targetScale);
                 if (chunk.currentBounds.extent != targetScale) {
-                    this._stateMachine.addState(chunk.id, CHUNK_STATES.rescale);
+                    this._stateMachine.addState(chunk.poolId, CHUNK_STATES.rescale);
                 }
             }
         }
@@ -388,59 +352,31 @@ class ChunkManager {
             const itemId = itemIds[i];
             const chunk = allItems[itemId];
 
-            if (systemSettings.logDetails)
-                console.log("rescale chunk", chunk.toStringWithID());
-
-            // console.log("rescale chunk", chunk.toString(), chunk.currentBounds.extent, targetScale);
             const chunkNeighbours = this._checkBordersWithNeighbours(chunk);
-            if (systemSettings.debugOnChunk(chunk)) debugger;
-            this._stateMachine.addState(chunk.id, CHUNK_STATES.remove);
-            // chunk.markForRemoval();
-            // this._dirtyChunks.add(chunk);
-            connectedBounds.copy(chunk.currentBounds);
-            if (systemSettings.isTargetChunk(chunk)) {
-                systemSettings.logDetails = true;
-                console.log(`origin update bounds ${connectedBounds.toDetailedString()}`);
-            }
+            this._stateMachine.addState(chunk.poolId, CHUNK_STATES.remove);
+             connectedBounds.copy(chunk.currentBounds);
+
             // there's an edge case where neighboring chunks might need to be created when a chunk is rescaled
             // so we expand the bounds by half a chunk if it's not already fully surrounded by chunks
             if (chunkNeighbours != BORDERS.fullySurrounded) {
                 const offset = chunk.currentBounds.extent;
                 if (!(chunkNeighbours & BORDERS.xMax)) {
                     connectedBounds.minX -= offset;
-                    if (systemSettings.logDetails) {
-                        console.log(`- X ${connectedBounds.toDetailedString()}`);
-                    }
                 }
                 if (!(chunkNeighbours & BORDERS.xMin)) {
                     connectedBounds.maxX += offset;
-                    if (systemSettings.logDetails) {
-                        console.log(`+ X ${connectedBounds.toDetailedString()}`);
-                    }
                 }
                 if (!(chunkNeighbours & BORDERS.yMax)) {
                     connectedBounds.minY -= offset;
-                    if (systemSettings.logDetails) {
-                        console.log(`- Y ${connectedBounds.toDetailedString()}`);
-                    }
                 }
                 if (!(chunkNeighbours & BORDERS.yMin)) {
                     connectedBounds.maxY += offset;
-                    if (systemSettings.logDetails) {
-                        console.log(`+ Y ${connectedBounds.toDetailedString()}`);
-                    }
                 }
                 if (!(chunkNeighbours & BORDERS.zMax)) {
                     connectedBounds.minZ -= offset;
-                    if (systemSettings.logDetails) {
-                        console.log(`- Z ${connectedBounds.toDetailedString()}`);
-                    }
                 }
                 if (!(chunkNeighbours & BORDERS.zMin)) {
                     connectedBounds.maxZ += offset;
-                    if (systemSettings.logDetails) {
-                        console.log(`+ Z ${connectedBounds.toDetailedString()}`);
-                    }
                 }
             }
 
@@ -464,8 +400,6 @@ class ChunkManager {
         for (i = 0; i < itemCount && updates > 0; i++) {
             const itemId = itemIds[i];
             const chunk = allItems[itemId];
-
-            if (systemSettings.debugOnChunk(chunk)) debugger;
             
             let emptyChunk = true;
             // check if we need to overlap with neighbours if they are at a different scale
@@ -473,19 +407,18 @@ class ChunkManager {
             // this is for updating the mesh when a field changes
             chunkFields.clear();
             this._fieldTree.getItemsInBox(chunk.currentBounds, chunkFields);
-            if (chunkFields.size != 0) {
-                emptyChunk = !chunk.updateMesh(this._unionFields);
+            if (chunkFields.usedCount != 0) {
+                emptyChunk = !chunk.updateMesh(this._chunkSdf);
                 updates--;
             }
 
-            stateMachine.removeState(chunk.id, CHUNK_STATES.updateMesh);
+            stateMachine.removeState(chunk.poolId, CHUNK_STATES.updateMesh);
             if (emptyChunk) {
                 systemSettings.debugCounters.emptyChunks++;
-                if (systemSettings.debugOnChunk(chunk)) debugger;
-                stateMachine.addState(chunk.id, CHUNK_STATES.remove);
+                stateMachine.addState(chunk.poolId, CHUNK_STATES.remove);
             }
             else {
-                stateMachine.addState(chunk.id, CHUNK_STATES.showMesh);
+                stateMachine.addState(chunk.poolId, CHUNK_STATES.showMesh);
             }
         }
 
@@ -504,8 +437,6 @@ class ChunkManager {
             for (let i = 0; i < itemCount; i++) {
                 const itemId = itemIds[i];
                 const chunk = allItems[itemId];
-
-                if (systemSettings.debugOnChunk(chunk)) debugger;
                 
                 chunk.swapMeshes(scene);
                 stateMachine.removeState(itemId, CHUNK_STATES.showMesh);
@@ -524,12 +455,10 @@ class ChunkManager {
                 const itemId = itemIds[i];
                 const chunk = allItems[itemId];
 
-                if (systemSettings.debugOnChunk(chunk)) debugger;
-
                 chunk.removeMeshes(scene);
 
                 chunkTree.remove(chunk);
-                stateMachine.releaseItem(itemId);
+                stateMachine.releaseId(itemId);
             }
         }
     }
@@ -542,18 +471,26 @@ class ChunkManager {
         this._chunkTree.getItemsInBox(chunkBounds, nearbyChunks);
         let neighbours = 0;
         const stateMachine = this._stateMachine;
-        for (const nearChunk of nearbyChunks) {
-            if (!stateMachine.isInState(nearChunk.id, CHUNK_STATES.remove)) {
+        const nearbyChunksIds = nearbyChunks.allIndex();
+        const usedCount = nearbyChunks.usedCount;
+        for (let i = 0; i < usedCount; i++) {
+            const nearChunk = this._chunkPool.getItem(nearbyChunksIds[i]);
+            if (!nearChunk)
+                continue;
+            if (!stateMachine.isInState(nearChunk.poolId, CHUNK_STATES.remove)) {
                 const originalSeams = nearChunk.getBorderSeams();
                 neighbours |= chunk.updateSharedBorders(nearChunk);
                 if (originalSeams != nearChunk.getBorderSeams()) {
-                    stateMachine.addState(nearChunk.id, CHUNK_STATES.updateMesh);
+                    stateMachine.addState(nearChunk.poolId, CHUNK_STATES.updateMesh);
                 }
             }
         }
         return neighbours;
     }
 
+    public getChunkPool() {
+        return this._chunkPool;
+    }
 }
 
 

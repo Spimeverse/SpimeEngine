@@ -60,7 +60,7 @@ class SdfBox extends SignedDistanceField {
     }
 
     sample(samplePoint: Vector3): number {
-        const point = super.transformPoint(samplePoint);
+        const point = super.updateTransformPoint(samplePoint);
         AbsVec3(point,q);
         SubVec3(q,this.halfWidth,this.halfHeight,this.halfDepth,q);
         MaxVec3(q,Vector3.Zero(),maxq);

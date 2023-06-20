@@ -14,7 +14,7 @@ import { MeshBuilder } from "@babylonjs/core/Meshes"
 import { FreeCameraKeyboardMoveInput } from "@babylonjs/core/Cameras/Inputs/freeCameraKeyboardMoveInput"
 
 import { debugLabels,debugPointSize,debugPoints } from "./Meshing";
-import { SdfTerrain, SdfSphere } from "./signedDistanceFields";
+import { MakeSdfTerrain, MakeSdfSphere } from "./signedDistanceFields";
 import { ChunkManager } from "./World"
 
 import { Animation } from "@babylonjs/core/Animations/animation";
@@ -132,13 +132,13 @@ class App {
         boxMaterial2.wireframe = true;
         box2.material = boxMaterial2;
 
-        const fieldBig = new SdfTerrain(5, 100);
+        const fieldBig = MakeSdfTerrain(5, 100);
         fieldBig.setPosition(5, 0, 5);
-        const fieldTorus = new SdfSphere(0.7);
+        const fieldTorus = MakeSdfSphere(0.7);
         fieldTorus.setPosition(0, 0, -10);
-        const field = new SdfSphere(1);
+        const field = MakeSdfSphere(1);
         //field.rotation = new Vector3(Math.PI / 4,0,0);
-        const fieldSphere = new SdfSphere(1);
+        const fieldSphere = MakeSdfSphere(1);
         fieldSphere.setPosition(0, -5, 0);
 
         //const field = new SdfSphere(2);

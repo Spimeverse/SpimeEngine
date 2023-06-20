@@ -1,5 +1,5 @@
 import { Vector3 } from "@babylonjs/core";
-import { Chunk,ChunkManager, SdfSphere } from ".."
+import { Chunk,ChunkManager,MakeSdfSphere, SparseSet } from ".."
 
 export function TestChunkManager() {
         
@@ -7,7 +7,7 @@ export function TestChunkManager() {
 
         it('adding an object creates a chunk', () => {
             const chunkManager = new ChunkManager();
-            const sphere = new SdfSphere(0.4);
+            const sphere = MakeSdfSphere(0.4);
             sphere.setPosition(0.5, 0.5, 0.5);
             chunkManager.addField(sphere);
             expect(ChunkState(chunkManager)).toBe(
@@ -16,7 +16,7 @@ export function TestChunkManager() {
 
         it('adding an object can create multiple chunks', () => {
             const chunkManager = new ChunkManager();
-            const sphere = new SdfSphere(1);
+            const sphere = MakeSdfSphere(1);
             sphere.setPosition(1, 1, 0);
             chunkManager.addField(sphere);
             expect(ChunkState(chunkManager)).toBe(
@@ -26,7 +26,7 @@ export function TestChunkManager() {
 
         it('adding an object creates a chunk at the right position', () => {
             const chunkManager = new ChunkManager();
-            const sphere = new SdfSphere(0.5);
+            const sphere = MakeSdfSphere(0.5);
             sphere.setPosition(9, 1, 1);
             chunkManager.addField(sphere);
             expect(ChunkState(chunkManager)).toBe(
@@ -35,7 +35,7 @@ export function TestChunkManager() {
 
         it('Creates larger chunks further away from origin', () => {
             const chunkManager = new ChunkManager();
-            const sphere = new SdfSphere(0.5);
+            const sphere = MakeSdfSphere(0.5);
             sphere.setPosition(66, 3, 3);
             chunkManager.addField(sphere);
             expect(ChunkState(chunkManager)).toBe(
@@ -48,10 +48,13 @@ export function TestChunkManager() {
 
 function ChunkState(chunkManager: ChunkManager) {
     let result = "";
-    const chunkSet = new Set<Chunk>();
-    chunkManager.getChunks(chunkSet);
-    // copy chunks to array
-    const chunkArray = Array.from(chunkSet);
+    const chunkpool = chunkManager.getChunkPool();
+    const chunkArray = new Array<Chunk>();
+    for (let i = 0; i < chunkpool.capacity; i++) {
+        var chunk = chunkpool.getItem(i);
+        if (chunk == null) continue;
+        chunkArray.push(chunk);
+    }
     // sort chunks by position
     chunkArray.sort((a, b) => {
         const aOrigin = new Vector3();

@@ -1,4 +1,4 @@
-import { SparseOctTree, SparseOctTreeNode, AxisAlignedBoxBound, SphereBound, IhasBounds } from ".."
+import { SparseOctTree, SparseOctTreeNode, SparseSet, AxisAlignedBoxBound, SphereBound, IhasBounds, IhasPoolId, ResourcePool } from ".."
 
 export function TestSparseOctTree() {
         
@@ -187,14 +187,42 @@ export function TestSparseOctTree() {
                 "\n......cow - [1 1 1 3 3 3]" +
                 "\n######[2 2 2 4 4 4] - 1" +
                 "\n......cow - [1 1 1 3 3 3]");
+            expect(NodeCount(tree.rootNode)).withContext('before').toBe(17);
             
-            tree.remove(obj2);
+            tree.remove(obj1);
             expect(TreeState(tree)).toBe(
                 "\n##[0 0 0 8 8 8] - 2" +
                 "\n####[0 0 0 4 4 4] - 2" +
                 "\n######[0 0 0 2 2 2] - 2" +
-                "\n......dog - [0 0 0 1 1 1]" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n......mouse - [0 0 0 1 1 1]" +
+                "\n######[0 2 0 2 4 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 0 0 4 2 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 2 0 4 4 2] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[0 0 2 2 2 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[0 2 2 2 4 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 0 2 4 2 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]" +
+                "\n######[2 2 2 4 4 4] - 1" +
+                "\n......cow - [1 1 1 3 3 3]");
+            expect(NodeCount(tree.rootNode)).withContext('before').toBe(17);
+
+            tree.remove(obj2);
+            expect(TreeState(tree)).toBe(
+                "\n##[0 0 0 8 8 8] - 1" +
+                "\n####[0 0 0 4 4 4] - 1" +
+                "\n######[0 0 0 2 2 2] - 1" +
                 "\n......mouse - [0 0 0 1 1 1]");
+            expect(NodeCount(tree.rootNode)).withContext('before').toBe(17);
+
+            tree.remove(obj3);
+            expect(TreeState(tree)).toBe("");
+            expect(NodeCount(tree.rootNode)).withContext('before').toBe(1);
         });
 
         it('can move items between nodes', () => {
@@ -323,7 +351,7 @@ export function TestSparseOctTree() {
                 "\n####[4 4 4 8 8 8] - 1" +
                 "\n....cow - [3 3 3 5 5 5]");
             
-            const items = new Set<TestObject>();
+            const items = new SparseSet(100);
             let searchBounds = new AxisAlignedBoxBound(0, 0, 0, 1, 1, 1);
             tree.getItemsInBox(searchBounds,items);
             expect(ItemList(searchBounds,items)).withContext("single node").toBe(
@@ -339,13 +367,18 @@ export function TestSparseOctTree() {
                 "\ncow - [3 3 3 5 5 5]");
         });
 
-
-
     });
 }
 
-class TestObject implements IhasBounds {
+let nextPoolId = 0;
+const testObjects:TestObject[] = [];
+
+class TestObject implements IhasBounds, IhasPoolId {
+    poolId = -1;
+
     constructor(public name: string, public currentBounds: SphereBound) {
+        this.poolId = nextPoolId++;
+        testObjects[this.poolId] = this;
     }
 
     toString() {
@@ -353,8 +386,16 @@ class TestObject implements IhasBounds {
     }
 }
 
-function ItemList(bounds: AxisAlignedBoxBound, itemsSet: Set<TestObject>) {
-    const items = Array.from(itemsSet);
+
+function ItemList(bounds: AxisAlignedBoxBound, itemsSet: SparseSet) {
+    const index= itemsSet.allIndex();
+    const used = itemsSet.usedCount;
+    const items:TestObject[] = [];
+    for (let i=0; i<used; i++) {
+        const item = testObjects[index[i]];
+        items.push(item);
+    }
+
     items.sort((a, b) => a.name.localeCompare(b.name));
     return "\n## " + bounds.toString() + "\n" + items.map(item => item.toString()).join('\n');
 }
@@ -363,7 +404,7 @@ function TreeState(tree: SparseOctTree<TestObject>): string {
     return NodeState(tree.rootNode,1);
 }
 
-function NodeState(node: SparseOctTreeNode<TestObject>,depth: number): string {
+function NodeState(node: SparseOctTreeNode<TestObject>, depth: number): string {
     if (node.children.length > 0 || node.items.length > 0 || node.totalItems > 0)
     {
         let s = '\n' + '##'.repeat(depth) + node.bounds.toString() + " - " + node.totalItems;
@@ -384,4 +425,13 @@ function NodeState(node: SparseOctTreeNode<TestObject>,depth: number): string {
         return s;
     }
     return "";
+}
+
+function NodeCount(node: SparseOctTreeNode<TestObject>): number {
+    let count = 1;
+    for (let i = 0; i < node.children.length; i++)
+    {
+        count += NodeCount(node.children[i]);
+    }
+    return count;
 }

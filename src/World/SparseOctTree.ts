@@ -1,17 +1,28 @@
 import { Vector3 } from "@babylonjs/core";
 import { SphereBound } from "..";
 import { AxisAlignedBoxBound, IhasBounds, Bounds } from "..";
+import { IhasPoolId, ResourcePool } from "../Collection/ResourcePool";
+import { SparseSet } from "../Collection/SparseSet";
 
-class SparseOctTree<TYPE extends IhasBounds> {
+class SparseOctTree<TYPE extends IhasBounds & IhasPoolId> {
 
     rootNode: SparseOctTreeNode<TYPE>;
-    uniqueResults: Set<TYPE>;
+    treePool: ResourcePool<SparseOctTreeNode<TYPE>>;
 
     constructor(
         bounds: AxisAlignedBoxBound,
         public maxItemsPerNode: number, public minNodeSize: number) {
-        this.rootNode = new SparseOctTreeNode<TYPE>(bounds,this);
-        this.uniqueResults = new Set<TYPE>();
+        this.rootNode = new SparseOctTreeNode<TYPE>(this);
+        this.rootNode.bounds.copy(bounds);
+
+        this.treePool = new ResourcePool<SparseOctTreeNode<TYPE>>(
+            () => {
+                return new SparseOctTreeNode<TYPE>(this);
+            },
+            (node) => {
+                node.reset();
+            }
+            , 1000);
     }
 
     public insert(item: TYPE) {
@@ -31,34 +42,50 @@ class SparseOctTree<TYPE extends IhasBounds> {
         return node.items.length >= this.maxItemsPerNode && node.bounds.extent > this.minNodeSize;
     }
 
-    public getItemsInBox(bounds: AxisAlignedBoxBound, results: Set<TYPE>): number {
+    public getItemsInBox(bounds: AxisAlignedBoxBound, results: SparseSet): number {
         this.rootNode.getItemsInBox(bounds, results);
-        return results.size;
+        return results.usedCount;
     }
 
-    public getItemsInSphere(bounds: SphereBound, results: Set<TYPE>): number {
+    public getItemsInSphere(bounds: SphereBound, results: SparseSet): number {
         this.rootNode.getItemsInSphere(bounds, results);
-        return results.size;
+        return results.usedCount;
     }
 
 }
 
 // sparse quad tree to find nearby objects
-class SparseOctTreeNode<TYPE extends IhasBounds> {
-
+class SparseOctTreeNode<TYPE extends IhasBounds & IhasPoolId> {
+    /**
+     * the pool id of this chunk
+     * @see ResourcePool
+     */
+    poolId = -1;
     bounds: AxisAlignedBoxBound;
     totalItems = 0;
 
     constructor(
-        private _bounds: AxisAlignedBoxBound,
         private _owner: SparseOctTree<TYPE>) {
-        this.bounds = _bounds.clone();
+        this.bounds = new AxisAlignedBoxBound();
         this.items = [];
         this.children = [];
     }
 
+    public reset() {
+        this.items.length = 0;
+        this._releaseChildNodes();
+        this.totalItems = 0;
+    }
+
     public items: TYPE[];
     public children: SparseOctTreeNode<TYPE>[];
+
+    private _releaseChildNodes() {
+        for (let i = 0; i < this.children.length; i++) {
+            this._owner.treePool.releaseId(this.children[i].poolId);
+        }
+        this.children.length = 0;
+    }
 
     public insert(newItem: TYPE,newBounds: Bounds) {
         if (this.bounds.overlapBounds(newBounds)) {
@@ -111,28 +138,37 @@ class SparseOctTreeNode<TYPE extends IhasBounds> {
 
     private _subdivide() {
         this.children.length = 8;
-        const frontLeftBottom = new SparseOctTreeNode<TYPE>(this.bounds.frontLeftBottom(), this._owner);
+        const pool = this._owner.treePool;
+        const frontLeftBottom = pool.newItem();
+        frontLeftBottom.bounds.copy(this.bounds.frontLeftBottom());
         this.children[0] = frontLeftBottom;
 
-        const frontLeftTop = new SparseOctTreeNode<TYPE>(this.bounds.frontLeftTop(), this._owner);
+        const frontLeftTop = pool.newItem();
+        frontLeftTop.bounds.copy(this.bounds.frontLeftTop());
         this.children[1] = frontLeftTop;
 
-        const frontRightBottom = new SparseOctTreeNode<TYPE>(this.bounds.frontRightBottom(), this._owner);
+        const frontRightBottom = pool.newItem();
+        frontRightBottom.bounds.copy(this.bounds.frontRightBottom());
         this.children[2] = frontRightBottom;
 
-        const frontRightTop = new SparseOctTreeNode<TYPE>(this.bounds.frontRightTop(), this._owner);
+        const frontRightTop = pool.newItem();
+        frontRightTop.bounds.copy(this.bounds.frontRightTop());
         this.children[3] = frontRightTop;
 
-        const backLeftBottom = new SparseOctTreeNode<TYPE>(this.bounds.backLeftBottom(), this._owner);
-        this.children[4] = backLeftBottom;
+        const backLeftBottom = pool.newItem();
+        backLeftBottom.bounds.copy(this.bounds.backLeftBottom());
+         this.children[4] = backLeftBottom;
 
-        const backLeftTop = new SparseOctTreeNode<TYPE>(this.bounds.backLeftTop(), this._owner);
+        const backLeftTop = pool.newItem();
+        backLeftTop.bounds.copy(this.bounds.backLeftTop());
         this.children[5] = backLeftTop;
 
-        const backRightBottom = new SparseOctTreeNode<TYPE>(this.bounds.backRightBottom(), this._owner);
+        const backRightBottom = pool.newItem();
+        backRightBottom.bounds.copy(this.bounds.backRightBottom());
         this.children[6] = backRightBottom;
 
-        const backRightTop = new SparseOctTreeNode<TYPE>(this.bounds.backRightTop(), this._owner);
+        const backRightTop = pool.newItem();
+        backRightTop.bounds.copy(this.bounds.backRightTop());
         this.children[7] = backRightTop;
 
     }
@@ -161,6 +197,9 @@ class SparseOctTreeNode<TYPE extends IhasBounds> {
                 }
                 if (removed) {
                     this.totalItems--;
+                    if (this.totalItems === 0) {
+                        this._releaseChildNodes();
+                    }
                     return true;
                 }
             }
@@ -185,34 +224,34 @@ class SparseOctTreeNode<TYPE extends IhasBounds> {
     }
 
 
-    public getItemsInBox(bounds: AxisAlignedBoxBound, results: Set<TYPE>): number {
+    public getItemsInBox(bounds: AxisAlignedBoxBound, results: SparseSet): number {
         if (bounds.overlapAABB(this.bounds)) {
             for (let i = 0; i < this.items.length; i++) {
                 const item = this.items[i];
                 if (bounds.overlapBounds(item.currentBounds)) {
-                    results.add(item);
+                    results.add(item.poolId);
                 }
             }
             for (let i = 0; i < this.children.length; i++) {
                 this.children[i].getItemsInBox(bounds,results);
             }
         }
-        return results.size;
+        return results.usedCount;
     }
 
-    getItemsInSphere(bounds: SphereBound, results: Set<TYPE>) {
+    getItemsInSphere(bounds: SphereBound, results: SparseSet) {
         if (this.bounds.overlapSphere(bounds)) {
             for (let i = 0; i < this.items.length; i++) {
                 const item = this.items[i];
                 if (bounds.overlaps(item.currentBounds)) {
-                    results.add(item);
+                    results.add(item.poolId);
                 }
             }
             for (let i = 0; i < this.children.length; i++) {
                 this.children[i].getItemsInSphere(bounds,results);
             }
         }
-        return results.size;
+        return results.usedCount;
     }
 }
 

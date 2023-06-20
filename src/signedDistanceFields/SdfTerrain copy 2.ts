@@ -105,7 +105,7 @@ class SdfTerrain extends SignedDistanceField {
     }
 
     sample(samplePoint: Vector3): number {
-        const point = super.transformPoint(samplePoint);
+        const point = super.updateTransformPoint(samplePoint);
         const bedrockDist = point.y - this._bedrockDepth;
         const hillScale = 50;
         const result = this.sdFbm(point,bedrockDist,hillScale);

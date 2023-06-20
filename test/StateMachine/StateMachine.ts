@@ -1,8 +1,9 @@
 import { StateMachineBuilder, StateMachine, StateHandler } from '..';
-import { ResourcePool } from '..';
+import { ResourcePool, IhasPoolId } from '..';
 
 
-class Creature {
+class Creature implements IhasPoolId{
+  public poolId = -1;
   public lifecycle: string;
   public age: number;
   public health: number;
@@ -28,7 +29,7 @@ export function TestStateMachine() {
     it('should keep track of partially populated lists of items', () => {
       let item = 1;
       let released = "";
-      const pool = new ResourcePool(() => { return { "data": item++ } }, (x) => { 
+      const pool = new ResourcePool(() => { return { "poolId": -1, "data": item++ } }, (x) => { 
         released += `release ${x.data} `;
        }, 2);
       const builder = new StateMachineBuilder(pool);
@@ -39,7 +40,7 @@ export function TestStateMachine() {
       const addB = builder.registerHandler(A)
         .onTick((stateMachine, allItems, itemIds, itemCount) => {
           for (let i = 0; i < itemCount; i++) {
-            const newEntityId = stateMachine.addItem();
+            const newEntityId = stateMachine.newId();
             stateMachine.addState(newEntityId, B);
           }
         });
@@ -48,7 +49,7 @@ export function TestStateMachine() {
         .onTick((stateMachine, allItems, itemIds, itemCount) => {
           for (let i = 0; i < itemCount; i++) {
             const entityId = itemIds[i];
-            stateMachine.releaseItem(entityId);
+            stateMachine.releaseId(entityId);
           }
         });
       
@@ -62,7 +63,7 @@ export function TestStateMachine() {
       const count = 5;
 
       for (let i = 0; i < count; i++) {
-        const entityId = stateMachine.addItem();
+        const entityId = stateMachine.newId();
         stateMachine.addState(entityId, A);
       }
 
@@ -176,19 +177,22 @@ export function TestStateMachine() {
           damageHandler,
           deadHandler);
         stateMachine = builder.create();
-        creatureId = stateMachine.addItem();
-        creature = pool.get(creatureId);
-        creature2Id = stateMachine.addItem();
-        creature2 = pool.get(creature2Id);
-        creature3Id = stateMachine.addItem();
-        creature3 = pool.get(creature3Id);
+
+        creature = stateMachine.newItem();
+        creatureId = creature.poolId;
+
+        creature2 = stateMachine.newItem();
+        creature2Id = creature2.poolId;
+
+        creature3 = stateMachine.newItem();
+        creature3Id = creature3.poolId;
       });
 
       it('should get items from the pool', () => {
         const foundItem = stateMachine.getItem(creatureId);
         expect(foundItem).toEqual(creature);
         expect(foundItem).not.toBeNull();
-        expect(foundItem).toEqual(pool.get(creatureId));
+        expect(foundItem).toEqual(pool.getItem(creatureId));
       });
 
       it('should move through states', () => {
@@ -245,7 +249,7 @@ export function TestStateMachine() {
         expect(creature?.age).toEqual(1);
         expect(creature?.health).toEqual(100);
 
-        stateMachine.releaseItem(creatureId);
+        stateMachine.releaseId(creatureId);
 
         // release is deferred so the item is still alive
         expect(creature?.lifecycle).toEqual("alive");
@@ -267,7 +271,7 @@ export function TestStateMachine() {
         expect(creature?.age).toEqual(0);
         expect(creature?.health).toEqual(100);
 
-        creatureId = stateMachine.addItem();
+        creatureId = stateMachine.newId();
         stateMachine.addState(creatureId, isAlive);
         stateMachine.tick();
 
@@ -302,13 +306,13 @@ export function TestStateMachine() {
       });
 
       it('should add and remove states from items', () => {
-        const itemId = stateMachine.addItem();
+        const itemId = stateMachine.newId();
         expect(stateMachine.addState(itemId, isAlive)).toBe(true);
         expect(stateMachine.removeState(itemId, isAlive)).toBe(true);
       });
 
       it('Should show if item is in a state', () => {
-        const itemId = stateMachine.addItem();
+        const itemId = stateMachine.newId();
         expect(stateMachine.addState(itemId, isAlive)).toBe(true);
         expect(stateMachine.isInState(itemId, isAlive)).toBe(true);
         expect(stateMachine.isInState(itemId, isDamaged)).toBe(false);
@@ -317,7 +321,7 @@ export function TestStateMachine() {
       });
       
       it('should not remove items twice', () => {
-        const itemId = stateMachine.addItem();
+        const itemId = stateMachine.newId();
         expect(stateMachine.addState(itemId, isAlive)).toBe(true);
         stateMachine.tick();        
         expect(aliveHandler.getItemCount()).toEqual(1);
@@ -396,8 +400,8 @@ export function TestStateMachine() {
         builder.registerPipeline(
           aliveHandler);
         stateMachine = builder.create();
-        creatureId = stateMachine.addItem();
-        creature = pool.get(creatureId);
+        creatureId = stateMachine.newId();
+        creature = pool.getItem(creatureId);
 
       });
 
@@ -440,7 +444,7 @@ export function TestStateMachine() {
         // Add 10 items to the state machine
         const creatureIds: number[] = [];
         for (let i = 0; i < 10; i++) {
-          creatureIds.push(stateMachine.addItem());
+          creatureIds.push(stateMachine.newId());
         }
 
         // Add alive state to all 10 items
@@ -453,7 +457,7 @@ export function TestStateMachine() {
 
         // Verify if all items are in the alive state
         for (const id of creatureIds) {
-          const creature = pool.get(id);
+          const creature = pool.getItem(id);
           expect(creature?.lifecycle).toEqual("born,alive");
           expect(creature?.age).toEqual(1);
           expect(creature?.health).toEqual(100);

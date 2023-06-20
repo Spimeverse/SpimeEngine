@@ -1,6 +1,6 @@
 
 
-import { MakeSdfSphere,MakeSdfBox,MakeSdfTorus,MakeSdfCylinder } from ".."
+import { MakeSdfSphere,MakeSdfBox,MakeSdfCylinder,MakeSdfUnion } from ".."
 import { SampleFieldXy, SampleFieldXz, GreyScale, NumScale, Trim } from "./SdfHelper"
 import { Matrix, Vector3 } from "@babylonjs/core"
 
@@ -113,4 +113,43 @@ export function TestSdfTransforms() {
         })
     })
 
+    it("should return a union of two SDFs", () => {
+        const field1 = MakeSdfSphere(1.0);
+        field1.setPosition(-1,0,0);
+        const field2 = MakeSdfSphere(1.0);
+        field2.setPosition(1,0,0);
+        const union = MakeSdfUnion(field1, field2);
+    
+        const point1 = new Vector3(-1, 1, 0);
+        const point2 = new Vector3(1, 1, 0);
+        const point3 = new Vector3(0, 1, 0);
+        const dist1 = union.sample(point1);
+        const dist2 = union.sample(point2);
+        const dist3 = union.sample(point3);
+    
+        expect(dist1).toBeCloseTo(0, 3);
+        expect(dist2).toBeCloseTo(0, 3);
+        expect(dist3).toBeCloseTo(0.414, 3);
+      });
+    
+      it("should return a union of three SDFs", () => {
+        const field1 = MakeSdfSphere(1.0);
+        field1.setPosition(-1,0,0);
+        const field2 = MakeSdfSphere(1.0);
+        field2.setPosition(1,0,0);
+        const field3 = MakeSdfSphere(1.0);
+        field2.setPosition(0,0,0);
+        const union = MakeSdfUnion(field1, field2, field3);
+    
+        const point1 = new Vector3(-1, 1, 0);
+        const point2 = new Vector3(1, 1, 0);
+        const point3 = new Vector3(0, 1, 0);
+        const dist1 = union.sample(point1);
+        const dist2 = union.sample(point2);
+        const dist3 = union.sample(point3);
+    
+        expect(dist1).toBeCloseTo(0, 3);
+        expect(dist2).toBeCloseTo(0, 3);
+        expect(dist3).toBeCloseTo(0, 3);
+      });
 }

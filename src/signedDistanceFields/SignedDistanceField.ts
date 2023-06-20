@@ -3,10 +3,10 @@
 import { Vector3, Matrix,Quaternion } from "@babylonjs/core/Maths";
 import { IhasBounds, SphereBound } from "../World";
 import { ResourcePool, IhasPoolId } from "../Collection/ResourcePool";
+import { SparseSet } from "..";
 
 // see https://www.iquilezles.org/www/articles/distfunctions/distfunctions.htm
 
-const transformedPoint: Vector3 = new Vector3();
 const NO_SCALING: Vector3 = Vector3.One();
 
 
@@ -22,6 +22,7 @@ class SignedDistanceField implements IhasBounds , IhasPoolId {
     protected boundingRadius: number;
     sdfSampler: number;
     protected sdfParams: Float32Array = new Float32Array(10);
+    private _transformedPoint: Vector3 = new Vector3();
     
     public constructor() {
         this.currentBounds = new SphereBound(0, 0, 0, 0);
@@ -69,7 +70,7 @@ class SignedDistanceField implements IhasBounds , IhasPoolId {
         this._calcMatrix = true;
     }
 
-    transformPoint(point: Vector3): Vector3 {
+    updateTransformPoint(point: Vector3){
         if (this._calcMatrix)
         {
             this._calcMatrix = false;
@@ -77,14 +78,13 @@ class SignedDistanceField implements IhasBounds , IhasPoolId {
             Matrix.ComposeToRef(NO_SCALING,rotationQtr,this._position,this._matrix)
             this._matrix.invert();
         }
-        transformedPoint.copyFrom(point);
-        Vector3.TransformCoordinatesToRef(point,this._matrix,transformedPoint);
-        return transformedPoint;
+        this._transformedPoint.copyFrom(point);
+        Vector3.TransformCoordinatesToRef(point,this._matrix,this._transformedPoint);
     }
 
     sample(point: Vector3) {
-        this.transformPoint(point);
-        return sdfSampleFunctions[this.sdfSampler](transformedPoint, this.sdfParams);
+        this.updateTransformPoint(point);
+        return sdfSampleFunctions[this.sdfSampler](this._transformedPoint, this.sdfParams);
     }
 
     updateBounds(): void {
@@ -102,6 +102,27 @@ class SignedDistanceField implements IhasBounds , IhasPoolId {
     }
 }
 
+class SdfUnionFromSparseSet extends SignedDistanceField {
+
+    constructor(protected sparseSet: SparseSet) {
+        super();
+    }
+
+    sample(point: Vector3) {
+        let minDistance = Infinity;
+        const sdfIds = this.sparseSet.allIndex();
+        const usedCount = this.sparseSet.usedCount;
+        for (let i = 0; i < usedCount; i++) {
+            const sdf = sdfPool.getItem(sdfIds[i]);
+            if (sdf != null) {
+                const distance = sdf.sample(point);
+                if (distance < minDistance)
+                    minDistance = distance;
+            }
+        }
+        return minDistance;
+    }
+}
 
 // pool of SDFs
 const sdfPool = new ResourcePool<SignedDistanceField>(
@@ -133,10 +154,13 @@ function MakeSdfEmpty(): SignedDistanceField {
 
 const EMPTY_FIELD = MakeSdfEmpty();
 
+const NUM_UNION_FIELDS_PARAM = 0;
+
 // register the union sdf sample function
 const UnionSampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Float32Array) => {
     let minDistance = Infinity;
-    for (let i = 0; sdfParams[i]>=0 ; i++) {
+    let numFields = sdfParams[NUM_UNION_FIELDS_PARAM];
+    for (let i = 1; i<=numFields; i++) {
         const sdf = sdfPool.getItem(sdfParams[i]);
         if (sdf != null)
         {
@@ -149,13 +173,14 @@ const UnionSampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Float
 });
 
 // get a union sdf
-function MakeSdfUnion(fields: Iterable<SignedDistanceField>): SignedDistanceField {
+function MakeSdfUnion(...fields: SignedDistanceField[]): SignedDistanceField {
     const sdf = sdfPool.newItem();
     const params = sdf.Setup(UnionSampler, 0);
-    let i = 0;
+    if (fields.length > params.length-2)
+        throw new Error("Too many sdf fields for single union sdf");
+    params[NUM_UNION_FIELDS_PARAM] = fields.length;
+    let i = 1;
     for (const field of fields) {
-        if (i >= params.length)
-            throw new Error("Too many sdf fields for single union sdf");
         params[i++] = field.poolId;
     }
     return sdf;
@@ -164,6 +189,7 @@ function MakeSdfUnion(fields: Iterable<SignedDistanceField>): SignedDistanceFiel
 
 export { 
     SignedDistanceField, 
+    SdfUnionFromSparseSet,
     sdfPool,
     RegisterSdfSampleFunction,
     MakeSdfEmpty, 
