@@ -139,7 +139,7 @@ class ChunkManager {
             const field = sdfPool.getItem(changedFieldIds[i]);
             field?.commitUpdate();
         }
-        for (let i=0; i<changedFieldIds.length; i++) {
+        for (let i=0; i<usedCount; i++) {
             const field = sdfPool.getItem(changedFieldIds[i]);
             if (!field) continue;
             // mark any existing chunks within the fields current bounds as dirty
