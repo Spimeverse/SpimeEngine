@@ -91,6 +91,7 @@ function sdFbm(point: Vector3, distToPreviousLayer: number, hillScale: number): 
     let scale = hillScale;
     
     octiveSample.copyFrom(point);
+    // TODO adjust octives based on distance from view origin
     for (let i = 0; i <= 5; i++) {
         // evaluate new octave
         // distance to next layer
@@ -119,8 +120,7 @@ const RADIUS_PARAM = 1;
 
 // register the sdf sample function
 const TerrainSampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Float32Array) => {
-    const bedrockDepth = sdfParams[BEDROCK_DEPTH_PARAM];
-    const radius = sdfParams[RADIUS_PARAM];
+    const bedrockDepth = point.y - sdfParams[BEDROCK_DEPTH_PARAM];
     const hillScale = 50;
     const result = sdFbm(point, bedrockDepth, hillScale);
     return result;
@@ -130,7 +130,6 @@ function MakeSdfTerrain(bedrockDepth: number, radius: number) {
     const sdf = sdfPool.newItem();
     const params = sdf.Setup(TerrainSampler, radius);
     params[BEDROCK_DEPTH_PARAM] = bedrockDepth;
-    params[RADIUS_PARAM] = radius;
     return sdf;
 }
 
