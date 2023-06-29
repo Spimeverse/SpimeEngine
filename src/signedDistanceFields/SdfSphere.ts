@@ -10,15 +10,15 @@ import { SignedDistanceField, RegisterSdfSampleFunction, sdfPool } from "./Signe
 const RADIUS_PARAM = 0;
 
 // register the sdf sample function
-const SphereSampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Float32Array) => {
-    const radius = sdfParams[RADIUS_PARAM];
+const SphereSampler = RegisterSdfSampleFunction((sdf:SignedDistanceField, point: Vector3) => {
+    const radius = sdf.getParam(RADIUS_PARAM);
     return point.length() - radius;
 });
 
 function MakeSdfSphere(radius: number): SignedDistanceField {
     const sdf =  sdfPool.newItem();
     const params = sdf.Setup(SphereSampler,radius);
-    params[RADIUS_PARAM] = radius;
+    sdf.setParam(RADIUS_PARAM, radius);
     return sdf;
 }
 

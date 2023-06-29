@@ -6,15 +6,15 @@ import { SignedDistanceField,RegisterSdfSampleFunction,sdfPool } from "..";
 const DEPTH_PARAM = 0;
 
 // register the sdf sample function
-const FloorSampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Float32Array) => {
-    const depth = sdfParams[DEPTH_PARAM];
+const FloorSampler = RegisterSdfSampleFunction((sdf:SignedDistanceField,point: Vector3) => {
+    const depth = sdf.getParam(DEPTH_PARAM);
     return point.y - depth;
 });
 
 function MakeSdfFloor(depth: number): SignedDistanceField {
     const sdf =  sdfPool.newItem();
     const params = sdf.Setup(FloorSampler,depth);
-    params[DEPTH_PARAM] = depth;
+    sdf.setParam(DEPTH_PARAM, depth);
     return sdf;
 }
 

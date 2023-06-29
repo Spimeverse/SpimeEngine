@@ -9,6 +9,26 @@ import { SparseSet } from "..";
 
 const NO_SCALING: Vector3 = Vector3.One();
 
+const SDF_PARAMS_COUNT = 10;
+const MAX_SDF_COUNT = 1000;
+
+let bufferIndex = 0;
+const SDF_BUFFER_OFFSETS = {
+    POS_OFFSET_X: bufferIndex++,
+    POS_OFFSET_Y: bufferIndex++,
+    POS_OFFSET_Z: bufferIndex++,
+    ROT_OFFSET_X: bufferIndex++,
+    ROT_OFFSET_Y: bufferIndex++,
+    ROT_OFFSET_Z: bufferIndex++,
+    BOUNDING_RADIUS: bufferIndex++,
+    SAMPLER: bufferIndex++,
+    PARAMS: bufferIndex++,
+}
+
+const SDF_BUFFER_ITEM_SIZE = SDF_BUFFER_OFFSETS.PARAMS + SDF_PARAMS_COUNT;
+
+const sdfSharedBuffer = new SharedArrayBuffer(SDF_BUFFER_ITEM_SIZE * MAX_SDF_COUNT * 4);
+const sdfFloatBuffer = new Float32Array(sdfSharedBuffer);
 
 class SignedDistanceField implements IhasBounds , IhasPoolId {
     poolId = -1;
@@ -21,8 +41,8 @@ class SignedDistanceField implements IhasBounds , IhasPoolId {
     newBounds: SphereBound;
     protected boundingRadius: number;
     sdfSampler: number;
-    protected sdfParams: Float32Array = new Float32Array(10);
     private _transformedPoint: Vector3 = new Vector3();
+    private _bufferOffset = 0;
     
     public constructor() {
         this.currentBounds = new SphereBound(0, 0, 0, 0);
@@ -31,10 +51,31 @@ class SignedDistanceField implements IhasBounds , IhasPoolId {
         this.sdfSampler = EmptySampler;
     }
 
-    Setup(sampleID: number, boundingRadius: number) {
+    Setup(sampleID: number, boundingRadius: number, bufferIndex: number= -1) {
         this.sdfSampler = sampleID;
         this.boundingRadius = boundingRadius;
-        return this.sdfParams;
+        if (bufferIndex === -1) {
+            bufferIndex = this.poolId;
+        }
+        this._bufferOffset = bufferIndex * SDF_BUFFER_ITEM_SIZE;
+        this.setBaseParam(SDF_BUFFER_OFFSETS.SAMPLER, sampleID);
+        this.setBaseParam(SDF_BUFFER_OFFSETS.BOUNDING_RADIUS, boundingRadius);
+    }
+
+    setBaseParam(index: number, value: number) {
+        sdfFloatBuffer[this._bufferOffset + index] = value;
+    }
+
+    getBaseParam(index: number): number {
+        return sdfFloatBuffer[this._bufferOffset + index];
+    }
+
+    setParam(index: number, value: number) {
+        sdfFloatBuffer[this._bufferOffset + SDF_BUFFER_OFFSETS.PARAMS + index] = value;
+    }
+
+    getParam(index: number): number {   
+        return sdfFloatBuffer[this._bufferOffset + SDF_BUFFER_OFFSETS.PARAMS + index];
     }
 
     Reset() {
@@ -84,7 +125,7 @@ class SignedDistanceField implements IhasBounds , IhasPoolId {
 
     sample(point: Vector3) {
         this.updateTransformPoint(point);
-        return sdfSampleFunctions[this.sdfSampler](this._transformedPoint, this.sdfParams);
+        return sdfSampleFunctions[this.sdfSampler](this,this._transformedPoint);
     }
 
     updateBounds(): void {
@@ -130,7 +171,7 @@ const sdfPool = new ResourcePool<SignedDistanceField>(
     (sdf) => sdf.Reset(),1000);
 
 // store the sdf sample functions in an array so we can reference them by index
-type SdfSampleFunction = (point: Vector3, params: Float32Array) => number;
+type SdfSampleFunction = (sdf:SignedDistanceField, point: Vector3) => number;
 const sdfSampleFunctions: SdfSampleFunction[] = [];
 
 // register a new sdf sample function and return its index
@@ -141,7 +182,7 @@ function RegisterSdfSampleFunction(func: SdfSampleFunction) {
 
 
 // register the empty sdf sample function
-const EmptySampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Float32Array) => {
+const EmptySampler = RegisterSdfSampleFunction((sdf:SignedDistanceField, point: Vector3) => {
     return Infinity;
 });
 
@@ -157,14 +198,15 @@ const EMPTY_FIELD = MakeSdfEmpty();
 const NUM_UNION_FIELDS_PARAM = 0;
 
 // register the union sdf sample function
-const UnionSampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Float32Array) => {
+const UnionSampler = RegisterSdfSampleFunction((sdf: SignedDistanceField, point: Vector3) => {
+    debugger;
     let minDistance = Infinity;
-    let numFields = sdfParams[NUM_UNION_FIELDS_PARAM];
+    let numFields = sdf.getParam(NUM_UNION_FIELDS_PARAM);
     for (let i = 1; i<=numFields; i++) {
-        const sdf = sdfPool.getItem(sdfParams[i]);
-        if (sdf != null)
+        const childSdf = sdfPool.getItem(sdf.getParam(NUM_UNION_FIELDS_PARAM+i));
+        if (childSdf != null)
         {
-        const distance = sdf.sample(point);
+        const distance = childSdf.sample(point);
         if (distance < minDistance)
             minDistance = distance;
         }
@@ -174,14 +216,15 @@ const UnionSampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Float
 
 // get a union sdf
 function MakeSdfUnion(...fields: SignedDistanceField[]): SignedDistanceField {
+    debugger;
     const sdf = sdfPool.newItem();
     const params = sdf.Setup(UnionSampler, 0);
-    if (fields.length > params.length-2)
+    if (fields.length > SDF_PARAMS_COUNT)
         throw new Error("Too many sdf fields for single union sdf");
-    params[NUM_UNION_FIELDS_PARAM] = fields.length;
-    let i = 1;
-    for (const field of fields) {
-        params[i++] = field.poolId;
+    sdf.setParam(NUM_UNION_FIELDS_PARAM, fields.length);
+    for (let i = 1; i <= fields.length; i++) {
+        const field = fields[i-1];
+        sdf.setParam(NUM_UNION_FIELDS_PARAM+i, field.poolId);
     }
     return sdf;
 }
@@ -194,4 +237,6 @@ export {
     RegisterSdfSampleFunction,
     MakeSdfEmpty, 
     MakeSdfUnion,
-    EMPTY_FIELD };
+    EMPTY_FIELD,
+    sdfSharedBuffer,
+    sdfFloatBuffer };

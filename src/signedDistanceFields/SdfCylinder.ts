@@ -19,9 +19,9 @@ const HALF_HEIGHT_PARAM = 0;
 const RADIUS_PARAM = 1;
 
 // register the sdf sample function
-const CylinderSampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Float32Array) => {
-    const halfHeight = sdfParams[HALF_HEIGHT_PARAM];
-    const radius = sdfParams[RADIUS_PARAM];
+const CylinderSampler = RegisterSdfSampleFunction((sdf:SignedDistanceField,point: Vector3) => {
+    const halfHeight = sdf.getParam(HALF_HEIGHT_PARAM);
+    const radius = sdf.getParam(RADIUS_PARAM);
     pxz.set(point.x,point.z);
     pxzy.set(pxz.length(),point.y);
     AbsVec2(pxzy,d);
@@ -35,8 +35,8 @@ function MakeSdfCylinder(height: number, radius: number): SignedDistanceField {
     const halfHeight = height / 2;
     const boundingRadius = Math.sqrt((halfHeight * halfHeight) + (radius * radius));
     const params = sdf.Setup(CylinderSampler,boundingRadius);
-    params[HALF_HEIGHT_PARAM] = halfHeight;
-    params[RADIUS_PARAM] = radius;
+    sdf.setParam(HALF_HEIGHT_PARAM, halfHeight);
+    sdf.setParam(RADIUS_PARAM, radius);
     return sdf;
 }
 

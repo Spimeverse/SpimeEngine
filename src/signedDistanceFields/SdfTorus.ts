@@ -16,9 +16,9 @@ const RING_RADIUS_PARAM = 0;
 const THICKNESS_PARAM = 1;
 
 // register the sdf sample function
-const TorusSampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Float32Array) => {
-    const ringRadius = sdfParams[RING_RADIUS_PARAM];
-    const thickness = sdfParams[THICKNESS_PARAM];
+const TorusSampler = RegisterSdfSampleFunction((sdf:SignedDistanceField, point: Vector3) => {
+    const ringRadius = sdf.getParam(RING_RADIUS_PARAM);
+    const thickness = sdf.getParam(THICKNESS_PARAM);
     pxz.set(point.x,point.z);
     q.set(pxz.length() - ringRadius,point.y);
     return q.length() - thickness;
@@ -27,9 +27,9 @@ const TorusSampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Float
 function MakeSdfTorus(ringRadius: number, thickness: number): SignedDistanceField {
     const sdf =  sdfPool.newItem();
     const boundingRadius = ringRadius + thickness;
-    const params = sdf.Setup(TorusSampler,boundingRadius);
-    params[RING_RADIUS_PARAM] = ringRadius;
-    params[THICKNESS_PARAM] = thickness;
+    const params = sdf.Setup(TorusSampler,boundingRadius,sdf.poolId);
+    sdf.setParam(RING_RADIUS_PARAM, ringRadius);
+    sdf.setParam(THICKNESS_PARAM, thickness);
     return sdf;
 }
 

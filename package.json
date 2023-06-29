@@ -5,11 +5,9 @@
   "main": "index.js",
   "scripts": {
     "build": "esbuild src/app.ts --external:@babylonjs --tree-shaking=true --minify --target=esnext --format=esm --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
-    "prof": "esbuild src/app.ts --servedir=public --serve=8000 --tree-shaking=true --target=esnext --format=iife --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
-    "dev": "esbuild src/app.ts --servedir=public --serve=8000 --target=esnext --sourcemap --format=esm --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
-    "dev_raw": "esbuild src/app.ts --servedir=public --serve=8000 --target=esnext --format=esm --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
-    "test": "esbuild test/tests.ts --servedir=testRunner --serve=8001 --target=esnext --sourcemap --format=iife --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=testRunner/spec/tests.mjs",
-    "mjs": "esbuild test/tests.ts --target=esnext --sourcemap --tree-shaking=false --format=esm --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/spimescape.mjs",
+    "dev": "node devProxy.mjs src/app.ts --servedir=public --serve=8000 --target=esnext --sourcemap --format=esm --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
+    "dev_raw": "node devProxy.mjs src/app.ts --servedir=public --serve=8000 --target=esnext --format=esm --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=public/index.js",
+    "test": "node devProxy.mjs test/tests.ts --servedir=testRunner --serve=8001 --target=esnext --sourcemap --format=iife --bundle --loader:.png=dataurl --loader:.jpg=dataurl --outfile=testRunner/spec/tests.mjs",
     "extern": "node extern.js"
   },
   "keywords": [
@@ -30,13 +28,13 @@
     "@babylonjs/loaders": "^5.22.0",
     "@babylonjs/materials": "^5.22.0",
     "@babylonjs/serializers": "^5.22.0",
-    "babylonjs-gltf2interface": "^5.22.0",
     "@types/jasmine": "^4.3.0",
     "@types/react": "^16.7.3",
-    "@types/react-dom":"^16.0.9",
+    "@types/react-dom": "^16.0.9",
     "@typescript-eslint/eslint-plugin": "^5.8.1",
     "@typescript-eslint/parser": "^5.37.0",
-    "esbuild": "^0.15.7",
+    "babylonjs-gltf2interface": "^5.22.0",
+    "esbuild": "^0.18.8",
     "esbuild-plugin-resolve": "^1.0.3",
     "eslint": "^8.23.1",
     "typescript": "^4.8.3"

@@ -119,8 +119,8 @@ const BEDROCK_DEPTH_PARAM = 0;
 const RADIUS_PARAM = 1;
 
 // register the sdf sample function
-const TerrainSampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Float32Array) => {
-    const bedrockDepth = point.y - sdfParams[BEDROCK_DEPTH_PARAM];
+const TerrainSampler = RegisterSdfSampleFunction((sdf:SignedDistanceField,point: Vector3) => {
+    const bedrockDepth = point.y - sdf.getParam(BEDROCK_DEPTH_PARAM); 
     const hillScale = 50;
     const result = sdFbm(point, bedrockDepth, hillScale);
     return result;
@@ -129,7 +129,7 @@ const TerrainSampler = RegisterSdfSampleFunction((point: Vector3, sdfParams: Flo
 function MakeSdfTerrain(bedrockDepth: number, radius: number) {
     const sdf = sdfPool.newItem();
     const params = sdf.Setup(TerrainSampler, radius);
-    params[BEDROCK_DEPTH_PARAM] = bedrockDepth;
+    sdf.setParam(BEDROCK_DEPTH_PARAM, bedrockDepth);
     return sdf;
 }
 
