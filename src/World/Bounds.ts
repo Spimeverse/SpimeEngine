@@ -68,8 +68,7 @@ abstract class Bounds {
 
 class SphereBound extends Bounds {
 
-    // TODO this isn't right, it should be radius *2 , fix it
-    // it appears we assume it's the radius somewhere
+    // TODO this isn't right, it should be radius *2 , fix it but it appears we assume it's the radius somewhere
     get extent(): number {
         return this.radius;
     }

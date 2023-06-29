@@ -56,6 +56,7 @@ class SystemSettings {
         chunksSkipped: 0,
         dirtyChunks: 0,
         emptyChunks: 0,
+        updatedChunks: 0,
         chunkTimer: 0,
     }
 

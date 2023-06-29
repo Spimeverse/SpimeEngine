@@ -195,6 +195,22 @@ class StateMachine<T extends IhasPoolId> {
     this._deferredStateHandler = newDeferredStateHandler;
   }
 
+  /// <summary>
+  /// Sets the state of an item to the given state exclusively.
+  /// </summary>
+  public setState(itemId: number, newState: number): void {
+    for (let i=0; i< this._registeredStates.length; i++) {
+      if (i === newState) {
+        this.addState(itemId, newState);
+      } else {
+        this.removeState(itemId, i);
+      }
+    }
+  }
+
+  /// <summary>
+  /// Adds the state to an item in addition to any other states it already has.
+  /// </summary>
   public addState(itemId: number, newState: number) {
     const currentStates = this._itemStates[itemId];
     const registeredState = this._registeredStates[newState];
@@ -268,7 +284,7 @@ class StateMachine<T extends IhasPoolId> {
   }
 
   public logQueueLengths(): void {
-    let log = `def state: ${this._deferredStateCount} def rel: ${this._deferredReleaseCount} items: ${this._pool.count}`;
+    let log = '';
     
     for (const handler of this._handlers) {
       log += handler.logQueueLengths();

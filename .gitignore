@@ -1,2 +1,5 @@
 node_modules
 public
+
+# the tests under testRunner are the built tests
+/testRunner/spec/tests.*

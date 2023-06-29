@@ -6,6 +6,7 @@ import "@babylonjs/inspector";
 import { Engine } from "@babylonjs/core/Engines/engine"
 import { Scene } from "@babylonjs/core"
 import { UniversalCamera } from "@babylonjs/core";
+import { WebXRCamera } from "@babylonjs/core";
 import { Vector3,Color3 } from "@babylonjs/core/Maths"
 import { HemisphericLight } from "@babylonjs/core/Lights"
 import { GroundBuilder } from "@babylonjs/core/Meshes/Builders"
@@ -97,9 +98,13 @@ class App {
     
         ground.material = groundMaterial;
 
-        await scene.createDefaultXRExperienceAsync({
+        const xrHelper = await scene.createDefaultXRExperienceAsync({
             floorMeshes: [ground]
         });
+
+        xrHelper.baseExperience.onInitialXRPoseSetObservable.add((xrCamera, xrPose) => {
+            xrCamera.position.y = 14;
+            });
 
         const marker = MeshBuilder.CreateSphere("marker", { diameter: 0.1 }, scene);
         marker.position.x = 0;
@@ -132,7 +137,7 @@ class App {
         boxMaterial2.wireframe = true;
         box2.material = boxMaterial2;
 
-        const fieldBig = MakeSdfTerrain(5, 100);
+        const fieldBig = MakeSdfTerrain(5, 50);
         fieldBig.setPosition(5, 0, 5);
         const fieldTorus = MakeSdfSphere(0.7);
         fieldTorus.setPosition(0, 0, -10);
