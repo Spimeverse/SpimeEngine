@@ -13,7 +13,7 @@ class StateHandler<T> {
   private _itemsExitedCount: number;
   private _onEntryHandler: StateCallback<T> | null = null;
   private _onExitHandler: StateCallback<T> | null = null;
-  private _onTick: StateCallback<T> | null = null;
+  private _onUpdate: StateCallback<T> | null = null;
   private _blockSize = 1000;
   private _name = 'UNNAMED';
 
@@ -49,7 +49,7 @@ class StateHandler<T> {
   }
 
   addItem(itemId: number): void {
-    if (this._onTick !== null) {
+    if (this._onUpdate !== null) {
       // Resize the arrays if needed
       if (this._itemsCount >= this._items.length) {
         const newSize = this._items.length + this._blockSize;
@@ -106,8 +106,8 @@ class StateHandler<T> {
     }
   }
 
-  onTick(callback: StateCallback<T>) {
-    this._onTick = callback;
+  onUpdate(callback: StateCallback<T>) {
+    this._onUpdate = callback;
     return this;
   }
 
@@ -121,14 +121,14 @@ class StateHandler<T> {
     return this;
   }
 
-  tick(stateMachine: StateMachine<T>, allItems: Array<T>): void {
+  update(stateMachine: StateMachine<T>, allItems: Array<T>): void {
     if (this._onEntryHandler !== null) {
       this._onEntryHandler(stateMachine, allItems, this._itemsEntered, this._itemsEnteredCount);
       this._itemsEnteredCount = 0;
     }
 
-    if (this._onTick !== null) {
-      this._onTick(stateMachine, allItems, this._items, this._itemsCount);
+    if (this._onUpdate !== null) {
+      this._onUpdate(stateMachine, allItems, this._items, this._itemsCount);
     }
 
     if (this._onExitHandler !== null) {

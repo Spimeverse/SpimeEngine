@@ -87,15 +87,15 @@ class ChunkManager {
         
         const updateMeshHandler = stateBuilder.registerHandler(CHUNK_STATES.updateMesh)
             .setName("update mesh")
-            .onTick(this._onUpdateMeshes.bind(this));
+            .onUpdate(this._onUpdateMeshes.bind(this));
         
         const showMeshHandler = stateBuilder.registerHandler(CHUNK_STATES.showMesh)
             .setName("show mesh")
-            .onTick(this._onShowMesh.bind(this));
+            .onUpdate(this._onShowMesh.bind(this));
         
         const removeChunkHandler = stateBuilder.registerHandler(CHUNK_STATES.remove)
             .setName("remove chunk")
-            .onTick(this._onRemoveChunks.bind(this));
+            .onUpdate(this._onRemoveChunks.bind(this));
         
         stateBuilder.registerPipeline(
             //newChunkHandler,
@@ -344,7 +344,7 @@ class ChunkManager {
             this._stateMachine.logQueueLengths();
             logTime -= 100;
         }
-        this._stateMachine.tick();
+        this._stateMachine.update();
     }
 
     private _onRescaleChunks(stateMachine: StateMachine<Chunk>, allItems: Array<Chunk>, itemIds: Uint32Array, itemCount: number) {

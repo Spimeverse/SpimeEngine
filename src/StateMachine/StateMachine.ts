@@ -295,15 +295,15 @@ class StateMachine<T extends IhasPoolId> {
     }
   }
 
-  public tick(): void {
-    // release any items that have been removed from all handlers in the previous tick
+  public update(): void {
+    // release any items that have been removed from all handlers in the previous update
     this._processDeferredRelease();
 
     // Process deferred state changes.
     this._updateHandlerItems();
     const allItems = this._pool.contents();
     for (const handler of this._pipeline) {
-      handler.tick(this, allItems);
+      handler.update(this, allItems);
       // Process deferred state changes from the handler.
       this._updateHandlerItems();
     }
@@ -340,7 +340,7 @@ class StateMachine<T extends IhasPoolId> {
           for (let i = 0; i < this._handlers.length; i++) {
             this._handlers[i].removeItems(itemId);
           }
-          // queue the item for release to give exit handlers a chance to run in the next tick
+          // queue the item for release to give exit handlers a chance to run in the next update
           if (this._deferredReleaseCount >= this._deferredReleaseItemIds.length) {
             const newSize = this._deferredReleaseItemIds.length + this._blockSize;
             const newDeferredReleaseItemIds = new Int32Array(newSize);

@@ -38,7 +38,7 @@ export function TestStateMachine() {
       const B = builder.registerState('B');
 
       const addB = builder.registerHandler(A)
-        .onTick((stateMachine, allItems, itemIds, itemCount) => {
+        .onUpdate((stateMachine, allItems, itemIds, itemCount) => {
           for (let i = 0; i < itemCount; i++) {
             const newEntityId = stateMachine.newId();
             stateMachine.addState(newEntityId, B);
@@ -46,7 +46,7 @@ export function TestStateMachine() {
         });
 
       const removeB = builder.registerHandler(B)
-        .onTick((stateMachine, allItems, itemIds, itemCount) => {
+        .onUpdate((stateMachine, allItems, itemIds, itemCount) => {
           for (let i = 0; i < itemCount; i++) {
             const entityId = itemIds[i];
             stateMachine.releaseId(entityId);
@@ -67,7 +67,7 @@ export function TestStateMachine() {
         stateMachine.addState(entityId, A);
       }
 
-      stateMachine.tick();
+      stateMachine.update();
       stateMachine.cleanup();
 
       expect(released).toEqual("release 6 release 7 release 8 release 9 release 10 ");
@@ -141,7 +141,7 @@ export function TestStateMachine() {
         isDamaged = builder.registerState('damaged');
         isDead = builder.registerState('dead');
         aliveHandler = builder.registerHandler(isAlive)
-          .onTick((stateMachine, allItems, itemIds, itemCount) => {
+          .onUpdate((stateMachine, allItems, itemIds, itemCount) => {
             for (let i = 0; i < itemCount; i++) {
               const entity = allItems[itemIds[i]];
               entity.lifecycle = "alive";
@@ -153,7 +153,7 @@ export function TestStateMachine() {
             }
           });
         damageHandler = builder.registerHandler(isAlive, isDamaged)
-          .onTick((stateMachine, allItems, itemIds, itemCount) => {
+          .onUpdate((stateMachine, allItems, itemIds, itemCount) => {
             for (let i = 0; i < itemCount; i++) {
               const entityId = itemIds[i];
               const entity = allItems[entityId];
@@ -166,7 +166,7 @@ export function TestStateMachine() {
             }
           });
         deadHandler = builder.registerHandler(isDead)
-          .onTick((stateMachine, allItems, itemIds, itemCount) => {
+          .onUpdate((stateMachine, allItems, itemIds, itemCount) => {
             for (let i = 0; i < itemCount; i++) {
               const entity = allItems[itemIds[i]];
               entity.lifecycle = "dead";
@@ -202,13 +202,13 @@ export function TestStateMachine() {
 
         stateMachine.addState(creatureId, isAlive);
 
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("alive");
         expect(creature?.age).toEqual(1);
         expect(creature?.health).toEqual(100);
 
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("alive");
         expect(creature?.age).toEqual(2);
@@ -216,19 +216,19 @@ export function TestStateMachine() {
 
         stateMachine.addState(creatureId, isDamaged);
 
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("damaged");
         expect(creature?.age).toEqual(3);
         expect(creature?.health).toEqual(50);
 
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("dead");
         expect(creature?.age).toEqual(4);
         expect(creature?.health).toEqual(0);
 
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("dead");
         expect(creature?.age).toEqual(4);
@@ -243,7 +243,7 @@ export function TestStateMachine() {
         expect(creature?.age).toEqual(0);
         expect(creature?.health).toEqual(100);
 
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("alive");
         expect(creature?.age).toEqual(1);
@@ -257,7 +257,7 @@ export function TestStateMachine() {
         expect(creature?.health).toEqual(100);
 
         // process deferred changes
-        stateMachine.tick();
+        stateMachine.update();
         
         // item still not released yet in case of exit handlers
         expect(creature?.lifecycle).toEqual("alive");
@@ -265,7 +265,7 @@ export function TestStateMachine() {
         expect(creature?.health).toEqual(100);
 
         // process deferred changes
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("reset");
         expect(creature?.age).toEqual(0);
@@ -273,7 +273,7 @@ export function TestStateMachine() {
 
         creatureId = stateMachine.newId();
         stateMachine.addState(creatureId, isAlive);
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("alive");
       });
@@ -282,7 +282,7 @@ export function TestStateMachine() {
         stateMachine.addState(creatureId, isAlive);
         stateMachine.addState(creatureId, isDamaged);
 
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("damaged");
         expect(creature?.age).toEqual(1);
@@ -292,13 +292,13 @@ export function TestStateMachine() {
         stateMachine.removeState(creatureId, isDamaged);
 
         // item has no states it's just dormant until it's released
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("damaged");
         expect(creature?.age).toEqual(1);
         expect(creature?.health).toEqual(50);
 
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("damaged");
         expect(creature?.age).toEqual(1);
@@ -323,12 +323,12 @@ export function TestStateMachine() {
       it('should not remove items twice', () => {
         const itemId = stateMachine.newId();
         expect(stateMachine.addState(itemId, isAlive)).toBe(true);
-        stateMachine.tick();        
+        stateMachine.update();        
         expect(aliveHandler.getItemCount()).toEqual(1);
 
         expect(stateMachine.removeState(itemId, isAlive)).toBe(true);
         expect(stateMachine.removeState(itemId, isAlive)).toBe(false);
-        stateMachine.tick();        
+        stateMachine.update();        
         expect(aliveHandler.getItemCount()).toEqual(0);
       });
 
@@ -337,7 +337,7 @@ export function TestStateMachine() {
         stateMachine.addState(creature2Id, isAlive);
         stateMachine.addState(creature3Id, isAlive);
 
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("alive");
         expect(creature2?.lifecycle).toEqual("alive");
@@ -353,7 +353,7 @@ export function TestStateMachine() {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         creature3!.attacks = creatureId;
 
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("dead");
         expect(creature2?.lifecycle).toEqual("dead");
@@ -379,7 +379,7 @@ export function TestStateMachine() {
               entity.lifecycle = "born";
             }
           })
-          .onTick((stateMachine, allItems, itemIds, itemCount) => {
+          .onUpdate((stateMachine, allItems, itemIds, itemCount) => {
             for (let i = 0; i < itemCount; i++) {
               const entityId = itemIds[i];
               const entity = allItems[entityId];
@@ -412,13 +412,13 @@ export function TestStateMachine() {
 
         stateMachine.addState(creatureId, isAlive);
 
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("born,alive");
         expect(creature?.age).toEqual(1);
         expect(creature?.health).toEqual(100);
 
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("born,alive,alive");
         expect(creature?.age).toEqual(2);
@@ -426,13 +426,13 @@ export function TestStateMachine() {
 
         stateMachine.removeState(creatureId, isAlive);
 
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("born,alive,alive,dead");
         expect(creature?.age).toEqual(2);
         expect(creature?.health).toEqual(0);
 
-        stateMachine.tick();
+        stateMachine.update();
 
         expect(creature?.lifecycle).toEqual("born,alive,alive,dead");
         expect(creature?.age).toEqual(2);
@@ -452,8 +452,8 @@ export function TestStateMachine() {
           stateMachine.addState(id, isAlive);
         }
 
-        // Tick the state machine
-        stateMachine.tick();
+        // update the state machine
+        stateMachine.update();
 
         // Verify if all items are in the alive state
         for (const id of creatureIds) {
