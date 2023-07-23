@@ -54,8 +54,8 @@ class ChunkManager {
 
     constructor() {
         this._worldBounds = new AxisAlignedBoxBound(-halfWorld,-halfWorld,-halfWorld,halfWorld,halfWorld,halfWorld)
-        this._chunkTree = new SparseOctTree<Chunk>(this._worldBounds, 32, 4);
-        this._fieldTree = new SparseOctTree<SignedDistanceField>(this._worldBounds, 32, 4);
+        this._chunkTree = new SparseOctTree<Chunk>(this._worldBounds, 32, 4, this._chunkPool);
+        this._fieldTree = new SparseOctTree<SignedDistanceField>(this._worldBounds, 32, 4, sdfPool);
         let scale = worldSize;
         // view origin updates are used to track when chunks need to be rescaled
         // we need to track the view origin at different scales

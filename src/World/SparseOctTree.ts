@@ -4,16 +4,21 @@ import { AxisAlignedBoxBound, IhasBounds, Bounds } from "..";
 import { IhasPoolId, ResourcePool } from "../Collection/ResourcePool";
 import { SparseSet } from "../Collection/SparseSet";
 
+
 class SparseOctTree<TYPE extends IhasBounds & IhasPoolId> {
 
     rootNode: SparseOctTreeNode<TYPE>;
     treePool: ResourcePool<SparseOctTreeNode<TYPE>>;
+    sharedMemory: SharedArrayBuffer;
+    sharedData: Int32Array;
 
     constructor(
         bounds: AxisAlignedBoxBound,
-        public maxItemsPerNode: number, public minNodeSize: number) {
-        this.rootNode = new SparseOctTreeNode<TYPE>(this);
-        this.rootNode.bounds.copy(bounds);
+        public maxItemsPerNode: number, public minNodeSize: number,
+        public itemPool: ResourcePool<TYPE>) 
+    {
+        this.sharedMemory = new SharedArrayBuffer(1024 * 1024);
+        this.sharedData = new Int32Array(this.sharedMemory);
 
         this.treePool = new ResourcePool<SparseOctTreeNode<TYPE>>(
             () => {
@@ -23,6 +28,10 @@ class SparseOctTree<TYPE extends IhasBounds & IhasPoolId> {
                 node.reset();
             }
             , 1000);
+
+        this.rootNode = this.treePool.newItem();
+        this.rootNode.bounds.copy(bounds);
+
     }
 
     public insert(item: TYPE) {
@@ -39,7 +48,7 @@ class SparseOctTree<TYPE extends IhasBounds & IhasPoolId> {
     }
 
     public nodeHasTooManyItems(node: SparseOctTreeNode<TYPE>): boolean {
-        return node.items.length >= this.maxItemsPerNode && node.bounds.extent > this.minNodeSize;
+        return node.nodeItemCount >= this.maxItemsPerNode && node.bounds.extent > this.minNodeSize;
     }
 
     public getItemsInBox(bounds: AxisAlignedBoxBound, results: SparseSet): number {
@@ -56,6 +65,11 @@ class SparseOctTree<TYPE extends IhasBounds & IhasPoolId> {
 
 // sparse quad tree to find nearby objects
 class SparseOctTreeNode<TYPE extends IhasBounds & IhasPoolId> {
+
+    public children: SparseOctTreeNode<TYPE>[];
+    public nodeItemCount: number=0;
+    private _overflowID: number = -1;
+    
     /**
      * the pool id of this chunk
      * @see ResourcePool
@@ -67,18 +81,24 @@ class SparseOctTreeNode<TYPE extends IhasBounds & IhasPoolId> {
     constructor(
         private _owner: SparseOctTree<TYPE>) {
         this.bounds = new AxisAlignedBoxBound();
-        this.items = [];
+        this.nodeItemCount = 0;
         this.children = [];
     }
 
     public reset() {
-        this.items.length = 0;
+        this.nodeItemCount = 0;
         this._releaseChildNodes();
         this.totalItems = 0;
+        this.releaseOverflow();
     }
 
-    public items: TYPE[];
-    public children: SparseOctTreeNode<TYPE>[];
+
+    private releaseOverflow() {
+        if (this._overflowID!== -1) {
+            this._owner.treePool.releaseId(this._overflowID);
+        }
+        this._overflowID = -1;
+    }
 
     private _releaseChildNodes() {
         for (let i = 0; i < this.children.length; i++) {
@@ -89,9 +109,12 @@ class SparseOctTreeNode<TYPE extends IhasBounds & IhasPoolId> {
 
     public insert(newItem: TYPE,newBounds: Bounds) {
         if (this.bounds.overlapBounds(newBounds)) {
+            const itemsOffset = this.getNodeItemsOffset();
+            const sharedData = this._owner.sharedData;
             if (this._itemLargerThanChildNode(newItem)) {
                 this.totalItems++;
-                this.items.push(newItem);
+                sharedData[itemsOffset + this.nodeItemCount] = newItem.poolId;
+                this.nodeItemCount++;
             }
             else {
                 if (this.children.length > 0) {
@@ -100,34 +123,87 @@ class SparseOctTreeNode<TYPE extends IhasBounds & IhasPoolId> {
                         this.children[i].insert(newItem, newBounds);
                     }
                 } else {
-                    if (!this._owner.nodeHasTooManyItems(this)) {
+                    const hasMaxNodeItems = this.nodeItemCount >= this._owner.maxItemsPerNode;
+                    const isMinNodeSize = this.bounds.extent <= this._owner.minNodeSize;
+
+                    if (!hasMaxNodeItems) {
                         this.totalItems++;
-                        this.items.push(newItem);
-                    } else {
+                        sharedData[itemsOffset + this.nodeItemCount] = newItem.poolId;
+                        this.nodeItemCount++;
+                    } else if (!isMinNodeSize) {
                         this._subdivide();
                         this.insert(newItem, newBounds);
                         this._pushDownCurrentItems();
+                    } else {
+                        const overflowNode = this.createOverflowNode();
+                        if (overflowNode) {
+                            overflowNode.insert(newItem, newBounds);
+                        }
                     }
                 }
             }
         }
     }
 
+    private createOverflowNode() {
+        let overflowNode: SparseOctTreeNode<TYPE> | null = null;
+        if (this._overflowID === -1) {
+            this._overflowID = this._owner.treePool.newId();
+            const overflowNode = this._owner.treePool.getItem(this._overflowID);
+            if (overflowNode) {
+                overflowNode.bounds.copy(this.bounds);
+            }
+        }
+        else {
+            overflowNode = this._owner.treePool.getItem(this._overflowID);
+        }
+        return overflowNode;
+    }
+
+    private getOverflowNode() {
+        let overflowNode: SparseOctTreeNode<TYPE> | null = null;
+        if (this._overflowID !== -1) {
+            overflowNode = this._owner.treePool.getItem(this._overflowID);
+        }
+        return overflowNode;
+    }
+
+    private getNodeItemsOffset() {
+        const maxNodeItems = this._owner.maxItemsPerNode;
+        const itemOffset = maxNodeItems * this.poolId;
+        return itemOffset;
+    }
+
+    getItem(i: number): TYPE | null {
+        if (i >= this.nodeItemCount && this._overflowID !== -1) {
+            const overflowNode = this.getOverflowNode();
+            if (overflowNode) {
+                return overflowNode.getItem(i - this.nodeItemCount);
+            }
+        }
+        const itemsOffset = this.getNodeItemsOffset();
+        const itemID = this._owner.sharedData[itemsOffset + i];
+        return this._owner.itemPool.getItem(itemID);
+    }
+
     private _pushDownCurrentItems() {
         let itemsMoved = 0;
-        let copyFrom = this.items.length - 1;
-        for (let i = this.items.length - 1; i >= 0; i--) {
-            const currentItem = this.items[i];
-            if (!this._itemLargerThanChildNode(currentItem)) {
+        const itemsOffset = this.getNodeItemsOffset();
+        const sharedData = this._owner.sharedData;
+        let copyFrom = this.nodeItemCount - 1;
+        for (let i = copyFrom - 1; i >= 0; i--) {
+            const currentItemID = sharedData[itemsOffset + i];
+            const currentItem = this._owner.itemPool.getItem(currentItemID);
+            if (currentItem && !this._itemLargerThanChildNode(currentItem)) {
                 this.insert(currentItem, currentItem.currentBounds);
                 if (copyFrom !== i)
-                    this.items[i] = this.items[copyFrom];
+                    sharedData[itemsOffset + i] = sharedData[copyFrom];
                 itemsMoved++;
                 copyFrom--;
             }
         }
         this.totalItems -= itemsMoved; // account for reinserting items that were already in the node
-        this.items.length -= itemsMoved;
+        this.nodeItemCount -= itemsMoved;
     }
 
     private _itemLargerThanChildNode(object: TYPE): boolean {
@@ -176,16 +252,40 @@ class SparseOctTreeNode<TYPE extends IhasBounds & IhasPoolId> {
     public remove(item: TYPE,
         bounds: Bounds): boolean {
         if (this.bounds.overlapBounds(item.currentBounds)) {
-
+            const itemsOffset = this.getNodeItemsOffset();
+            const sharedData = this._owner.sharedData;
             if (this.children.length == 0 ||
                 this._itemLargerThanChildNode(item)) {
-                const index = this.items.indexOf(item);
-                if (index >= 0) {
-                    this.items[index] = this.items[this.items.length - 1];
-                    this.items.length--;
-                    this.totalItems--;
-                    return true;
+
+                // TODO this needs finishing and testing...
+                let lastItemId = itemsOffset + this.nodeItemCount - 1;
+                // find the last overflow node, if any
+                let prevNode:SparseOctTreeNode<TYPE> = this;
+                let overflowNode = this.getOverflowNode();
+                while (overflowNode) {
+                    prevNode = overflowNode;
+                    overflowNode = overflowNode.getOverflowNode();
                 }
+                // note the ID of the last item in the overflow node
+                if (overflowNode) {
+                    lastItemId = overflowNode.getNodeItemsOffset() + overflowNode.nodeItemCount - 1;
+                }
+                for (let i = 0; i < this.nodeItemCount; i++) {
+                    if (sharedData[itemsOffset + i] === item.poolId) {
+                        sharedData[itemsOffset + i] = sharedData[lastItemId];
+                        this.nodeItemCount--;
+                        this.totalItems--;
+                        if (overflowNode) {
+                            overflowNode.nodeItemCount--;
+                            if (overflowNode.nodeItemCount === 0) {
+                                this.releaseOverflow();
+                            }
+                        }
+                        return true;
+                    }
+                }
+
+                
             }
             else {
                 // remove the object from this children if it exists
@@ -226,9 +326,12 @@ class SparseOctTreeNode<TYPE extends IhasBounds & IhasPoolId> {
 
     public getItemsInBox(bounds: AxisAlignedBoxBound, results: SparseSet): number {
         if (bounds.overlapAABB(this.bounds)) {
-            for (let i = 0; i < this.items.length; i++) {
-                const item = this.items[i];
-                if (bounds.overlapBounds(item.currentBounds)) {
+            const itemsOffset = this.getNodeItemsOffset();
+            const sharedData = this._owner.sharedData;
+            for (let i = 0; i < this.nodeItemCount; i++) {
+                const itemId = sharedData[itemsOffset + i];
+                const item = this._owner.itemPool.getItem(itemId);
+                if (item && bounds.overlapBounds(item.currentBounds)) {
                     results.add(item.poolId);
                 }
             }
@@ -241,9 +344,12 @@ class SparseOctTreeNode<TYPE extends IhasBounds & IhasPoolId> {
 
     getItemsInSphere(bounds: SphereBound, results: SparseSet) {
         if (this.bounds.overlapSphere(bounds)) {
-            for (let i = 0; i < this.items.length; i++) {
-                const item = this.items[i];
-                if (bounds.overlaps(item.currentBounds)) {
+            const itemsOffset = this.getNodeItemsOffset();
+            const sharedData = this._owner.sharedData;
+            for (let i = 0; i < this.nodeItemCount; i++) {
+                const itemId = sharedData[itemsOffset + i];
+                const item = this._owner.itemPool.getItem(itemId);
+                if (item && bounds.overlaps(item.currentBounds)) {
                     results.add(item.poolId);
                 }
             }
